@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.pytest_cache
+.coverage
+
+# Virtual environments
+venv
+env
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+README.md
+docs/
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# Development files
+.env
+.env.local
+dev.py
+Makefile
+
+# Cache directories
+.cache
+.npm
+node_modules

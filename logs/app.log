@@ -1,0 +1,108 @@
+2025-08-04 20:59:26,236 - backend.main - INFO - Received prediction request for lat: 43.31287587996409, lon: -73.22473526000978, season: early_season
+2025-08-04 20:59:30,378 - backend.main - INFO - Prediction completed successfully with stand rating: 2.8
+2025-08-04 21:01:44,838 - backend.main - INFO - Received prediction request for lat: 43.310939836912965, lon: -73.2283401489258, season: early_season
+2025-08-04 21:01:48,685 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:09:17,191 - backend.main - INFO - Received prediction request for lat: 43.308785135844474, lon: -73.2336187362671, season: early_season
+2025-08-04 21:09:21,241 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:09:50,219 - backend.main - INFO - Received prediction request for lat: 43.30650544141255, lon: -73.23666572570802, season: early_season
+2025-08-04 21:09:54,263 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:10:37,263 - backend.main - INFO - Received prediction request for lat: 43.3056934748018, lon: -73.23254585266115, season: early_season
+2025-08-04 21:10:41,477 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:10:54,273 - backend.main - INFO - Received prediction request for lat: 43.309784426997574, lon: -73.22967052459718, season: early_season
+2025-08-04 21:10:56,232 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:10:58,867 - backend.main - INFO - Received prediction request for lat: 43.309784426997574, lon: -73.22967052459718, season: early_season
+2025-08-04 21:11:02,734 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:11:27,841 - backend.main - INFO - Received prediction request for lat: 43.3095658334617, lon: -73.22956323623659, season: rut
+2025-08-04 21:11:31,141 - backend.main - INFO - Received prediction request for lat: 43.3095658334617, lon: -73.22956323623659, season: rut
+2025-08-04 21:11:31,999 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:11:35,105 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:19:08,989 - backend.main - INFO - Received prediction request for lat: 43.31824651523094, lon: -73.22293281555177, season: early_season
+2025-08-04 21:19:13,031 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:19:13,032 - backend.main - INFO - Found 5 better spots with ratings up to 1.6
+2025-08-04 21:20:14,214 - backend.main - INFO - Received prediction request for lat: 43.31824651523094, lon: -73.22293281555177, season: early_season
+2025-08-04 21:20:18,069 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:20:18,070 - backend.main - INFO - Found 5 better spots with ratings up to 1.6
+2025-08-04 21:20:53,992 - backend.main - INFO - Received prediction request for lat: 43.29963461232861, lon: -73.22750329971315, season: early_season
+2025-08-04 21:20:57,807 - backend.main - INFO - Prediction completed successfully with stand rating: 1.6
+2025-08-04 21:20:57,808 - backend.main - INFO - Found 5 better spots with ratings up to 1.6
+2025-08-04 22:27:34,207 - backend.main - INFO - Received prediction request for lat: 43.31242310122738, lon: -73.22679519653322, season: early_season
+2025-08-04 22:27:38,485 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 22:28:16,002 - backend.main - INFO - Received prediction request for lat: 43.309643902671894, lon: -73.2295846939087, season: early_season
+2025-08-04 22:28:19,594 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 22:35:22,020 - backend.main - INFO - Received prediction request for lat: 43.31265729754684, lon: -73.22694540023805, season: early_season
+2025-08-04 22:35:26,609 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 22:51:14,007 - backend.main - INFO - Received prediction request for lat: 43.315249009890756, lon: -73.22597980499269, season: early_season
+2025-08-04 22:51:18,536 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 22:51:18,537 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:23:12,841 - backend.main - INFO - Received prediction request for lat: 43.315249009890756, lon: -73.22533607482912, season: early_season
+2025-08-04 23:23:17,951 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:23:17,952 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:24:12,296 - backend.main - INFO - Received prediction request for lat: 43.314999211104634, lon: -73.22537899017335, season: early_season
+2025-08-04 23:24:17,099 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:24:17,100 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:29:32,869 - backend.main - INFO - Received prediction request for lat: 43.315249009890756, lon: -73.22546482086183, season: early_season
+2025-08-04 23:29:38,069 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:29:38,070 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:30:49,984 - backend.main - INFO - Received prediction request for lat: 43.315186560290485, lon: -73.22550773620607, season: early_season
+2025-08-04 23:30:53,809 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:30:53,809 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:41:47,202 - backend.main - INFO - Received prediction request for lat: 43.31509288576976, lon: -73.22580814361574, season: early_season
+2025-08-04 23:41:52,350 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:41:52,350 - backend.main - INFO - Generated 1 stand placement recommendations
+2025-08-04 23:58:07,590 - backend.main - INFO - Received prediction request for lat: 43.31474941129168, lon: -73.2256579399109, season: early_season
+2025-08-04 23:58:12,791 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:58:12,792 - backend.main - INFO - Generated 10 optimal stand locations with top confidence: 95%
+2025-08-04 23:59:54,434 - backend.main - INFO - Received prediction request for lat: 43.31, lon: -73.22, season: early_season
+2025-08-04 23:59:59,564 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-04 23:59:59,565 - backend.main - INFO - Generated 10 optimal stand locations with top confidence: 95%
+2025-08-05 00:02:44,271 - backend.main - INFO - Received prediction request for lat: 43.31464012355061, lon: -73.22572231292726, season: early_season
+2025-08-05 00:02:49,236 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:02:49,237 - backend.main - INFO - Generated 10 optimal stand locations with top confidence: 95%
+2025-08-05 00:02:56,441 - backend.main - INFO - Received prediction request for lat: 43.31464012355061, lon: -73.22572231292726, season: early_season
+2025-08-05 00:03:00,078 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:03:00,079 - backend.main - INFO - Generated 10 optimal stand locations with top confidence: 95%
+2025-08-05 00:23:10,401 - backend.main - INFO - Received prediction request for lat: 43.31, lon: -73.22, season: early_season
+2025-08-05 00:23:15,616 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:23:15,617 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 86%
+2025-08-05 00:24:25,531 - backend.main - INFO - Received prediction request for lat: 43.314390322261566, lon: -73.22597980499269, season: early_season
+2025-08-05 00:24:30,482 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:24:30,483 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 86%
+2025-08-05 00:43:20,336 - backend.main - INFO - Received prediction request for lat: 43.312391874983255, lon: -73.2282328605652, season: early_season
+2025-08-05 00:43:26,944 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:43:26,945 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 84%
+2025-08-05 00:45:40,637 - backend.main - INFO - Received prediction request for lat: 43.31442154747886, lon: -73.22595834732057, season: early_season
+2025-08-05 00:45:45,608 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 00:45:45,609 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 90%
+2025-08-05 10:47:53,135 - backend.main - INFO - Received prediction request for lat: 43.312235743521995, lon: -73.22973489761354, season: early_season
+2025-08-05 10:47:58,736 - backend.main - ERROR - Error during Vermont deer prediction: type numpy.ndarray doesn't define __round__ method
+Traceback (most recent call last):
+  File "/app/backend/main.py", line 1322, in predict_movement
+    five_best_stands = get_five_best_stand_locations(
+  File "/app/backend/main.py", line 169, in get_five_best_stand_locations
+    access_route = calculate_access_route(lat, lon, stand_lat, stand_lon, terrain_features, wind_direction, thermal_data, season, weather_data)
+  File "/app/backend/main.py", line 377, in calculate_access_route
+    terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
+  File "/app/backend/main.py", line 438, in analyze_route_terrain
+    'elevation_change_feet': round(elevation_change, 0),
+TypeError: type numpy.ndarray doesn't define __round__ method
+2025-08-05 10:50:48,476 - backend.main - INFO - Received prediction request for lat: 43.31242310122738, lon: -73.22945594787599, season: early_season
+2025-08-05 10:50:53,853 - backend.main - ERROR - Error during Vermont deer prediction: can only convert an array of size 1 to a Python scalar
+Traceback (most recent call last):
+  File "/app/backend/main.py", line 1350, in predict_movement
+    five_best_stands = get_five_best_stand_locations(
+  File "/app/backend/main.py", line 169, in get_five_best_stand_locations
+    access_route = calculate_access_route(lat, lon, stand_lat, stand_lon, terrain_features, wind_direction, thermal_data, season, weather_data)
+  File "/app/backend/main.py", line 389, in calculate_access_route
+    terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
+  File "/app/backend/main.py", line 426, in analyze_route_terrain
+    elevation_change = float(elevation_change.item())
+ValueError: can only convert an array of size 1 to a Python scalar
+2025-08-05 10:54:29,015 - backend.main - INFO - Received prediction request for lat: 43.31240748810731, lon: -73.22973489761354, season: early_season
+2025-08-05 10:54:33,959 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 10:54:33,959 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 95%
+2025-08-05 10:59:00,602 - backend.main - INFO - Received prediction request for lat: 43.299915706933874, lon: -73.23078632354738, season: early_season
+2025-08-05 10:59:05,944 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 10:59:05,945 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 95%
+2025-08-05 11:53:52,903 - backend.main - INFO - Received prediction request for lat: 43.30722371052738, lon: -73.21864128112794, season: early_season
+2025-08-05 11:53:57,806 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 6.7
+2025-08-05 11:53:57,807 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 93%

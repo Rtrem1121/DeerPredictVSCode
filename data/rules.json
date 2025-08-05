@@ -1,0 +1,212 @@
+
+[
+  {
+    "behavior": "travel",
+    "time": "dawn",
+    "terrain": "ridge_top",
+    "season": "rut",
+    "confidence": 0.9,
+    "weather_condition": "calm_wind",
+    "vegetation": "any",
+    "description": "Ridge tops during dawn in rut season - deer use elevated ridges for visibility and scent-checking during breeding",
+    "region_specific": "Vermont Green Mountains tracking patterns"
+  },
+  {
+    "behavior": "travel",
+    "time": "dusk",
+    "terrain": "saddle",
+    "season": "any",
+    "confidence": 0.9,
+    "weather_condition": "any",
+    "vegetation": "any",
+    "description": "Saddles (low points between hills) - natural pinch points funnel movement between bedding and feeding",
+    "region_specific": "Common in Vermont's mountainous terrain"
+  },
+  {
+    "behavior": "travel",
+    "time": "any",
+    "terrain": "creek_bottom",
+    "season": "any",
+    "confidence": 0.7,
+    "weather_condition": "any",
+    "vegetation": "any",
+    "description": "Creek bottoms - low-lying drainages provide cover and water access",
+    "region_specific": "Common in Vermont valleys"
+  },
+  {
+    "behavior": "travel",
+    "time": "any",
+    "terrain": "forest_edge",
+    "season": "any",
+    "confidence": 0.6,
+    "weather_condition": "any",
+    "vegetation": "forest_edge",
+    "description": "Forest edges - transitions between woods and fields offer escape routes",
+    "region_specific": "Prevalent in Vermont's mixed habitats"
+  },
+  {
+    "behavior": "travel",
+    "time": "dawn",
+    "terrain": "any",
+    "season": "rut",
+    "confidence": 0.8,
+    "weather_condition": "cold_front",
+    "vegetation": "any",
+    "description": "Dawn movement during rut with cold fronts - falling barometric pressure spurs activity",
+    "region_specific": "Frequent in Vermont's variable fall weather"
+  },
+  {
+    "behavior": "travel",
+    "time": "any",
+    "terrain": "conifer_corridor",
+    "season": "late_season",
+    "confidence": 0.85,
+    "weather_condition": "heavy_snow",
+    "vegetation": "conifer_dense",
+    "description": "Conifer travel lanes with snow >10 inches - deer use softwood corridors for sheltered movement to yards",
+    "region_specific": "Vermont winter yarding - deer migrate 10-15 miles to these areas"
+  },
+  {
+    "behavior": "travel",
+    "time": "any",
+    "terrain": "bluff_pinch",
+    "season": "any",
+    "confidence": 0.75,
+    "weather_condition": "any",
+    "vegetation": "any",
+    "description": "Bluff or cliff pinch points - steep features force deer into narrow passages",
+    "region_specific": "Common in mountainous regions like Northeast Kingdom"
+  },
+  {
+    "behavior": "bedding",
+    "time": "mid-day",
+    "terrain": "south_slope",
+    "season": "late_season",
+    "confidence": 0.9,
+    "weather_condition": "sunny",
+    "vegetation": "forest",
+    "description": "South slopes midday in late season - warmer exposure aids thermoregulation",
+    "region_specific": "Critical in Vermont's snowy winters"
+  },
+  {
+    "behavior": "bedding",
+    "time": "any",
+    "terrain": "any",
+    "season": "any",
+    "confidence": 0.95,
+    "weather_condition": "any",
+    "vegetation": "deep_forest",
+    "description": "Deep forest anytime - dense cover provides security from predators and hunters",
+    "region_specific": "Highest confidence due to Vermont's extensive forests"
+  },
+  {
+    "behavior": "bedding",
+    "time": "mid-day",
+    "terrain": "north_slope",
+    "season": "early_season",
+    "confidence": 0.8,
+    "weather_condition": "hot",
+    "vegetation": "forest",
+    "description": "North slopes midday in early season when hot - cooler shading during warm periods",
+    "region_specific": "Relevant for Vermont September-October heat"
+  },
+  {
+    "behavior": "bedding",
+    "time": "any",
+    "terrain": "swamp",
+    "season": "any",
+    "confidence": 0.8,
+    "weather_condition": "strong_wind",
+    "vegetation": "swamp",
+    "description": "Swamps during strong wind - low-lying wetlands offer leeward protection",
+    "region_specific": "Swamps abundant in Vermont valleys"
+  },
+  {
+    "behavior": "bedding",
+    "time": "any",
+    "terrain": "conifer_dense",
+    "season": "late_season",
+    "confidence": 0.9,
+    "weather_condition": "deep_snow",
+    "vegetation": "conifer_dense",
+    "description": "Conifer stands (hemlock/cedar) with snow >16 inches - dense softwoods form core winter yards",
+    "region_specific": "Essential for Vermont winter survival, crown closure >65%"
+  },
+  {
+    "behavior": "bedding",
+    "time": "any",
+    "terrain": "hardwood_bench",
+    "season": "late_season",
+    "confidence": 0.75,
+    "weather_condition": "moderate_snow",
+    "vegetation": "hardwood",
+    "description": "Hardwood benches on south-west slopes - expose mast like acorns; used when snow is moderate",
+    "region_specific": "Vermont forage integration in winter habitats"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dusk",
+    "terrain": "flat_area",
+    "season": "early_season",
+    "confidence": 0.9,
+    "weather_condition": "any",
+    "vegetation": "field",
+    "description": "Flat areas at dusk in early season - open valleys for grazing on grasses and herbs",
+    "region_specific": "Aligns with Vermont valley fields"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dawn",
+    "terrain": "oak_flat",
+    "season": "any",
+    "confidence": 0.8,
+    "weather_condition": "any",
+    "vegetation": "hardwood",
+    "description": "Oak flats at dawn - acorn mast attracts deer in fall",
+    "region_specific": "Oaks common in Vermont hardwoods"
+  },
+  {
+    "behavior": "feeding",
+    "time": "any",
+    "terrain": "any",
+    "season": "any",
+    "confidence": 0.9,
+    "weather_condition": "any",
+    "vegetation": "field",
+    "description": "Any field areas anytime - agricultural openings provide crops",
+    "region_specific": "Emphasize mixed forest-field edges where Vermont deer are most abundant"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dusk",
+    "terrain": "any",
+    "season": "late_season",
+    "confidence": 0.8,
+    "weather_condition": "snow",
+    "vegetation": "field",
+    "description": "Field areas at dusk in late season with snow - exposed forage when wild foods are buried",
+    "region_specific": "Snow common December-March in Vermont"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dawn",
+    "terrain": "orchard",
+    "season": "rut",
+    "confidence": 0.85,
+    "weather_condition": "any",
+    "vegetation": "orchard",
+    "description": "Apple orchards or beech groves at dawn in rut - fruit and nuts as high-energy sources",
+    "region_specific": "Apples and beech nuts key in Vermont deer diet"
+  },
+  {
+    "behavior": "feeding",
+    "time": "mid-day",
+    "terrain": "conifer_dense",
+    "season": "late_season",
+    "confidence": 0.75,
+    "weather_condition": "deep_snow",
+    "vegetation": "conifer_dense",
+    "description": "Conifer browse (hemlock/cedar twigs) - woody tips when other foods are inaccessible",
+    "region_specific": "Sustains deer in Vermont winter yards"
+  }
+]

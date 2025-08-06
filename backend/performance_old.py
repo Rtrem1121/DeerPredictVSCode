@@ -6,13 +6,13 @@ import time
 import logging
 import functools
 import asyncio
-import hashlib
-import json
 from typing import Dict, Any, Callable, Optional, List
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
 import threading
+import hashlib
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,12 @@ class PerformanceMonitor:
         self._lock = threading.RLock()
     
     def record_metric(self, metric: PerformanceMetric) -> None:
-        """Record a performance metric"""
+        """
+        Record a performance metric.
+        
+        Args:
+            metric: Performance metric to record
+        """
         with self._lock:
             self.metrics.append(metric)
             self._update_stats(metric)
@@ -80,14 +85,30 @@ class PerformanceMonitor:
         stats.error_rate = (stats.failed_calls / stats.total_calls) * 100
     
     def get_stats(self, function_name: Optional[str] = None) -> Dict[str, PerformanceStats]:
-        """Get performance statistics"""
+        """
+        Get performance statistics.
+        
+        Args:
+            function_name: Specific function name, or None for all
+            
+        Returns:
+            Dict[str, PerformanceStats]: Performance statistics
+        """
         with self._lock:
             if function_name:
                 return {function_name: self.stats.get(function_name, PerformanceStats(function_name))}
             return dict(self.stats)
     
     def get_slow_functions(self, threshold_seconds: float = 1.0) -> List[PerformanceStats]:
-        """Get functions that exceed execution time threshold"""
+        """
+        Get functions that exceed execution time threshold.
+        
+        Args:
+            threshold_seconds: Execution time threshold
+            
+        Returns:
+            List[PerformanceStats]: Slow functions
+        """
         with self._lock:
             return [
                 stats for stats in self.stats.values()
@@ -95,7 +116,15 @@ class PerformanceMonitor:
             ]
     
     def get_error_prone_functions(self, error_rate_threshold: float = 5.0) -> List[PerformanceStats]:
-        """Get functions with high error rates"""
+        """
+        Get functions with high error rates.
+        
+        Args:
+            error_rate_threshold: Error rate percentage threshold
+            
+        Returns:
+            List[PerformanceStats]: Error-prone functions
+        """
         with self._lock:
             return [
                 stats for stats in self.stats.values()
@@ -112,7 +141,7 @@ def get_performance_monitor() -> PerformanceMonitor:
     return _performance_monitor
 
 
-def performance_monitor_decorator(
+def performance_monitor(
     log_slow_calls: bool = True,
     slow_threshold: float = 1.0,
     log_errors: bool = True
@@ -165,51 +194,49 @@ def performance_monitor_decorator(
         return wrapper
     
     return decorator
+            logger.info(f"{func.__name__} executed in {execution_time:.3f} seconds")
+            return result
+        except Exception as e:
+            execution_time = time.time() - start_time
+            logger.error(f"{func.__name__} failed after {execution_time:.3f} seconds: {str(e)}")
+            raise
+    return wrapper
 
-
-# Simple in-memory cache for demonstration
-_cache: Dict[str, Dict[str, Any]] = {}
-
-
-def cache_result(ttl_seconds: int = 3600):
-    """Cache function results with TTL"""
-    def decorator(func):
+def cache_result(ttl_hours: int = 24) -> Callable:
+    """Decorator to cache function results"""
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            # Create cache key
-            key_data = {
-                'func': func.__name__,
-                'args': str(args),
-                'kwargs': str(sorted(kwargs.items()))
-            }
-            cache_key = hashlib.md5(json.dumps(key_data, sort_keys=True).encode()).hexdigest()
+            # Create cache key from function name and arguments
+            cache_key = _create_cache_key(func.__name__, args, kwargs)
             
-            # Check cache
-            now = time.time()
+            # Check if result is in cache and not expired
             if cache_key in _cache:
-                cached_data = _cache[cache_key]
-                if now - cached_data['timestamp'] < ttl_seconds:
+                cache_entry = _cache[cache_key]
+                if time.time() - cache_entry['timestamp'] < ttl_hours * 3600:
                     logger.debug(f"Cache hit for {func.__name__}")
-                    return cached_data['result']
-                else:
-                    # Expired
-                    del _cache[cache_key]
+                    return cache_entry['result']
             
-            # Execute function
+            # Execute function and cache result
             result = func(*args, **kwargs)
-            
-            # Cache result
             _cache[cache_key] = {
                 'result': result,
-                'timestamp': now
+                'timestamp': time.time()
             }
-            
             logger.debug(f"Cache miss for {func.__name__}, result cached")
             return result
-        
         return wrapper
     return decorator
 
+def _create_cache_key(func_name: str, args: tuple, kwargs: dict) -> str:
+    """Create a unique cache key from function name and arguments"""
+    # Convert arguments to string representation
+    args_str = str(args)
+    kwargs_str = json.dumps(kwargs, sort_keys=True, default=str)
+    cache_input = f"{func_name}:{args_str}:{kwargs_str}"
+    
+    # Create hash to ensure consistent key length
+    return hashlib.md5(cache_input.encode()).hexdigest()
 
 def clear_cache():
     """Clear all cached results"""
@@ -217,10 +244,17 @@ def clear_cache():
     _cache.clear()
     logger.info("Cache cleared")
 
-
-def get_cache_stats():
+def get_cache_stats() -> Dict[str, Any]:
     """Get cache statistics"""
+    total_entries = len(_cache)
+    current_time = time.time()
+    expired_entries = sum(
+        1 for entry in _cache.values() 
+        if current_time - entry['timestamp'] > 24 * 3600
+    )
+    
     return {
-        'size': len(_cache),
-        'keys': list(_cache.keys())
+        'total_entries': total_entries,
+        'expired_entries': expired_entries,
+        'active_entries': total_entries - expired_entries
     }

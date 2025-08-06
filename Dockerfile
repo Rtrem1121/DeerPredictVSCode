@@ -1,7 +1,7 @@
 # Multi-stage Docker build for deer prediction app
 FROM python:3.10-slim as base
 
-# Install system dependencies
+# Install system dependencies (basic for now, can add GDAL later)
 RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -17,7 +17,7 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install dependencies
+# Install dependencies (LiDAR support will be added in future version)
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
@@ -29,6 +29,9 @@ COPY ./backend /app/backend
 
 # Copy data
 COPY ./data /app/data
+
+# Copy LiDAR processing modules
+COPY ./lidar /app/lidar
 
 # Set permissions and create logs directory
 RUN mkdir -p /app/logs && \

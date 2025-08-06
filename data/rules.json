@@ -208,5 +208,82 @@
     "vegetation": "conifer_dense",
     "description": "Conifer browse (hemlock/cedar twigs) - woody tips when other foods are inaccessible",
     "region_specific": "Sustains deer in Vermont winter yards"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dusk",
+    "terrain": "any",
+    "season": "early_season",
+    "confidence": 0.95,
+    "weather_condition": "any",
+    "vegetation": "corn_field",
+    "description": "Corn fields at dusk - extremely high-energy food source, prime deer attractant",
+    "region_specific": "Vermont corn fields are deer magnets in fall"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dawn",
+    "terrain": "any",
+    "season": "early_season",
+    "confidence": 0.9,
+    "weather_condition": "any",
+    "vegetation": "corn_field",
+    "description": "Corn fields at dawn - morning feeding on high-carb corn kernels",
+    "region_specific": "Standing corn attracts deer from miles around"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dusk",
+    "terrain": "any",
+    "season": "early_season",
+    "confidence": 0.9,
+    "weather_condition": "any",
+    "vegetation": "soybean_field",
+    "description": "Soybean fields at dusk - high-protein beans excellent for deer conditioning",
+    "region_specific": "Vermont soybeans provide critical pre-rut nutrition"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dawn",
+    "terrain": "any", 
+    "season": "early_season",
+    "confidence": 0.85,
+    "weather_condition": "any",
+    "vegetation": "soybean_field",
+    "description": "Soybean fields at dawn - morning protein source for deer",
+    "region_specific": "Green soybeans are preferred over mature beans"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dusk",
+    "terrain": "any",
+    "season": "any",
+    "confidence": 0.75,
+    "weather_condition": "any",
+    "vegetation": "hay_field",
+    "description": "Hay fields at dusk - new growth provides tender browse",
+    "region_specific": "Cut hay fields regrow with tender shoots deer prefer"
+  },
+  {
+    "behavior": "feeding",
+    "time": "dawn",
+    "terrain": "any",
+    "season": "late_season",
+    "confidence": 0.8,
+    "weather_condition": "snow",
+    "vegetation": "corn_field",
+    "description": "Standing corn in snow - critical winter food source when other foods buried",
+    "region_specific": "Unharvested corn fields sustain Vermont deer through winter"
+  },
+  {
+    "behavior": "travel",
+    "time": "any",
+    "terrain": "agricultural_edge",
+    "season": "any",
+    "confidence": 0.8,
+    "weather_condition": "any",
+    "vegetation": "any",
+    "description": "Agricultural field edges - travel corridors between feeding and bedding",
+    "region_specific": "Vermont deer use crop field edges as travel highways"
   }
 ]

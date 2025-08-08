@@ -74,6 +74,42 @@ def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
                         "wind_speed": hourly["wind_speed_10m"][i],
                         "wind_direction": hourly["wind_direction_10m"][i] if i < len(hourly["wind_direction_10m"]) else 0
                     })
+
+            # Build next 48h hourly series (time, wind, temp)
+            next_48h_hourly = []
+            try:
+                times = hourly.get("time", [])
+                ws = hourly.get("wind_speed_10m", [])
+                wd = hourly.get("wind_direction_10m", [])
+                tt = hourly.get("temperature_2m", [])
+
+                # Align to current time if present, otherwise start at 0
+                start_idx = 0
+                cur_time = current.get("time") if isinstance(current, dict) else None
+                if cur_time and times:
+                    try:
+                        start_idx = times.index(cur_time)
+                    except ValueError:
+                        start_idx = 0
+
+                end_idx = min(len(times), start_idx + 48)
+                for i in range(start_idx, end_idx):
+                    # Derive hour from ISO if available
+                    hour_local = None
+                    try:
+                        hour_local = int(times[i][11:13])
+                    except Exception:
+                        hour_local = (i - start_idx) % 24
+                    next_48h_hourly.append({
+                        "time": times[i],
+                        "hour": hour_local,
+                        "wind_speed": ws[i] if i < len(ws) else 0,
+                        "wind_direction": wd[i] if i < len(wd) else 0,
+                        "temperature": tt[i] if i < len(tt) else 0,
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to build next_48h_hourly: {e}")
+                next_48h_hourly = []
             
             # Calculate best hunting windows based on tomorrow's wind
             hunting_windows = calculate_wind_hunting_windows(tomorrow_hourly_wind)
@@ -120,6 +156,7 @@ def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
                 "leeward_aspects": leeward_aspects,
                 "tomorrow_forecast": tomorrow_forecast,
                 "tomorrow_hourly_wind": tomorrow_hourly_wind,
+                "next_48h_hourly": next_48h_hourly,
                 "hunting_windows": hunting_windows,
                 "raw_data": current
             }
@@ -137,6 +174,7 @@ def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
                 "leeward_aspects": ["southeast", "south"],
                 "tomorrow_forecast": {},
                 "tomorrow_hourly_wind": [],
+                "next_48h_hourly": [],
                 "hunting_windows": {"morning": "No data", "evening": "No data", "all_day": "No data"},
                 "raw_data": {}
             }
@@ -155,6 +193,7 @@ def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
             "leeward_aspects": ["southeast", "south"],
             "tomorrow_forecast": {},
             "tomorrow_hourly_wind": [],
+            "next_48h_hourly": [],
             "hunting_windows": {"morning": "No data", "evening": "No data", "all_day": "No data"},
             "raw_data": {}
         }

@@ -1728,3 +1728,4 @@ requests.exceptions.HTTPError: 429 Client Error: Too Many Requests for url: http
 2025-08-06 11:11:41,712 - backend.main - WARNING - Overpass API failed with status 429, using fallback
 2025-08-06 11:11:41,713 - backend.main - INFO - Vermont prediction completed successfully with stand rating: 7.3
 2025-08-06 11:11:41,713 - backend.main - INFO - Generated 5 optimal stand locations with top confidence: 84%
+2025-08-08 00:41:29,446 - backend.main - WARNING - LiDAR integration disabled (set ENABLE_LIDAR=1 to enable)

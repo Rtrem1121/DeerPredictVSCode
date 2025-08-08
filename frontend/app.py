@@ -359,6 +359,31 @@ if map_data and map_data["last_clicked"]:
         prediction = st.session_state.prediction
         st.sidebar.subheader("Prediction Results")
         st.sidebar.metric("Stand Rating", f"{prediction['stand_rating']}/10")
+
+        # Hunt Windows Panel
+        with st.sidebar.expander("🎯 Hunt Windows (next 48h)", expanded=True):
+            show_huntable_only = st.checkbox("Only show huntable stands (≥75% wind)", value=True)
+            schedule = prediction.get('hunt_schedule', [])
+            if not schedule:
+                st.info("Schedule will appear here after prediction if hourly weather is available.")
+            else:
+                # Rank hours by best stand score
+                def best_score(entry):
+                    stands = entry.get('huntable' if show_huntable_only else 'top_three', [])
+                    return stands[0]['score'] if stands else 0
+                ranked_hours = sorted(schedule, key=best_score, reverse=True)[:10]
+                for item in ranked_hours:
+                    hour = item.get('hour')
+                    when = item.get('time', f"Hour {hour:02d}")
+                    stands = item.get('huntable' if show_huntable_only else 'top_three', [])
+                    if not stands:
+                        continue
+                    top = stands[0]
+                    # Summary line
+                    st.markdown(f"**{when}** — Go at {hour:02d}:00 • {top['type']} • Score {top['score']} • 🌬️ {top['combined_wind_thermal']}%")
+                    # Small detail list for 2-3 stands
+                    for s in stands[:3]:
+                        st.caption(f"- {s['type']} • Score {s['score']} • Wind {s['wind_favorability']}% • Lat {s['coordinates'].get('lat', 0):.4f}, Lon {s['coordinates'].get('lon', 0):.4f}")
         
         # Add prominent wind forecast section
         with st.sidebar.expander("🌬️ Tomorrow's Wind Forecast", expanded=True):

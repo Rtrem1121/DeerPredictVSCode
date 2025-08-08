@@ -72,6 +72,7 @@ class PredictionResponse(BaseModel):
     suggested_spots: List[Dict[str, Any]] = []  # New field for better location suggestions
     stand_recommendations: List[Dict[str, Any]] = []  # Stand placement recommendations with GPS coordinates
     five_best_stands: List[Dict[str, Any]] = []  # 5 best stand locations with star markers
+    hunt_schedule: List[Dict[str, Any]] = []  # 48-hour hourly schedule of best stands
 
 # --- Utility Functions ---
 def load_rules():
@@ -401,6 +402,22 @@ def get_five_best_stand_locations(lat: float, lon: float, terrain_features: Dict
         stand['unique_access_points'] = access_points_found
     
     return stand_locations
+
+
+def score_wind_favorability(stand_bearing: float, wind_direction: float) -> float:
+    """Basic wind favorability (0-100) for use in scheduling."""
+    angle_diff = abs(stand_bearing - wind_direction)
+    if angle_diff > 180:
+        angle_diff = 360 - angle_diff
+    if angle_diff <= 30:
+        return 90
+    if angle_diff <= 60:
+        return 75
+    if angle_diff <= 90:
+        return 60
+    if angle_diff <= 120:
+        return 40
+    return 25
 
 
 def determine_stand_type(pattern: Dict, terrain_features: Dict, wind_direction: float, season: str) -> str:
@@ -1212,6 +1229,86 @@ def calculate_thermal_wind_effect(lat: float, lon: float, time_of_day: int, elev
     return thermal_data
 
 
+def compute_hourly_hunt_schedule(lat: float, lon: float, stands: List[Dict[str, Any]], terrain_features: Dict[str, Any], season: str, hourly: List[Dict[str, Any]], huntable_threshold: float = 75.0) -> List[Dict[str, Any]]:
+    """Build next 48h schedule: for each hour, rank stands by combined wind+thermal favorability and season weights."""
+    schedule = []
+    if not hourly or not stands:
+        return schedule
+    
+    # Precompute each stand's bearing from center for wind calc
+    enriched_stands = []
+    for s in stands:
+        coords = s.get('coordinates', {})
+        sbearing = calculate_bearing(lat, lon, coords.get('lat', lat), coords.get('lon', lon))
+        enriched = dict(s)
+        enriched['bearing_from_center'] = float(sbearing)
+        enriched_stands.append(enriched)
+
+    # Season weights influence emphasis
+    season_weights = {
+        "early_season": {"travel": 1.0, "bedding": 1.0, "feeding": 1.2},
+        "rut": {"travel": 1.3, "bedding": 0.9, "feeding": 1.0},
+        "late_season": {"travel": 0.8, "bedding": 1.5, "feeding": 1.1},
+    }
+    sw = season_weights.get(season, {"travel": 1.0, "bedding": 1.0, "feeding": 1.0})
+
+    for hour_entry in hourly:
+        wind_dir = float(hour_entry.get('wind_direction', 0))
+        temp = float(hour_entry.get('temperature', 0))
+        hour_local = int(hour_entry.get('hour', 0))
+
+        # Thermal model for this hour
+        thermal = calculate_thermal_wind_effect(lat, lon, hour_local)
+
+        ranked = []
+        for s in enriched_stands:
+            # Wind favorability for stand
+            wind_score = score_wind_favorability(s['bearing_from_center'], wind_dir)
+            # Combine with thermal effects and terrain
+            combined = calculate_combined_wind_favorability(s['bearing_from_center'], wind_dir, thermal, terrain_features)
+            
+            # Season weight by stand type proxy
+            stype = (s.get('type') or '').lower()
+            if 'travel' in stype or 'corridor' in stype or 'saddle' in stype or 'ridge' in stype:
+                season_boost = sw['travel']
+            elif 'bed' in stype or 'winter' in stype or 'yard' in stype:
+                season_boost = sw['bedding']
+            elif 'food' in stype or 'feed' in stype or 'orchard' in stype:
+                season_boost = sw['feeding']
+            else:
+                season_boost = (sw['travel'] + sw['bedding'] + sw['feeding']) / 3.0
+
+            # Confidence prior from stand object
+            prior = float(s.get('confidence', 70))
+
+            # Final score (0-100), emphasizing wind/thermal but respecting prior and season
+            final_score = min(100.0, 0.5 * combined + 0.2 * wind_score + 0.2 * prior + 10.0 * (season_boost - 1.0))
+            ranked.append({
+                "stand_id": s.get('id'),
+                "type": s.get('type'),
+                "coordinates": s.get('coordinates', {}),
+                "wind_favorability": round(wind_score, 1),
+                "combined_wind_thermal": round(combined, 1),
+                "temperature": round(temp, 1),
+                "score": round(final_score, 1),
+            })
+
+        ranked.sort(key=lambda x: x['score'], reverse=True)
+        top = ranked[:3]
+        # Huntable flag based on WIND favorability threshold per spec (≥75%)
+        huntable_top = [r for r in ranked if r['wind_favorability'] >= huntable_threshold]
+
+        schedule.append({
+            "time": hour_entry.get('time'),
+            "hour": hour_local,
+            "top_three": top,
+            "huntable": huntable_top[:3],
+            "thermal": thermal.get('hunting_advantage'),
+        })
+
+    return schedule
+
+
 def calculate_combined_wind_favorability(stand_direction: float, wind_direction: float, thermal_data: Dict, terrain_features: Dict) -> float:
     """
     Calculate wind favorability incorporating both prevailing winds and thermal effects
@@ -1832,6 +1929,12 @@ def predict_movement(request: PredictionRequest):
         five_best_stands = get_five_best_stand_locations(
             request.lat, request.lon, features, weather_data, request.season, score_maps
         )
+
+        # 10. Build 48-hour hunt schedule using hourly weather
+        hourly48 = weather_data.get('next_48h_hourly', [])
+        hunt_schedule = compute_hourly_hunt_schedule(
+            request.lat, request.lon, five_best_stands, features, request.season, hourly48, huntable_threshold=75.0
+        )
         
         # Also generate traditional stand placement recommendations for the notes
         stand_recommendations = get_stand_placement_recommendations(
@@ -1890,7 +1993,8 @@ def predict_movement(request: PredictionRequest):
             feeding_score_heatmap=feeding_score_heatmap,
             suggested_spots=suggested_spots,
             stand_recommendations=stand_recommendations,
-            five_best_stands=five_best_stands  # Add the 5 best stand locations
+            five_best_stands=five_best_stands,  # Add the 5 best stand locations
+            hunt_schedule=hunt_schedule
         )
 
     except Exception as e:

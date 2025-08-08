@@ -1,12 +1,9 @@
-"""
-Core deer prediction logic with enhanced error handling and performance monitoring.
-"""
 import requests
 import os
 import time
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple
 import numpy as np
 import networkx as nx
 from shapely.geometry import Point, Polygon, LineString, shape
@@ -17,20 +14,15 @@ import matplotlib.colors as mcolors
 from scipy.spatial import ConvexHull
 from scipy.ndimage import convolve, laplace, gaussian_filter
 
-# Import our performance monitoring
-from .performance import performance_monitor_decorator, cache_result
-from .settings import get_settings
-
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Constants
-GRID_SIZE = 10  # Default grid resolution
+# --- Environment & Constants ---
+OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 OVERPASS_API_URL = "https://overpass-api.de/api/interpreter"
+GRID_SIZE = 10 # The resolution of our analysis grid
 
-
-@performance_monitor_decorator(slow_threshold=3.0)
-@cache_result(ttl_seconds=1800)  # 30 minutes cache
+# --- Real Data Fetching ---
 def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
     """
     Enhanced weather data fetching with Vermont-specific condition detection.
@@ -216,274 +208,217 @@ def calculate_wind_hunting_windows(hourly_wind: List[Dict]) -> Dict[str, Any]:
 
 import time
 
-@performance_monitor_decorator(slow_threshold=5.0)
-@cache_result(ttl_seconds=3600)  # 1 hour cache for elevation data
 def get_real_elevation_grid(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
     """Fetches a grid of real elevation data from the Open-Meteo API using POST requests to handle bulk data."""
-    try:
-        lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
-        lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
-        all_coords = [ (lat_val, lon_val) for lat_val in lats for lon_val in lons ]
-
-        url = "https://api.open-meteo.com/v1/elevation"
-        all_elevations = []
-        
-        # Process coordinates in chunks of 100
-        for i in range(0, len(all_coords), 100):
-            chunk = all_coords[i:i+100]
-            lat_chunk = [c[0] for c in chunk]
-            lon_chunk = [c[1] for c in chunk]
-            
-            # Format for application/x-www-form-urlencoded
-            payload = {
-                "latitude": ",".join(map(str, lat_chunk)),
-                "longitude": ",".join(map(str, lon_chunk))
-            }
-            
-            try:
-                response = requests.post(url, data=payload, timeout=10)
-                response.raise_for_status()
-                
-                results = response.json()
-                all_elevations.extend(results['elevation'])
-                time.sleep(2) # Add a 2-second delay
-            except requests.exceptions.HTTPError as e:
-                if response.status_code == 429:
-                    # Rate limited - use fallback elevation data
-                    logger.warning(f"Open-Meteo API rate limited, using fallback elevation for chunk {i}")
-                    # Generate synthetic elevation data based on Vermont topography
-                    fallback_elevations = generate_fallback_elevation(lat_chunk, lon_chunk)
-                    all_elevations.extend(fallback_elevations)
-                else:
-                    raise e
-            except Exception as e:
-                logger.warning(f"Error fetching elevation chunk {i}: {e}, using fallback")
-                fallback_elevations = generate_fallback_elevation(lat_chunk, lon_chunk)
-                all_elevations.extend(fallback_elevations)
-                
-        return np.array(all_elevations).reshape(size, size)
-        
-    except Exception as e:
-        logger.warning(f"Failed to get real elevation data: {e}, using synthetic Vermont elevation")
-        return generate_synthetic_vermont_elevation(lat, lon, size, span_deg)
-
-def generate_fallback_elevation(lat_chunk, lon_chunk):
-    """Generate realistic fallback elevation data for Vermont"""
-    elevations = []
-    for lat_val, lon_val in zip(lat_chunk, lon_chunk):
-        # Vermont elevation ranges from ~100ft (Lake Champlain) to ~4400ft (Mt. Mansfield)
-        # Use latitude and longitude to create realistic terrain
-        base_elevation = 1000  # Base elevation in feet
-        
-        # Add variation based on coordinates
-        lat_factor = (lat_val - 44.0) * 2000  # North is higher
-        lon_factor = (lon_val + 72.5) * 500   # East of center is slightly higher
-        
-        # Add some random variation for realistic terrain
-        import random
-        random_factor = random.uniform(-200, 200)
-        
-        elevation = max(200, base_elevation + lat_factor + lon_factor + random_factor)
-        elevations.append(elevation)
-    
-    return elevations
-
-def generate_synthetic_vermont_elevation(lat, lon, size, span_deg):
-    """Generate a synthetic elevation grid for Vermont when API fails"""
     lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
     lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
-    
-    elevation_grid = np.zeros((size, size))
-    
-    for i, lat_val in enumerate(lats):
-        for j, lon_val in enumerate(lons):
-            # Create realistic Vermont terrain
-            base_elevation = 1000
-            lat_factor = (lat_val - 44.0) * 2000
-            lon_factor = (lon_val + 72.5) * 500
-            
-            # Add some terrain variation
-            terrain_variation = np.sin(lat_val * 50) * np.cos(lon_val * 50) * 300
-            
-            elevation = max(200, base_elevation + lat_factor + lon_factor + terrain_variation)
-            elevation_grid[i, j] = elevation
-    
-    return elevation_grid
+    all_coords = [ (lat_val, lon_val) for lat_val in lats for lon_val in lons ]
 
-@performance_monitor_decorator(slow_threshold=10.0)
-@cache_result(ttl_seconds=7200)  # 2 hours cache for vegetation data
+    url = "https://api.open-meteo.com/v1/elevation"
+    all_elevations = []
+    
+    # Process coordinates in chunks of 100
+    for i in range(0, len(all_coords), 100):
+        chunk = all_coords[i:i+100]
+        lat_chunk = [c[0] for c in chunk]
+        lon_chunk = [c[1] for c in chunk]
+        
+        # Format for application/x-www-form-urlencoded
+        payload = {
+            "latitude": ",".join(map(str, lat_chunk)),
+            "longitude": ",".join(map(str, lon_chunk))
+        }
+        
+        response = requests.post(url, data=payload)
+        response.raise_for_status()
+        
+        results = response.json()
+        all_elevations.extend(results['elevation'])
+        time.sleep(2) # Add a 2-second delay
+        
+    return np.array(all_elevations).reshape(size, size)
+
 def get_vegetation_grid_from_osm(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
     """Fetches land use data from OpenStreetMap via Overpass API and rasterizes it."""
+    bbox = (lat - span_deg / 2, lon - span_deg / 2, lat + span_deg / 2, lon + span_deg / 2)
+    query = f"""[out:json];(
+        way["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["landuse"="grass"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["natural"="tree"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="Quercus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["trees"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="apple"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="Malus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="beech"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        way["species"="Fagus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        relation["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+    );(._;>;);out body;"""
+    
+    response = requests.post(OVERPASS_API_URL, data=query)
+    response.raise_for_status()
+    osm_data = response.json()
+
+    # Create polygons from OSM data with enhanced agricultural crop detection
+    polygons = {
+        "forest": [], 
+        "field": [], 
+        "water": [],
+        "corn_field": [],
+        "soybean_field": [],
+        "hay_field": [],
+        "orchard": [],
+        "oak_trees": [],
+        "apple_trees": [],
+        "beech_trees": [],
+        "meadow": []
+    }
+    nodes = {node['id']: (node['lon'], node['lat']) for node in osm_data['elements'] if node['type'] == 'node'}
+    for element in osm_data['elements']:
+        if element['type'] == 'way' and 'nodes' in element and element['nodes'][0] == element['nodes'][-1]:
+            coords = [nodes[node_id] for node_id in element['nodes'] if node_id in nodes]
+            if len(coords) < 3: continue
+            poly = Polygon(coords)
+            tags = element.get('tags', {})
+            
+            # Enhanced agricultural crop detection
+            if tags.get('crop') == 'corn':
+                polygons["corn_field"].append(poly)
+            elif tags.get('crop') in ['soy', 'soybeans']:
+                polygons["soybean_field"].append(poly)
+            elif tags.get('crop') == 'hay':
+                polygons["hay_field"].append(poly)
+            elif tags.get('landuse') == 'orchard':
+                polygons["orchard"].append(poly)
+            elif tags.get('landuse') in ['meadow', 'grass']:
+                polygons["meadow"].append(poly)
+            # Tree species detection for mast crops
+            elif tags.get('species') in ['Quercus', 'oak'] or tags.get('trees') == 'oak':
+                polygons["oak_trees"].append(poly)
+            elif tags.get('species') in ['Malus', 'apple']:
+                polygons["apple_trees"].append(poly)
+            elif tags.get('species') in ['Fagus', 'beech']:
+                polygons["beech_trees"].append(poly)
+            # General forest and farmland
+            elif tags.get('landuse') == 'forest' or tags.get('natural') == 'wood':
+                polygons["forest"].append(poly)
+            elif tags.get('landuse') == 'farmland':
+                polygons["field"].append(poly)
+            elif tags.get('natural') == 'water':
+                polygons["water"].append(poly)
+
+    # Rasterize polygons onto the grid with enhanced agricultural encoding
+    # Grid encoding: 0=water, 1=field/meadow, 2=forest, 3=corn, 4=soybean, 5=hay, 6=orchard, 7=oak_trees, 8=apple_trees, 9=beech_trees
+    grid = np.ones((size, size), dtype=int) * 1 # Default to field
+    lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
+    lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
+
+    for i in range(size):
+        for j in range(size):
+            point = Point(lons[j], lats[i])
+            # Priority order: water > specific crops > tree species > forest > general field
+            if any(poly.contains(point) for poly in polygons["water"]):
+                grid[i, j] = 0  # Water
+            elif any(poly.contains(point) for poly in polygons["corn_field"]):
+                grid[i, j] = 3  # Corn field - high deer attractant
+            elif any(poly.contains(point) for poly in polygons["soybean_field"]):
+                grid[i, j] = 4  # Soybean field - excellent deer food
+            elif any(poly.contains(point) for poly in polygons["hay_field"]):
+                grid[i, j] = 5  # Hay field - good deer browse
+            elif any(poly.contains(point) for poly in polygons["orchard"]):
+                grid[i, j] = 6  # Orchard - fruit trees
+            elif any(poly.contains(point) for poly in polygons["oak_trees"]):
+                grid[i, j] = 7  # Oak trees - acorn mast
+            elif any(poly.contains(point) for poly in polygons["apple_trees"]):
+                grid[i, j] = 8  # Apple trees - fall fruit
+            elif any(poly.contains(point) for poly in polygons["beech_trees"]):
+                grid[i, j] = 9  # Beech trees - beech nuts
+            elif any(poly.contains(point) for poly in polygons["forest"]):
+                grid[i, j] = 2  # General forest
+            elif any(poly.contains(point) for poly in polygons["meadow"]):
+                grid[i, j] = 1  # Meadow/grass - general browse
+    return grid
+
+def get_road_proximity_grid(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
+    """Compute a normalized proximity-to-road grid from OpenStreetMap highways and paths.
+    Returns values in [0,1] where 0 = on/very near road, 1 = far from roads.
+    """
     try:
         bbox = (lat - span_deg / 2, lon - span_deg / 2, lat + span_deg / 2, lon + span_deg / 2)
         query = f"""[out:json];(
-            way["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["landuse"="grass"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["natural"="tree"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="Quercus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["trees"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="apple"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="Malus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="beech"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            way["species"="Fagus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-            relation["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["highway"~"^(primary|secondary|tertiary|residential|unclassified|track|path|footway|bridleway|service)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
         );(._;>;);out body;"""
-        
-        try:
-            response = requests.post(OVERPASS_API_URL, data=query, timeout=15)
-            response.raise_for_status()
-            osm_data = response.json()
-        except requests.exceptions.HTTPError as e:
-            if response.status_code == 429:
-                logger.warning("Overpass API rate limited, using synthetic vegetation data")
-                return generate_synthetic_vermont_vegetation(lat, lon, size, span_deg)
-            else:
-                raise e
-        except Exception as e:
-            logger.warning(f"Error fetching OSM vegetation data: {e}, using synthetic data")
-            return generate_synthetic_vermont_vegetation(lat, lon, size, span_deg)
+        response = requests.post(OVERPASS_API_URL, data=query, timeout=30)
+        response.raise_for_status()
+        osm_data = response.json()
 
-        # Create polygons from OSM data with enhanced agricultural crop detection
-        polygons = {
-            "forest": [], 
-            "field": [], 
-            "water": [],
-            "corn_field": [],
-            "soybean_field": [],
-            "hay_field": [],
-            "orchard": [],
-            "oak_trees": [],
-            "apple_trees": [],
-            "beech_trees": [],
-            "meadow": []
-        }
-        nodes = {node['id']: (node['lon'], node['lat']) for node in osm_data['elements'] if node['type'] == 'node'}
-        for element in osm_data['elements']:
-            if element['type'] == 'way' and 'nodes' in element and element['nodes'][0] == element['nodes'][-1]:
-                coords = [nodes[node_id] for node_id in element['nodes'] if node_id in nodes]
-                if len(coords) < 3: continue
-                poly = Polygon(coords)
-                tags = element.get('tags', {})
-                
-                # Enhanced agricultural crop detection
-                if tags.get('crop') == 'corn':
-                    polygons["corn_field"].append(poly)
-                elif tags.get('crop') in ['soy', 'soybeans']:
-                    polygons["soybean_field"].append(poly)
-                elif tags.get('crop') == 'hay':
-                    polygons["hay_field"].append(poly)
-                elif tags.get('landuse') == 'orchard':
-                    polygons["orchard"].append(poly)
-                elif tags.get('landuse') in ['meadow', 'grass']:
-                    polygons["meadow"].append(poly)
-                # Tree species detection for mast crops
-                elif tags.get('species') in ['Quercus', 'oak'] or tags.get('trees') == 'oak':
-                    polygons["oak_trees"].append(poly)
-                elif tags.get('species') in ['Malus', 'apple']:
-                    polygons["apple_trees"].append(poly)
-                elif tags.get('species') in ['Fagus', 'beech']:
-                    polygons["beech_trees"].append(poly)
-                # General forest and farmland
-                elif tags.get('landuse') == 'forest' or tags.get('natural') == 'wood':
-                    polygons["forest"].append(poly)
-                elif tags.get('landuse') == 'farmland':
-                    polygons["field"].append(poly)
-                elif tags.get('natural') == 'water':
-                    polygons["water"].append(poly)
+        # Build ways as LineStrings
+        nodes = {n['id']: (n['lon'], n['lat']) for n in osm_data.get('elements', []) if n.get('type') == 'node'}
+        lines = []
+        for el in osm_data.get('elements', []):
+            if el.get('type') == 'way' and 'nodes' in el and len(el['nodes']) > 1:
+                coords = [nodes[nid] for nid in el['nodes'] if nid in nodes]
+                if len(coords) >= 2:
+                    try:
+                        lines.append(LineString(coords))
+                    except Exception:
+                        continue
 
-        # Rasterize polygons onto the grid with enhanced agricultural encoding
-        # Grid encoding: 0=water, 1=field/meadow, 2=forest, 3=corn, 4=soybean, 5=hay, 6=orchard, 7=oak_trees, 8=apple_trees, 9=beech_trees
-        grid = np.ones((size, size), dtype=int) * 1 # Default to field
+        # If no roads found, return ones (no penalty)
+        if not lines:
+            return np.ones((size, size), dtype=float)
+
+        # Prepare grid centers
         lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
         lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
+        grid = np.zeros((size, size), dtype=float)
+
+        # Rough meters-per-degree at this latitude
+        meters_per_deg_lat = 111_320.0
+        meters_per_deg_lon = 111_320.0 * np.cos(np.radians(lat))
+
+        # Maximum distance for normalization (half the span-diagonal)
+        max_deg = np.sqrt((span_deg/2)**2 + (span_deg/2)**2)
+        max_meters = max_deg * np.hypot(meters_per_deg_lat, meters_per_deg_lon)
+        max_meters = max(1.0, max_meters)
 
         for i in range(size):
             for j in range(size):
-                point = Point(lons[j], lats[i])
-                # Priority order: water > specific crops > tree species > forest > general field
-                if any(poly.contains(point) for poly in polygons["water"]):
-                    grid[i, j] = 0  # Water
-                elif any(poly.contains(point) for poly in polygons["corn_field"]):
-                    grid[i, j] = 3  # Corn field - high deer attractant
-                elif any(poly.contains(point) for poly in polygons["soybean_field"]):
-                    grid[i, j] = 4  # Soybean field - excellent deer food
-                elif any(poly.contains(point) for poly in polygons["hay_field"]):
-                    grid[i, j] = 5  # Hay field - good deer browse
-                elif any(poly.contains(point) for poly in polygons["orchard"]):
-                    grid[i, j] = 6  # Orchard - fruit trees
-                elif any(poly.contains(point) for poly in polygons["oak_trees"]):
-                    grid[i, j] = 7  # Oak trees - acorn mast
-                elif any(poly.contains(point) for poly in polygons["apple_trees"]):
-                    grid[i, j] = 8  # Apple trees - fall fruit
-                elif any(poly.contains(point) for poly in polygons["beech_trees"]):
-                    grid[i, j] = 9  # Beech trees - beech nuts
-                elif any(poly.contains(point) for poly in polygons["forest"]):
-                    grid[i, j] = 2  # General forest
-                elif any(poly.contains(point) for poly in polygons["meadow"]):
-                    grid[i, j] = 1  # Meadow/grass - general browse
-        return grid
-        
-    except Exception as e:
-        logger.warning(f"Failed to get vegetation data from OSM: {e}, using synthetic Vermont vegetation")
-        return generate_synthetic_vermont_vegetation(lat, lon, size, span_deg)
+                pt = Point(lons[j], lats[i])
+                # Find min distance to any road line (in degrees)
+                min_deg = min((pt.distance(line) for line in lines)) if lines else span_deg
+                # Convert to meters using local scale approximation
+                # Approximate by projecting delta in lon as meters_per_deg_lon and lat as meters_per_deg_lat
+                # Since shapely distance in degrees mixes axes, scale by average meters/deg
+                meters = min_deg * (meters_per_deg_lat + meters_per_deg_lon) / 2.0
+                # Normalize to [0,1]; clamp within reasonable threshold so near roads clearly penalized
+                proximity = np.clip(meters / (0.4 * max_meters), 0.0, 1.0)
+                grid[i, j] = float(proximity)
 
-def generate_synthetic_vermont_vegetation(lat, lon, size, span_deg):
-    """Generate realistic synthetic vegetation data for Vermont when OSM API fails"""
-    lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
-    lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
-    
-    # Grid encoding: 0=water, 1=field/meadow, 2=forest, 3=corn, 4=soybean, 5=hay, 6=orchard, 7=oak_trees, 8=apple_trees, 9=beech_trees
-    vegetation_grid = np.ones((size, size), dtype=int) * 2  # Default to forest (Vermont is heavily forested)
-    
-    import random
-    for i, lat_val in enumerate(lats):
-        for j, lon_val in enumerate(lons):
-            # Create realistic Vermont land use patterns
-            
-            # Vermont is ~75% forested, so start with forest as base
-            land_type = 2  # Forest
-            
-            # Add variation based on elevation and location
-            rand_val = random.random()
-            
-            # Agricultural areas (valleys and lower elevations)
-            if abs(lat_val - lat) < span_deg / 4 and abs(lon_val - lon) < span_deg / 4:
-                if rand_val < 0.15:  # 15% chance of agricultural land in valleys
-                    crop_type = random.choice([1, 3, 4, 5])  # field, corn, soybean, hay
-                    land_type = crop_type
-                elif rand_val < 0.20:  # 5% chance of orchard
-                    land_type = 6  # Orchard
-                elif rand_val < 0.25:  # 5% chance of oak trees (acorn source)
-                    land_type = 7  # Oak trees
-                elif rand_val < 0.27:  # 2% chance of apple trees
-                    land_type = 8  # Apple trees
-            
-            # Water features (streams, ponds)
-            if rand_val < 0.03:  # 3% chance of water
-                land_type = 0  # Water
-            
-            vegetation_grid[i, j] = land_type
-    
-    return vegetation_grid# --- All other functions (analysis, rule engine, geometry generation) remain the same ---
+        return grid
+    except Exception as e:
+        logger.warning(f"Road proximity computation failed, defaulting to neutral grid: {e}")
+        return np.ones((size, size), dtype=float)
+
+# --- All other functions (analysis, rule engine, geometry generation) remain the same ---
 # (For brevity, the unchanged functions from the previous version are omitted here,
 # but they are still part of this file in the actual implementation.)
 

@@ -1,178 +1,64 @@
-"""
-FastAPI main application with enhanced security, performance monitoring, and best practices.
-"""
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import json
 import os
 import numpy as np
 import logging
-import requests
 from datetime import datetime
 from typing import List, Dict, Any
-from contextlib import asynccontextmanager
-
-# Import our modules
 from . import core
-from .settings import get_settings, AppSettings
-from .security import (
-    PredictionRequest, 
-    SecurityMiddleware,
-    create_security_middleware,
-    handle_validation_error,
-    handle_security_error,
-    ValidationError,
-    SecurityError
+
+# Configure logging for containers
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Log to stdout for Docker
+        logging.FileHandler('/app/logs/app.log') if os.path.exists('/app/logs') else logging.NullHandler()
+    ]
 )
-from .performance import performance_monitor_decorator, get_performance_monitor
-
-# LiDAR availability check
-LIDAR_AVAILABLE = False
-
-
-# Configure logging
-def setup_logging(settings: AppSettings):
-    """Setup application logging"""
-    handlers = [logging.StreamHandler()]
-    
-    if settings.logging.file_path:
-        # Ensure log directory exists
-        os.makedirs(os.path.dirname(settings.logging.file_path), exist_ok=True)
-        handlers.append(logging.FileHandler(settings.logging.file_path))
-    
-    logging.basicConfig(
-        level=getattr(logging, settings.logging.level),
-        format=settings.logging.format,
-        handlers=handlers
-    )
-
-
-# Application lifespan management
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan management"""
-    # Startup
-    settings = get_settings()
-    setup_logging(settings)
-    logger = logging.getLogger(__name__)
-    
-    logger.info("Starting Deer Movement Prediction API")
-    logger.info(f"Debug mode: {settings.debug}")
-    logger.info(f"Environment: {'development' if settings.debug else 'production'}")
-    
-    # Load prediction rules
-    try:
-        rules_path = "/app/data/rules.json"
-        if not os.path.exists(rules_path):
-            rules_path = "data/rules.json"
-        
-        with open(rules_path, 'r') as f:
-            app.state.rules = json.load(f)
-        logger.info(f"Loaded {len(app.state.rules)} prediction rules")
-    except Exception as e:
-        logger.error(f"Failed to load rules: {e}")
-        app.state.rules = []
-    
-    # Initialize security middleware
-    app.state.security_middleware = create_security_middleware(settings)
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down Deer Movement Prediction API")
-
-
-# Create FastAPI app
-def create_app() -> FastAPI:
-    """Create and configure FastAPI application"""
-    settings = get_settings()
-    
-    app = FastAPI(
-        title="Deer Movement Prediction API",
-        description="An API to predict whitetail deer movement based on terrain, weather, and seasonal patterns.",
-        version="1.0.0",
-        lifespan=lifespan,
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
-        openapi_url="/openapi.json" if settings.debug else None,
-        openapi_tags=[
-            {
-                "name": "predictions",
-                "description": "Deer movement prediction operations",
-            },
-            {
-                "name": "rules",
-                "description": "Prediction rule management",
-            },
-            {
-                "name": "health",
-                "description": "API health and monitoring",
-            }
-        ]
-    )
-    
-    # Add middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.security.cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST"],
-        allow_headers=["*"],
-    )
-    
-    if settings.is_production:
-        app.add_middleware(
-            TrustedHostMiddleware,
-            allowed_hosts=["localhost", "127.0.0.1", "backend", "*.yourdomain.com"]
-        )
-    
-    return app
-
-
-app = create_app()
 logger = logging.getLogger(__name__)
 
+# Import LiDAR integration after logger is configured
+# Toggle with ENABLE_LIDAR=1 in environment (defaults to disabled)
+LIDAR_AVAILABLE = os.getenv("ENABLE_LIDAR", "0") == "1"
+if not LIDAR_AVAILABLE:
+    logger.warning("LiDAR integration disabled (set ENABLE_LIDAR=1 to enable)")
+else:
+    logger.info("LiDAR integration enabled via environment flag")
 
-# Dependency injection
-async def get_security_middleware(request: Request) -> SecurityMiddleware:
-    """Get security middleware from app state"""
-    return request.app.state.security_middleware
+app = FastAPI(
+    title="Deer Movement Prediction API",
+    description="An API to predict whitetail deer movement based on terrain, weather, and seasonal patterns.",
+    version="0.3.0",  # Version bump for improvements
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=[
+        {
+            "name": "predictions",
+            "description": "Deer movement prediction operations",
+        },
+        {
+            "name": "rules",
+            "description": "Prediction rule management",
+        },
+        {
+            "name": "health",
+            "description": "API health and status",
+        }
+    ]
+)
 
+# --- Pydantic Models ---
+class PredictionRequest(BaseModel):
+    lat: float
+    lon: float
+    date_time: str # ISO format
+    season: str # e.g., "rut", "early_season", "late_season"
+    suggestion_threshold: float = 5.0  # Show suggestions when rating is below this
+    min_suggestion_rating: float = 8.0  # Minimum rating for suggestions
 
-async def get_prediction_rules(request: Request) -> List[Dict]:
-    """Get prediction rules from app state"""
-    return request.app.state.rules
-
-
-# Security middleware function
-async def security_check(
-    request: Request,
-    security: SecurityMiddleware = Depends(get_security_middleware)
-):
-    """Perform security checks on requests"""
-    try:
-        # Rate limiting
-        client_ip = request.client.host if request.client else "unknown"
-        settings = get_settings()
-        security.validate_request_rate(
-            client_ip, 
-            settings.security.max_request_rate_per_minute
-        )
-        
-        # Header validation
-        security.validate_request_headers(dict(request.headers))
-        
-    except ValidationError as e:
-        raise handle_validation_error(e)
-    except SecurityError as e:
-        raise handle_security_error(e)
-
-
-# Response models
 class PredictionResponse(BaseModel):
-    """Response model for prediction endpoint"""
     travel_corridors: Dict[str, Any]
     bedding_zones: Dict[str, Any]
     feeding_areas: Dict[str, Any]
@@ -228,69 +114,41 @@ def _get_weather_impact_explanation(conditions: List[str]) -> str:
     
     return "\n".join(impacts) if impacts else "• Normal deer activity patterns expected"
 
-# === API ENDPOINTS ===
-
+# --- API Endpoints ---
 @app.get("/", summary="Root endpoint", tags=["health"])
-async def read_root():
-    """Root endpoint providing API information"""
-    return {
-        "message": "🦌 Vermont Deer Hunter API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/health"
-    }
-
+def read_root():
+    return {"message": "Welcome to the Deer Movement Prediction API v0.3.0"}
 
 @app.get("/health", summary="Health check endpoint", tags=["health"])
-async def health_check(request: Request):
-    """Health check endpoint with performance metrics"""
+def health_check():
+    """Health check endpoint for monitoring"""
     try:
-        settings = get_settings()
-        monitor = get_performance_monitor()
-        
-        # Get rules from app state
-        rules = getattr(request.app.state, 'rules', [])
-        
+        # Test database/file access
+        rules = load_rules()
         return {
             "status": "healthy",
-            "version": "1.0.0",
-            "rules_loaded": len(rules) if rules else 0,
-            "timestamp": datetime.now().isoformat(),
-            "environment": "development" if settings.debug else "production",
-            "performance_stats": {
-                "monitored_functions": len(monitor.get_stats()),
-                "slow_functions": len(monitor.get_slow_functions()),
-                "error_prone_functions": len(monitor.get_error_prone_functions())
-            }
+            "version": "0.3.0",
+            "rules_loaded": len(rules),
+            "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
-
-@app.get("/performance", summary="Performance monitoring", tags=["health"])
-async def performance_stats():
-    """Get detailed performance statistics"""
-    monitor = get_performance_monitor()
-    return {
-        "stats": monitor.get_stats(),
-        "slow_functions": monitor.get_slow_functions(),
-        "error_prone_functions": monitor.get_error_prone_functions()
-    }
-
-
-@app.get("/rules", summary="Get all prediction rules", tags=["rules"])
-async def get_rules(
-    rules: List[Dict] = Depends(get_prediction_rules)
-):
-    """Get all deer behavior prediction rules"""
-    return rules
+@app.get("/rules", summary="Get all prediction rules", response_model=List[Dict[str, Any]], tags=["rules"])
+def get_rules():
+    return load_rules()
 
 def find_high_score_locations(score_map: np.ndarray, center_lat: float, center_lon: float, top_n: int = 3) -> List[Dict]:
-    """Find the top N highest scoring locations in a score map and convert to GPS coordinates"""
+    """Find the top N highest scoring locations in a score map and convert to GPS coordinates with light jitter."""
     if score_map is None or score_map.size == 0:
         return []
-    
+    # Smooth to reduce speckle and improve stability
+    try:
+        from scipy.ndimage import gaussian_filter
+        score_map = gaussian_filter(score_map, sigma=0.8)
+    except Exception:
+        pass
+
     # Find top scoring locations
     flat_indices = np.argsort(score_map.flatten())[-top_n*2:]  # Get more than needed
     indices_2d = [np.unravel_index(idx, score_map.shape) for idx in flat_indices]
@@ -299,12 +157,21 @@ def find_high_score_locations(score_map: np.ndarray, center_lat: float, center_l
     locations = []
     size = score_map.shape[0]
     
-    for row, col in indices_2d:
+    for rank, (row, col) in enumerate(indices_2d):
         score = score_map[row, col]
         if score > 0:  # Only include locations with positive scores
             # Convert grid position to GPS coordinates
             lat = center_lat + 0.02 - (row / size) * 0.04
             lon = center_lon - 0.02 + (col / size) * 0.04
+
+            # Add slight deterministic jitter (~<=50m) to avoid alignments while ensuring repeatability
+            # 1 degree lat ~= 111_000m; 50m ~= 0.00045 deg
+            rng_seed = int((row * 73856093) ^ (col * 19349663)) & 0xFFFFFFFF
+            rng = np.random.RandomState(rng_seed)
+            jitter_lat = (rng.rand() - 0.5) * 2 * 0.0003  # ~<=33m
+            jitter_lon = (rng.rand() - 0.5) * 2 * 0.0003
+            lat += jitter_lat
+            lon += jitter_lon
             
             locations.append({
                 'lat': lat,
@@ -702,214 +569,109 @@ def calculate_stand_confidence(pattern: Dict, terrain_features: Dict, weather_da
 
 def find_nearest_road_access(target_lat: float, target_lon: float) -> Dict:
     """
-    Find the nearest actual road access point using OpenStreetMap data
-    This queries real map data to find roads and parking areas
+    Find the nearest likely road access point for hunting access
+    In a real implementation, this would use OSM road data or hunting access databases
+    For now, we'll estimate based on typical Vermont hunting access patterns
     """
-    try:
-        import requests
-        import time
-        
-        # OpenStreetMap Overpass API query to find roads and parking within 2 miles
-        search_radius = 3200  # 2 miles in meters
-        
-        # Overpass query to find roads, parking areas, and access points
-        overpass_query = f"""
-        [out:json][timeout:25];
-        (
-          way["highway"~"^(primary|secondary|tertiary|unclassified|residential|service|track|path)$"](around:{search_radius},{target_lat},{target_lon});
-          way["amenity"="parking"](around:{search_radius},{target_lat},{target_lon});
-          node["amenity"="parking"](around:{search_radius},{target_lat},{target_lon});
-          way["leisure"="park"](around:{search_radius},{target_lat},{target_lon});
-          node["highway"="trailhead"](around:{search_radius},{target_lat},{target_lon});
-        );
-        out geom;
-        """
-        
-        # Query Overpass API
-        overpass_url = "http://overpass-api.de/api/interpreter"
-        response = requests.post(overpass_url, data=overpass_query, timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
-            return process_osm_road_data(data, target_lat, target_lon)
-        else:
-            logger.warning(f"Overpass API failed with status {response.status_code}, using fallback")
-            return get_fallback_access_point(target_lat, target_lon)
+    
+    # Vermont hunting access typically follows these patterns:
+    # 1. Town roads provide main access
+    # 2. Logging roads and gated forest roads for deeper access  
+    # 3. Parking areas are often 0.5-2 miles from prime hunting spots
+    # 4. Access roads typically follow valleys and ridgelines
+    
+    # Estimate road access based on terrain and distance patterns
+    # This is a simplified model - real implementation would use road databases
+    
+    # Calculate potential access points in different directions
+    access_options = []
+    
+    # Typical access distances in Vermont (in degrees, roughly)
+    road_distances = [0.005, 0.008, 0.012, 0.015]  # ~0.3 to 1 mile
+    
+    # Common road directions (following valley/ridge patterns)
+    road_bearings = [0, 45, 90, 135, 180, 225, 270, 315]  # 8 cardinal/intercardinal directions
+    
+    for distance in road_distances[:2]:  # Check closest 2 distance rings
+        for bearing in road_bearings:
+            # Calculate access point coordinates
+            bearing_rad = np.radians(bearing)
+            access_lat = target_lat + (distance * np.cos(bearing_rad))
+            access_lon = target_lon + (distance * np.sin(bearing_rad))
             
-    except Exception as e:
-        logger.warning(f"Error querying map data: {e}, using fallback")
-        return get_fallback_access_point(target_lat, target_lon)
-
-def process_osm_road_data(osm_data: Dict, target_lat: float, target_lon: float) -> Dict:
-    """Process OpenStreetMap data to find the best access point"""
-    access_points = []
-    
-    for element in osm_data.get('elements', []):
-        if element['type'] == 'way':
-            # Process road ways
-            if 'highway' in element.get('tags', {}):
-                road_type = element['tags']['highway']
-                
-                # Get coordinates from geometry
-                if 'geometry' in element:
-                    coords = element['geometry']
-                    
-                    # Find closest point on the road to target
-                    closest_point = find_closest_point_on_road(coords, target_lat, target_lon)
-                    if closest_point:
-                        distance_miles = calculate_distance(target_lat, target_lon, 
-                                                          closest_point['lat'], closest_point['lon'])
-                        
-                        access_points.append({
-                            'lat': closest_point['lat'],
-                            'lon': closest_point['lon'],
-                            'distance_miles': distance_miles,
-                            'access_type': classify_road_type(road_type),
-                            'road_name': element.get('tags', {}).get('name', f"{road_type.title()} Road"),
-                            'source': 'OSM_road',
-                            'priority': get_road_priority(road_type)
-                        })
+            # Estimate likelihood this direction has road access
+            access_likelihood = estimate_road_likelihood(bearing, distance)
             
-            # Process parking areas
-            elif 'amenity' in element.get('tags', {}) and element['tags']['amenity'] == 'parking':
-                if 'geometry' in element:
-                    # Get center of parking area
-                    coords = element['geometry']
-                    center_lat = sum(p['lat'] for p in coords) / len(coords)
-                    center_lon = sum(p['lon'] for p in coords) / len(coords)
-                    
-                    distance_miles = calculate_distance(target_lat, target_lon, center_lat, center_lon)
-                    
-                    access_points.append({
-                        'lat': center_lat,
-                        'lon': center_lon,
-                        'distance_miles': distance_miles,
-                        'access_type': 'Designated Parking',
-                        'road_name': element.get('tags', {}).get('name', 'Parking Area'),
-                        'source': 'OSM_parking',
-                        'priority': 1  # Highest priority for actual parking
-                    })
-        
-        elif element['type'] == 'node':
-            # Process parking nodes and trailheads
-            tags = element.get('tags', {})
-            if tags.get('amenity') == 'parking' or tags.get('highway') == 'trailhead':
-                distance_miles = calculate_distance(target_lat, target_lon, 
-                                                  element['lat'], element['lon'])
-                
-                access_type = 'Trailhead Parking' if tags.get('highway') == 'trailhead' else 'Parking Area'
-                
-                access_points.append({
-                    'lat': element['lat'],
-                    'lon': element['lon'],
-                    'distance_miles': distance_miles,
-                    'access_type': access_type,
-                    'road_name': tags.get('name', access_type),
-                    'source': 'OSM_node',
-                    'priority': 1 if 'trailhead' in access_type.lower() else 2
-                })
+            access_options.append({
+                'lat': access_lat,
+                'lon': access_lon,
+                'bearing': bearing,
+                'distance_miles': distance * 69,  # Rough conversion to miles
+                'likelihood': access_likelihood,
+                'access_type': determine_access_type(distance, bearing)
+            })
     
-    # Select the best access point
-    if access_points:
-        # Sort by priority first, then by distance
-        access_points.sort(key=lambda x: (x['priority'], x['distance_miles']))
-        best_access = access_points[0]
-        
-        return {
-            'lat': best_access['lat'],
-            'lon': best_access['lon'],
-            'access_type': best_access['access_type'],
-            'distance_miles': round(best_access['distance_miles'], 2),
-            'road_name': best_access['road_name'],
-            'bearing_to_target': calculate_bearing(best_access['lat'], best_access['lon'], target_lat, target_lon),
-            'estimated_drive_time': estimate_drive_time(best_access['distance_miles'], best_access['access_type']),
-            'data_source': best_access['source']
-        }
-    else:
-        # No roads found in OSM data, use fallback
-        return get_fallback_access_point(target_lat, target_lon)
-
-def find_closest_point_on_road(road_coords: List[Dict], target_lat: float, target_lon: float) -> Dict:
-    """Find the closest point on a road to the target location"""
-    min_distance = float('inf')
-    closest_point = None
-    
-    for coord in road_coords:
-        distance = calculate_distance(target_lat, target_lon, coord['lat'], coord['lon'])
-        if distance < min_distance:
-            min_distance = distance
-            closest_point = coord
-    
-    return closest_point
-
-def classify_road_type(highway_type: str) -> str:
-    """Classify OSM highway types into hunting access categories"""
-    road_classifications = {
-        'primary': 'Major Road',
-        'secondary': 'County Road', 
-        'tertiary': 'Town Road',
-        'unclassified': 'Local Road',
-        'residential': 'Residential Street',
-        'service': 'Service Road',
-        'track': 'Forest/Logging Road',
-        'path': 'Trail/Path'
-    }
-    return road_classifications.get(highway_type, 'Road')
-
-def get_road_priority(highway_type: str) -> int:
-    """Get priority for different road types (1 = highest priority)"""
-    priorities = {
-        'primary': 4,
-        'secondary': 3,
-        'tertiary': 2,
-        'unclassified': 2,
-        'residential': 3,
-        'service': 1,  # Service roads often have parking/access
-        'track': 1,    # Forest tracks are ideal for hunting access
-        'path': 5      # Paths are last resort
-    }
-    return priorities.get(highway_type, 3)
-
-def get_fallback_access_point(target_lat: float, target_lon: float) -> Dict:
-    """Fallback access point calculation when OSM data is unavailable"""
-    # Use simplified logic to estimate nearest road access
-    # Position access point ~0.5 miles southeast (typical Vermont pattern)
-    bearing_rad = np.radians(135)  # Southeast
-    distance = 0.008  # ~0.5 miles
-    
-    access_lat = target_lat + (distance * np.cos(bearing_rad))
-    access_lon = target_lon + (distance * np.sin(bearing_rad))
+    # Select the most likely access point
+    best_access = max(access_options, key=lambda x: x['likelihood'])
     
     return {
-        'lat': access_lat,
-        'lon': access_lon,
-        'access_type': 'Estimated Road Access',
-        'distance_miles': 0.5,
-        'road_name': 'Nearest Road (Estimated)',
-        'bearing_to_target': 315,  # Northwest back to target
-        'estimated_drive_time': '2 min drive',
-        'data_source': 'fallback'
+        'lat': best_access['lat'],
+        'lon': best_access['lon'], 
+        'access_type': best_access['access_type'],
+        'distance_miles': round(best_access['distance_miles'], 2),
+        'bearing_to_target': best_access['bearing'],
+        'estimated_drive_time': estimate_drive_time(best_access['distance_miles'], best_access['access_type'])
     }
+
+def estimate_road_likelihood(bearing: float, distance: float) -> float:
+    """Estimate likelihood of road access in given direction and distance"""
+    
+    base_likelihood = 50  # Base 50% chance
+    
+    # Vermont road patterns:
+    # - More roads in valleys (south/east aspects more developed)
+    # - Fewer roads on steep north/west faces
+    # - Town roads typically run north-south in valleys
+    
+    if bearing in [135, 180, 225]:  # South-facing aspects
+        base_likelihood += 20  # More development on south slopes
+    elif bearing in [0, 45, 315]:  # North-facing aspects  
+        base_likelihood -= 15  # Less development, steeper terrain
+    
+    # Distance factor - optimal access distance
+    if 0.3 <= distance * 69 <= 0.8:  # 0.3-0.8 miles is optimal
+        base_likelihood += 15
+    elif distance * 69 > 1.5:  # Too far from roads
+        base_likelihood -= 25
+    
+    return max(10, min(90, base_likelihood))
+
+def determine_access_type(distance: float, bearing: float) -> str:
+    """Determine the type of road access based on distance and direction"""
+    
+    distance_miles = distance * 69
+    
+    if distance_miles < 0.4:
+        return "Town Road"
+    elif distance_miles < 0.8:
+        return "Forest Road" 
+    elif distance_miles < 1.2:
+        return "Logging Road"
+    else:
+        return "Gated Road/Trail"
 
 def estimate_drive_time(distance_miles: float, access_type: str) -> str:
     """Estimate driving time to access point"""
     
     # Speed estimates for different road types
     speeds = {
-        "Major Road": 45,         # mph
-        "County Road": 35,        # mph
-        "Town Road": 25,          # mph
-        "Local Road": 20,         # mph
-        "Residential Street": 15, # mph
-        "Service Road": 10,       # mph
-        "Forest/Logging Road": 8, # mph
-        "Trail/Path": 3,          # mph (walking/ATV)
-        "Designated Parking": 25, # mph (assume good access)
-        "Trailhead Parking": 15,  # mph (may be on secondary roads)
-        "Estimated Road Access": 15  # mph (conservative estimate)
+        "Town Road": 25,      # mph
+        "Forest Road": 15,    # mph  
+        "Logging Road": 8,    # mph
+        "Gated Road/Trail": 3 # mph (walking/ATV)
     }
     
-    speed = speeds.get(access_type, 15)
+    speed = speeds.get(access_type, 10)
     time_hours = distance_miles / speed
     time_minutes = time_hours * 60
     
@@ -1838,37 +1600,9 @@ def create_simple_geojson_features(markers: Dict) -> Dict:
         "travel_corridors": {"type": "FeatureCollection", "features": travel_features}
     }
 
-@app.post("/predict", summary="Generate deer movement predictions", tags=["predictions"])
-async def predict_movement(
-    request: PredictionRequest,
-    _: None = Depends(security_check),
-    rules: List[Dict] = Depends(get_prediction_rules)
-) -> PredictionResponse:
-    """
-    Generate comprehensive deer movement predictions for a given location.
-    
-    This endpoint analyzes terrain, weather, vegetation, and seasonal patterns
-    to provide detailed hunting recommendations including:
-    - Bedding areas
-    - Feeding areas  
-    - Travel corridors
-    - Optimal stand locations
-    - Access routes and parking
-    
-    Args:
-        request: Prediction request with coordinates, datetime, and season
-        
-    Returns:
-        Comprehensive prediction response with all analysis data
-        
-    Raises:
-        HTTPException: If prediction fails or input is invalid
-    """
-    logger.info(
-        f"Prediction request: lat={request.lat:.6f}, lon={request.lon:.6f}, "
-        f"season={request.season}, datetime={request.date_time}"
-    )
-    
+@app.post("/predict", summary="Generate deer movement predictions", response_model=PredictionResponse, tags=["predictions"])
+def predict_movement(request: PredictionRequest):
+    logger.info(f"Received prediction request for lat: {request.lat}, lon: {request.lon}, season: {request.season}")
     try:
         # Extract hour from request for thermal calculations
         request_datetime = datetime.fromisoformat(request.date_time.replace('Z', '+00:00'))
@@ -1883,9 +1617,12 @@ async def predict_movement(
         
         elevation_grid = core.get_real_elevation_grid(request.lat, request.lon)
         vegetation_grid = core.get_vegetation_grid_from_osm(request.lat, request.lon)
+        road_proximity = core.get_road_proximity_grid(request.lat, request.lon)
 
         # 2. Analyze features and conditions with Vermont enhancements
         features = core.analyze_terrain_and_vegetation(elevation_grid, vegetation_grid)
+        # Add hunting pressure proxy (near-road penalty support)
+        features["road_proximity"] = road_proximity
         
         # Enhanced conditions with Vermont-specific weather integration
         conditions = {
@@ -1906,74 +1643,18 @@ async def predict_movement(
         score_maps = core.run_grid_rule_engine(rules, features, conditions)
         logger.info(f"Score map stats - Travel: max={np.max(score_maps['travel']):.2f}, Bedding: max={np.max(score_maps['bedding']):.2f}, Feeding: max={np.max(score_maps['feeding']):.2f}")
 
-        # 4. FORCE simple markers - bypass all complex generation
-        logger.info("FORCING SIMPLE MARKER GENERATION - BYPASSING ALL COMPLEX LOGIC")
-        
-        # Create simple test markers manually to verify the system works
-        test_travel_features = []
-        test_bedding_features = []
-        test_feeding_features = []
-        
-        # Generate 3 simple test markers for each type
-        for i in range(3):
-            # Travel markers (blue)
-            test_travel_features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [request.lon + (i * 0.001), request.lat + (i * 0.001)]
-                },
-                "properties": {
-                    "type": "travel",
-                    "score": 8.0 - i,
-                    "rank": i + 1,
-                    "description": f"Travel Area #{i+1} (Score: {8.0 - i:.1f})",
-                    "marker_color": "blue",
-                    "marker_symbol": "footprints"
-                }
-            })
-            
-            # Bedding markers (red)
-            test_bedding_features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [request.lon - (i * 0.001), request.lat + (i * 0.001)]
-                },
-                "properties": {
-                    "type": "bedding",
-                    "score": 9.0 - i,
-                    "rank": i + 1,
-                    "description": f"Bedding Area #{i+1} (Score: {9.0 - i:.1f})",
-                    "marker_color": "red",
-                    "marker_symbol": "tree"
-                }
-            })
-            
-            # Feeding markers (green)
-            test_feeding_features.append({
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [request.lon + (i * 0.001), request.lat - (i * 0.001)]
-                },
-                "properties": {
-                    "type": "feeding",
-                    "score": 7.5 - i,
-                    "rank": i + 1,
-                    "description": f"Feeding Area #{i+1} (Score: {7.5 - i:.1f})",
-                    "marker_color": "green",
-                    "marker_symbol": "leaf"
-                }
-            })
-        
-        # Create the response structure manually
-        travel_corridors = {"type": "FeatureCollection", "features": test_travel_features}
-        bedding_zones = {"type": "FeatureCollection", "features": test_bedding_features}
-        feeding_zones = {"type": "FeatureCollection", "features": test_feeding_features}
-        
-        logger.info(f"FORCED simple markers - travel type: {travel_corridors['features'][0]['geometry']['type']}")
-        logger.info(f"FORCED simple markers - counts: travel={len(travel_corridors['features'])}, bedding={len(bedding_zones['features'])}, feeding={len(feeding_zones['features'])}")
+        # 4. Generate data-driven markers from score maps (top-N points per behavior)
+        markers = generate_simple_markers(score_maps, request.lat, request.lon)
+        geojson_features = create_simple_geojson_features(markers)
+        travel_corridors = geojson_features["travel_corridors"]
+        bedding_zones = geojson_features["bedding_zones"]
+        feeding_zones = geojson_features["feeding_areas"]
+        logger.info(
+            "Generated data-driven markers: travel=%d, bedding=%d, feeding=%d",
+            len(travel_corridors.get('features', [])),
+            len(bedding_zones.get('features', [])),
+            len(feeding_zones.get('features', [])),
+        )
 
         # 5. Calculate overall stand rating with Vermont seasonal weighting
         if request.season == "late_season":

@@ -7,6 +7,18 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any
 from . import core
+from .mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
+
+# Import unified scoring framework
+from .scoring_engine import (
+    get_scoring_engine, 
+    ScoringContext, 
+    score_with_context
+)
+from .distance_scorer import (
+    get_distance_scorer,
+    score_stand_placement
+)
 
 # Configure logging for containers
 logging.basicConfig(
@@ -62,6 +74,7 @@ class PredictionResponse(BaseModel):
     travel_corridors: Dict[str, Any]
     bedding_zones: Dict[str, Any]
     feeding_areas: Dict[str, Any]
+    mature_buck_opportunities: Dict[str, Any] = None  # New field for mature buck predictions
     stand_rating: float
     notes: str
     terrain_heatmap: str
@@ -73,6 +86,7 @@ class PredictionResponse(BaseModel):
     stand_recommendations: List[Dict[str, Any]] = []  # Stand placement recommendations with GPS coordinates
     five_best_stands: List[Dict[str, Any]] = []  # 5 best stand locations with star markers
     hunt_schedule: List[Dict[str, Any]] = []  # 48-hour hourly schedule of best stands
+    mature_buck_analysis: Dict[str, Any] = None  # Detailed mature buck analysis
 
 # --- Utility Functions ---
 def load_rules():
@@ -301,8 +315,8 @@ def get_five_best_stand_locations(lat: float, lon: float, terrain_features: Dict
     current_hour = int(weather_data.get('hour', 17))  # Default to evening hunt time
     thermal_data = calculate_thermal_wind_effect(lat, lon, current_hour)
     
-    # Collect unique access points (we want only 1-2 total for the entire hunting area)
-    access_points_found = []
+    # We'll assign access points per-stand, then rebuild a unique list after sorting
+    access_points_found = []  # kept for backward compatibility; final list rebuilt later
     
     for i, pattern in enumerate(search_patterns):
         # Calculate stand coordinates - use provided coordinates if available, otherwise calculate
@@ -338,34 +352,9 @@ def get_five_best_stand_locations(lat: float, lon: float, terrain_features: Dict
             terrain_features, wind_direction, thermal_data, season, weather_data
         )
         
-        # Add access point information to the route analysis
+        # Add access point information to the route analysis and record key
         access_route['access_point'] = nearest_access
-        
-        # Collect unique access points (avoid duplicates within ~100 yards)
         access_point_key = f"{round(nearest_access['lat'], 4)}_{round(nearest_access['lon'], 4)}"
-        is_duplicate = False
-        for existing_access in access_points_found:
-            if abs(existing_access['lat'] - nearest_access['lat']) < 0.001 and \
-               abs(existing_access['lon'] - nearest_access['lon']) < 0.001:
-                is_duplicate = True
-                break
-        
-        if not is_duplicate and len(access_points_found) < 2:  # Limit to max 2 access points
-            access_points_found.append({
-                'lat': round(nearest_access['lat'], 6),
-                'lon': round(nearest_access['lon'], 6),
-                'access_type': nearest_access['access_type'],
-                'distance_miles': nearest_access['distance_miles'],
-                'estimated_drive_time': nearest_access['estimated_drive_time'],
-                'serves_stands': [i+1]  # Track which stands this access point serves
-            })
-        else:
-            # Update existing access point to show it serves this stand too
-            for existing_access in access_points_found:
-                if abs(existing_access['lat'] - nearest_access['lat']) < 0.001 and \
-                   abs(existing_access['lon'] - nearest_access['lon']) < 0.001:
-                    existing_access['serves_stands'].append(i+1)
-                    break
         
         # Enhanced setup notes with zone reasoning
         setup_notes = generate_enhanced_setup_notes(stand_type, pattern, wind_direction, season, thermal_data)
@@ -387,6 +376,7 @@ def get_five_best_stand_locations(lat: float, lon: float, terrain_features: Dict
             'wind_favorability': calculate_combined_wind_favorability(actual_direction, wind_direction, thermal_data, terrain_features),
             'thermal_advantage': thermal_data['hunting_advantage'] if thermal_data['is_thermal_active'] else None,
             'access_route': access_route,
+            'access_point_key': access_point_key,
             'marker_symbol': 'X',  # X marks the spot!
             'zone_type': pattern.get('type', 'geometric'),
             'zone_reasoning': pattern.get('reasoning', 'Standard geometric positioning')
@@ -397,27 +387,42 @@ def get_five_best_stand_locations(lat: float, lon: float, terrain_features: Dict
     # Sort by confidence score (highest first)
     stand_locations.sort(key=lambda x: x['confidence'], reverse=True)
     
-    # Add unique access points to the return data
-    for i, stand in enumerate(stand_locations):
-        stand['unique_access_points'] = access_points_found
+    # Rebuild unique access points AFTER sorting so served stand numbers match display order
+    access_map = {}
+    limited_keys = []
+    for idx, stand in enumerate(stand_locations, start=1):
+        ap = stand.get('access_route', {}).get('access_point')
+        key = stand.get('access_point_key')
+        if not ap or not key:
+            continue
+        if key not in access_map:
+            # Respect the 1-2 access points maximum by following top-ranked stands first
+            if len(limited_keys) >= 2:
+                continue
+            access_map[key] = {
+                'lat': round(ap['lat'], 6),
+                'lon': round(ap['lon'], 6),
+                'access_type': ap.get('access_type', 'Road'),
+                'distance_miles': ap.get('distance_miles'),
+                'estimated_drive_time': ap.get('estimated_drive_time', ''),
+                'serves_stands': []
+            }
+            limited_keys.append(key)
+        # Append the visible stand number to this access point
+        if key in access_map:
+            access_map[key]['serves_stands'].append(idx)
+
+    unique_access_points = list(access_map.values())
+    for stand in stand_locations:
+        stand['unique_access_points'] = unique_access_points
     
     return stand_locations
 
 
 def score_wind_favorability(stand_bearing: float, wind_direction: float) -> float:
-    """Basic wind favorability (0-100) for use in scheduling."""
-    angle_diff = abs(stand_bearing - wind_direction)
-    if angle_diff > 180:
-        angle_diff = 360 - angle_diff
-    if angle_diff <= 30:
-        return 90
-    if angle_diff <= 60:
-        return 75
-    if angle_diff <= 90:
-        return 60
-    if angle_diff <= 120:
-        return 40
-    return 25
+    """Wind favorability scoring using unified framework"""
+    scoring_engine = get_scoring_engine()
+    return scoring_engine.calculate_wind_favorability(stand_bearing, wind_direction)
 
 
 def determine_stand_type(pattern: Dict, terrain_features: Dict, wind_direction: float, season: str) -> str:
@@ -551,37 +556,43 @@ def generate_enhanced_setup_notes(stand_type: str, pattern: Dict, wind_direction
 
 
 def calculate_stand_confidence(pattern: Dict, terrain_features: Dict, weather_data: Dict, season: str, wind_direction: float) -> float:
-    """Calculate confidence score for stand placement (0-100)"""
-    base_confidence = 70  # Start with base confidence
+    """Calculate confidence score for stand placement using unified framework"""
+    # Create scoring context
+    context = ScoringContext(
+        season=season,
+        time_of_day=weather_data.get('hour', 12),
+        weather_conditions=weather_data.get('conditions', ['clear']),
+        pressure_level=weather_data.get('pressure_level', 'moderate')
+    )
     
-    # Distance factor (closer is generally better for bow hunting)
-    if pattern['distance'] < 0.0006:  # Under 100 yards
-        base_confidence += 10
-    elif pattern['distance'] > 0.001:  # Over 150 yards
-        base_confidence -= 5
+    # Use unified confidence scoring
+    scoring_engine = get_scoring_engine()
+    distance_scorer = get_distance_scorer()
     
-    # Wind favorability
-    wind_score = calculate_wind_favorability(pattern['direction'], wind_direction)
-    base_confidence += (wind_score - 50) * 0.3  # Adjust based on wind
+    # Calculate terrain-based confidence
+    terrain_confidence = scoring_engine.calculate_confidence_score(
+        terrain_features, context, "general"
+    )
     
-    # Terrain features bonus
-    if terrain_features.get('saddles') and 270 <= pattern['direction'] <= 90:
-        base_confidence += 15  # Good saddle coverage
-    if terrain_features.get('ridges') and pattern['direction'] in [0, 45, 315]:
-        base_confidence += 10  # Ridge approach coverage
+    # Calculate distance score for stand placement
+    distance_yards = pattern['distance'] * 1760  # Convert to yards (rough conversion)
+    distance_score = distance_scorer.calculate_stand_placement_score(distance_yards)
     
-    # Seasonal adjustments
-    if season == "rut":
-        if pattern['distance'] > 0.0008:  # Rut - longer shots are okay
-            base_confidence += 5
-    elif season == "early_season":
-        if pattern['distance'] < 0.0007:  # Early season - close encounters
-            base_confidence += 8
+    # Calculate wind favorability
+    wind_score = scoring_engine.calculate_wind_favorability(pattern['direction'], wind_direction)
     
-    # Priority bonus
-    base_confidence += (5 - pattern['priority']) * 3
+    # Combine scores with weights
+    final_confidence = (
+        terrain_confidence * 0.4 +
+        distance_score * 0.3 +
+        wind_score * 0.3
+    )
     
-    return min(max(base_confidence, 25), 95)  # Keep between 25-95
+    # Apply priority bonus
+    priority_bonus = (5 - pattern['priority']) * 2
+    final_confidence += priority_bonus
+    
+    return min(max(final_confidence, 25), 95)  # Keep between 25-95
 
 
 def find_nearest_road_access(target_lat: float, target_lon: float) -> Dict:
@@ -980,30 +991,34 @@ def get_seasonal_risk_factors(season: str, terrain_type: str) -> List[str]:
     return factors
 
 def calculate_route_stealth_score(terrain_analysis: Dict, wind_impact: Dict, deer_zones: Dict, distance_yards: float) -> float:
-    """Calculate overall stealth score for access route (0-100, higher is better)"""
+    """Calculate overall stealth score for access route using unified framework"""
+    # Use distance scorer for concealment and stealth evaluation
+    distance_scorer = get_distance_scorer()
+    scoring_engine = get_scoring_engine()
     
-    # Base score from concealment
-    concealment_score = terrain_analysis['concealment_score']
+    # Calculate concealment score using unified framework
+    visibility_distance = scoring_engine.safe_float_conversion(
+        terrain_analysis.get('visibility_distance'), 50.0
+    )
+    concealment_score = distance_scorer.calculate_concealment_score(visibility_distance)
     
-    # Wind/thermal score
-    scent_score = wind_impact['combined_scent_score']
+    # Get scent score
+    scent_score = scoring_engine.safe_float_conversion(
+        wind_impact.get('combined_scent_score'), 50.0
+    )
     
-    # Deer disturbance penalty
-    disturbance_penalty = deer_zones['disturbance_score']
+    # Calculate disturbance score
+    disturbance_penalty = scoring_engine.safe_float_conversion(
+        deer_zones.get('disturbance_score'), 0.0
+    )
     
-    # Distance factor (longer routes are riskier)
-    if distance_yards <= 200:
-        distance_score = 90
-    elif distance_yards <= 400:
-        distance_score = 80
-    elif distance_yards <= 600:
-        distance_score = 70
-    else:
-        distance_score = 60
+    # Use unified distance scoring for route length
+    distance_score = distance_scorer.calculate_stand_placement_score(distance_yards)
     
-    # Noise factor
+    # Noise evaluation using terrain assessment
+    noise_level = terrain_analysis.get('noise_level', 'moderate')
     noise_scores = {'very_low': 90, 'low': 80, 'moderate': 60, 'high': 40}
-    noise_score = noise_scores.get(terrain_analysis['noise_level'], 50)
+    noise_score = noise_scores.get(noise_level, 50)
     
     # Weighted calculation
     stealth_score = (
@@ -1602,6 +1617,126 @@ def get_season_timing(season: str, stand_type: str) -> str:
     }
     return timing_map.get(season, {}).get(stand_type, 'Dawn and dusk hunting')
 
+def generate_mature_buck_predictions(lat: float, lon: float, terrain_features: Dict, 
+                                    weather_data: Dict, season: str, time_of_day: int) -> Dict:
+    """
+    Generate mature buck specific predictions and stand recommendations
+    
+    Args:
+        lat: Latitude coordinate
+        lon: Longitude coordinate
+        terrain_features: Terrain analysis results
+        weather_data: Current weather conditions
+        season: Hunting season
+        time_of_day: Hour of day (0-23)
+        
+    Returns:
+        Dict containing mature buck predictions, markers, and stand recommendations
+    """
+    logger.info(f"Generating mature buck predictions for {lat}, {lon}")
+    
+    # Get mature buck predictor instance
+    buck_predictor = get_mature_buck_predictor()
+    
+    # Analyze terrain suitability for mature bucks
+    mature_buck_scores = buck_predictor.analyze_mature_buck_terrain(terrain_features, lat, lon)
+    
+    # Predict movement patterns
+    movement_prediction = buck_predictor.predict_mature_buck_movement(
+        season, time_of_day, terrain_features, weather_data, lat, lon
+    )
+    
+    # Generate specialized stand recommendations
+    stand_recommendations = generate_mature_buck_stand_recommendations(
+        terrain_features, mature_buck_scores, lat, lon
+    )
+    
+    # Create mature buck opportunity markers (only if suitability is good enough)
+    mature_buck_markers = []
+    
+    if mature_buck_scores['overall_suitability'] >= 60.0:  # Threshold for mature buck viability
+        # Generate 1-3 mature buck opportunity markers based on terrain quality
+        num_opportunities = min(3, max(1, int(mature_buck_scores['overall_suitability'] / 30)))
+        
+        for i in range(num_opportunities):
+            # Position markers strategically around high-quality areas
+            offset_distance = 0.0003 + (i * 0.0002)  # 33-55 yards apart
+            offset_angle = 45 + (i * 120)  # Spread around circle
+            
+            angle_rad = np.radians(offset_angle)
+            marker_lat = lat + (offset_distance * np.cos(angle_rad))
+            marker_lon = lon + (offset_distance * np.sin(angle_rad))
+            
+            # Calculate confidence based on terrain scores and movement prediction
+            confidence = (mature_buck_scores['overall_suitability'] + 
+                         movement_prediction['confidence_score']) / 2
+            
+            mature_buck_markers.append({
+                'lat': marker_lat,
+                'lon': marker_lon,
+                'confidence': round(confidence, 1),
+                'rank': i + 1,
+                'type': 'mature_buck_opportunity',
+                'description': f"Mature Buck Stand #{i+1} (Confidence: {confidence:.1f}%)",
+                'terrain_score': mature_buck_scores['overall_suitability'],
+                'movement_probability': movement_prediction['movement_probability'],
+                'pressure_resistance': mature_buck_scores['pressure_resistance'],
+                'escape_routes': mature_buck_scores['escape_route_quality'],
+                'behavioral_notes': movement_prediction['behavioral_notes'][:3]  # Top 3 notes
+            })
+    
+    return {
+        'terrain_scores': mature_buck_scores,
+        'movement_prediction': movement_prediction,
+        'stand_recommendations': stand_recommendations,
+        'opportunity_markers': mature_buck_markers,
+        'viable_location': mature_buck_scores['overall_suitability'] >= 60.0,
+        'confidence_summary': {
+            'overall_suitability': mature_buck_scores['overall_suitability'],
+            'movement_confidence': movement_prediction['confidence_score'],
+            'pressure_tolerance': mature_buck_scores['pressure_resistance']
+        }
+    }
+
+
+def create_mature_buck_geojson_features(mature_buck_data: Dict) -> Dict:
+    """Convert mature buck markers to GeoJSON format with distinctive styling"""
+    
+    mature_buck_features = []
+    
+    if mature_buck_data['viable_location']:
+        for marker in mature_buck_data['opportunity_markers']:
+            # Create distinctive mature buck marker with crosshairs symbol and dark red color
+            mature_buck_features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [marker['lon'], marker['lat']]
+                },
+                "properties": {
+                    "type": "mature_buck",
+                    "confidence": marker['confidence'],
+                    "rank": marker['rank'],
+                    "description": marker['description'],
+                    "marker_color": "darkred",  # Dark red for mature bucks
+                    "marker_symbol": "cross",   # Crosshairs symbol
+                    "marker_size": "large",     # Larger size for emphasis
+                    "terrain_score": marker['terrain_score'],
+                    "movement_probability": marker['movement_probability'],
+                    "pressure_resistance": marker['pressure_resistance'],
+                    "escape_routes": marker['escape_routes'],
+                    "behavioral_notes": marker['behavioral_notes'],
+                    "hunting_notes": [
+                        f"Terrain Suitability: {marker['terrain_score']:.1f}%",
+                        f"Movement Probability: {marker['movement_probability']:.1f}%", 
+                        f"Pressure Resistance: {marker['pressure_resistance']:.1f}%"
+                    ]
+                }
+            })
+    
+    return {"type": "FeatureCollection", "features": mature_buck_features}
+
+
 def generate_simple_markers(score_maps: Dict, center_lat: float, center_lon: float) -> Dict:
     """Generate simple marker locations for bedding, feeding, and travel areas instead of complex zones"""
     
@@ -1631,8 +1766,8 @@ def generate_simple_markers(score_maps: Dict, center_lat: float, center_lon: flo
     
     return markers
 
-def create_simple_geojson_features(markers: Dict) -> Dict:
-    """Convert simple markers to GeoJSON format for the frontend"""
+def create_simple_geojson_features(markers: Dict, mature_buck_features: Dict = None) -> Dict:
+    """Convert simple markers to GeoJSON format for the frontend, including mature buck features"""
     
     # Bedding areas (red markers)
     bedding_features = []
@@ -1691,11 +1826,17 @@ def create_simple_geojson_features(markers: Dict) -> Dict:
             }
         })
     
-    return {
+    result = {
         "bedding_zones": {"type": "FeatureCollection", "features": bedding_features},
         "feeding_areas": {"type": "FeatureCollection", "features": feeding_features},
         "travel_corridors": {"type": "FeatureCollection", "features": travel_features}
     }
+    
+    # Add mature buck features if provided
+    if mature_buck_features:
+        result["mature_buck_opportunities"] = mature_buck_features
+    
+    return result
 
 @app.post("/predict", summary="Generate deer movement predictions", response_model=PredictionResponse, tags=["predictions"])
 def predict_movement(request: PredictionRequest):
@@ -1742,15 +1883,61 @@ def predict_movement(request: PredictionRequest):
 
         # 4. Generate data-driven markers from score maps (top-N points per behavior)
         markers = generate_simple_markers(score_maps, request.lat, request.lon)
-        geojson_features = create_simple_geojson_features(markers)
+        
+        # 4.5. Generate mature buck predictions and markers
+        mature_buck_data = generate_mature_buck_predictions(
+            request.lat, request.lon, features, weather_data, request.season, current_hour
+        )
+        
+        # 4.6. Integrate ML enhancement if available  
+        try:
+            from .ml_enhanced_predictor import MLEnhancedMatureBuckPredictor
+            buck_predictor = get_mature_buck_predictor()
+            ml_predictor = MLEnhancedMatureBuckPredictor(base_model=buck_predictor)
+            
+            # Test accuracy improvement if requested
+            if request.lat == 44.26 and request.lon == -72.58:  # Special coordinates for testing
+                logger.info("🧪 Running ML accuracy test on synthetic data...")
+                testing_framework = ml_predictor.create_accuracy_testing_framework()
+                accuracy_results = testing_framework.run_accuracy_comparison()
+                
+                mature_buck_data['ml_test_results'] = accuracy_results
+            
+            # Use ML-enhanced predictions for mature buck analysis
+            ml_enhanced_prediction = ml_predictor.predict_with_ml_enhancement(
+                request.lat, request.lon, features, weather_data, request.season, current_hour
+            )
+            
+            # Update mature buck data with ML insights
+            if ml_enhanced_prediction['has_ml_enhancement']:
+                mature_buck_data['ml_enhanced'] = True
+                mature_buck_data['ml_confidence_boost'] = ml_enhanced_prediction['confidence_boost']
+                
+                # Boost confidence scores for high-probability ML predictions
+                for marker in mature_buck_data['opportunity_markers']:
+                    marker['confidence'] = min(95, marker['confidence'] + ml_enhanced_prediction['confidence_boost'])
+                    marker['ml_enhanced'] = True
+            
+        except ImportError:
+            logger.info("ML enhancement not available - using rule-based predictions only")
+        except Exception as e:
+            logger.warning(f"ML enhancement failed: {e} - falling back to rule-based predictions")
+        
+        mature_buck_geojson = create_mature_buck_geojson_features(mature_buck_data)
+        
+        # Create GeoJSON features including mature buck opportunities
+        geojson_features = create_simple_geojson_features(markers, mature_buck_geojson)
         travel_corridors = geojson_features["travel_corridors"]
         bedding_zones = geojson_features["bedding_zones"]
         feeding_zones = geojson_features["feeding_areas"]
+        mature_buck_opportunities = geojson_features.get("mature_buck_opportunities")
+        
         logger.info(
-            "Generated data-driven markers: travel=%d, bedding=%d, feeding=%d",
+            "Generated markers: travel=%d, bedding=%d, feeding=%d, mature_buck=%d",
             len(travel_corridors.get('features', [])),
             len(bedding_zones.get('features', [])),
             len(feeding_zones.get('features', [])),
+            len(mature_buck_opportunities.get('features', [])) if mature_buck_opportunities else 0,
         )
 
         # 5. Calculate overall stand rating with Vermont seasonal weighting
@@ -1797,7 +1984,7 @@ def predict_movement(request: PredictionRequest):
             cmap='RdYlBu_r'
         )
 
-        # 8. Create enhanced notes with Vermont-specific context and heatmap explanations
+        # 9. Create enhanced notes with Vermont-specific context and heatmap explanations
         notes = f"🏔️ **Vermont White-tailed Deer Predictions** - Enhanced grid analysis for {request.season} season.\n\n"
         
         # Add heatmap interpretation guide
@@ -1811,7 +1998,32 @@ def predict_movement(request: PredictionRequest):
         notes += f"• **Travel Markers (Blue)**: Point markers showing prime travel corridors - ideal for morning/evening hunts\n"
         notes += f"• **Bedding Markers (Red)**: Point markers for top bedding areas in thick cover, especially {_get_bedding_preference(request.season)}\n"
         notes += f"• **Feeding Markers (Green)**: Point markers for feeding areas near {_get_feeding_preference(request.season)}\n"
-        notes += f"• **🎯 Stand Locations (⭐)**: Star markers positioned strategically to intercept deer moving between activity areas\n\n"
+        notes += f"• **🎯 Stand Locations (⭐)**: Star markers positioned strategically to intercept deer moving between activity areas\n"
+        
+        # Add mature buck opportunities section
+        if mature_buck_data['viable_location']:
+            num_opportunities = len(mature_buck_data['opportunity_markers'])
+            notes += f"• **🏹 Mature Buck Opportunities (🎯)**: {num_opportunities} crosshair markers for mature whitetail bucks (3.5+ years)\n"
+            notes += f"  - Overall Terrain Suitability: {mature_buck_data['confidence_summary']['overall_suitability']:.1f}%\n"
+            notes += f"  - Movement Confidence: {mature_buck_data['confidence_summary']['movement_confidence']:.1f}%\n"
+            notes += f"  - Pressure Resistance: {mature_buck_data['confidence_summary']['pressure_tolerance']:.1f}%\n"
+            
+            # Add ML enhancement info if available
+            if mature_buck_data.get('ml_enhanced'):
+                notes += f"  - 🤖 ML Enhancement: +{mature_buck_data['ml_confidence_boost']:.1f}% confidence boost\n"
+        else:
+            notes += f"• **🏹 Mature Buck Assessment**: Location below threshold for mature buck targeting (terrain suitability: {mature_buck_data['confidence_summary']['overall_suitability']:.1f}%)\n"
+        
+        # Add ML test results if available
+        if mature_buck_data.get('ml_test_results'):
+            test_results = mature_buck_data['ml_test_results']
+            notes += f"\n🧪 **ML Accuracy Test Results** (Coordinates: 44.26, -72.58):\n"
+            notes += f"• Rule-based Accuracy: {test_results['rule_based_accuracy']:.1f}%\n"
+            notes += f"• ML-enhanced Accuracy: {test_results['ml_accuracy']:.1f}%\n"
+            notes += f"• Improvement: +{test_results['improvement']:.1f}%\n"
+            notes += f"• Test Samples: {test_results['test_samples']}\n"
+        
+        notes += "\n"
         
         # Add weather context and thermal analysis
         if weather_data.get("conditions"):
@@ -1901,15 +2113,22 @@ def predict_movement(request: PredictionRequest):
         if request.season == "rut":
             notes += "• Focus on travel corridors (red areas) - bucks are moving extensively\n"
             notes += "• Hunt saddles, ridge connections, and funnels\n"
-            notes += "• Morning and evening movement peaks\n\n"
+            notes += "• Morning and evening movement peaks\n"
+            if mature_buck_data['viable_location']:
+                notes += "• **🏹 Mature Buck Rut Strategy**: Target crosshair markers during peak movement (10 AM-2 PM)\n"
         elif request.season == "late_season":
             notes += "• Emphasize bedding areas (red zones) - winter survival mode\n"
             notes += "• Look for south-facing slopes and dense conifer cover\n"
-            notes += "• Midday activity when temperatures are warmest\n\n"
+            notes += "• Midday activity when temperatures are warmest\n"
+            if mature_buck_data['viable_location']:
+                notes += "• **🏹 Mature Buck Late Season**: Focus on thermal cover and energy conservation patterns\n"
         else:  # early_season
             notes += "• Balance feeding and bedding areas\n"
             notes += "• Focus on mast crops (acorns, apples) and field edges\n"
-            notes += "• Establish pattern before hunting pressure increases\n\n"
+            notes += "• Establish pattern before hunting pressure increases\n"
+            if mature_buck_data['viable_location']:
+                notes += "• **🏹 Mature Buck Early Season**: Target secluded feeding areas and escape routes\n"
+        notes += "\n"
         
         # Add current location rating context
         notes += f"📍 **This Location**: Overall rating {stand_rating}/10\n"
@@ -1924,6 +2143,34 @@ def predict_movement(request: PredictionRequest):
         
         if suggested_spots:
             notes += f"\n🎯 **Better Spots Available**: {len(suggested_spots)} higher-rated locations marked on map"
+        
+        # Add detailed mature buck analysis if location is viable
+        if mature_buck_data['viable_location']:
+            notes += f"\n\n🏹 **Mature Buck Analysis** (3.5+ year whitetails):\n"
+            notes += f"**Terrain Assessment:**\n"
+            notes += f"• Bedding Suitability: {mature_buck_data['terrain_scores']['bedding_suitability']:.1f}%\n"
+            notes += f"• Escape Route Quality: {mature_buck_data['terrain_scores']['escape_route_quality']:.1f}%\n"
+            notes += f"• Isolation Score: {mature_buck_data['terrain_scores']['isolation_score']:.1f}%\n"
+            notes += f"• Pressure Resistance: {mature_buck_data['terrain_scores']['pressure_resistance']:.1f}%\n\n"
+            
+            notes += f"**Movement Prediction** (Current Hour {current_hour:02d}:00):\n"
+            notes += f"• Movement Probability: {mature_buck_data['movement_prediction']['movement_probability']:.1f}%\n"
+            if mature_buck_data['movement_prediction']['preferred_times']:
+                notes += f"• Best Times: {', '.join(mature_buck_data['movement_prediction']['preferred_times'][:2])}\n"
+            
+            # Add behavioral insights
+            behavioral_notes = mature_buck_data['movement_prediction']['behavioral_notes']
+            if behavioral_notes:
+                notes += f"**Behavioral Insights:**\n"
+                for note in behavioral_notes[:3]:  # Top 3 behavioral notes
+                    notes += f"• {note}\n"
+            
+            # Add specialized stand recommendations
+            if mature_buck_data['stand_recommendations']:
+                notes += f"\n**Specialized Mature Buck Stands:**\n"
+                for i, rec in enumerate(mature_buck_data['stand_recommendations'][:2], 1):
+                    notes += f"{i}. **{rec['type']}** - {rec['description']}\n"
+                    notes += f"   📍 Confidence: {rec['confidence']:.0f}% | Best Times: {rec['best_times']}\n"
 
         # 9. Generate the 5 best stand locations around the prediction point using actual score maps
         five_best_stands = get_five_best_stand_locations(
@@ -1984,6 +2231,7 @@ def predict_movement(request: PredictionRequest):
             travel_corridors=travel_corridors,
             bedding_zones=bedding_zones,
             feeding_areas=feeding_zones,
+            mature_buck_opportunities=mature_buck_opportunities,
             stand_rating=stand_rating,
             notes=notes,
             terrain_heatmap=terrain_heatmap,
@@ -1994,7 +2242,8 @@ def predict_movement(request: PredictionRequest):
             suggested_spots=suggested_spots,
             stand_recommendations=stand_recommendations,
             five_best_stands=five_best_stands,  # Add the 5 best stand locations
-            hunt_schedule=hunt_schedule
+            hunt_schedule=hunt_schedule,
+            mature_buck_analysis=mature_buck_data  # Add complete mature buck analysis
         )
 
     except Exception as e:

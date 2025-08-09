@@ -22,17 +22,26 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 import logging
 
+# Import configuration management
+from .config_manager import get_config
+
 logger = logging.getLogger(__name__)
 
 @dataclass
 class ProximityFactors:
-    """Configuration for proximity-based scoring"""
-    road_impact_range: float = 500.0      # Yards
-    agricultural_benefit_range: float = 800.0  # Yards  
-    stand_optimal_min: float = 30.0       # Yards
-    stand_optimal_max: float = 200.0      # Yards
-    escape_route_max: float = 300.0       # Yards
-    concealment_critical: float = 100.0   # Yards
+    """Configuration for proximity-based scoring - now loaded from config"""
+    
+    def __init__(self):
+        """Initialize proximity factors from configuration"""
+        config = get_config()
+        distance_params = config.get_distance_parameters()
+        
+        self.road_impact_range = distance_params.get('road_impact_range', 500.0)
+        self.agricultural_benefit_range = distance_params.get('agricultural_benefit_range', 800.0)
+        self.stand_optimal_min = distance_params.get('stand_optimal_min', 30.0)
+        self.stand_optimal_max = distance_params.get('stand_optimal_max', 200.0)
+        self.escape_route_max = distance_params.get('escape_route_max', 300.0)
+        self.concealment_critical = distance_params.get('concealment_critical', 100.0)
 
 class DistanceScorer:
     """
@@ -42,7 +51,7 @@ class DistanceScorer:
     def __init__(self, proximity_factors: Optional[ProximityFactors] = None):
         """Initialize distance scorer with configuration"""
         self.factors = proximity_factors or ProximityFactors()
-        logger.info("📏 Distance Scorer initialized")
+        logger.info("📏 Distance Scorer initialized with configuration")
     
     def safe_distance_conversion(self, value: Any, default: float = 0.0) -> float:
         """Safely convert distance value to float"""

@@ -1,0 +1,31 @@
+# Production Configuration
+# Inherits from defaults.yaml with production-specific overrides
+
+deer_prediction_config:
+  version: "1.0.0-prod"
+  description: "Production environment configuration"
+  
+  # Production-optimized settings
+  api_settings:
+    suggestion_threshold: 6.0          # Higher threshold for quality suggestions
+    min_suggestion_rating: 9.0         # Higher quality bar for production
+    
+  # Conservative scoring for production reliability
+  scoring_factors:
+    base_values:
+      max_confidence: 90               # Slightly more conservative max
+      
+  # Production ML parameters
+  ml_parameters:
+    model_confidence_threshold: 0.7     # Higher confidence required
+    training_data_min_samples: 200     # More samples for production stability
+    
+  # Strict validation for production
+  validation:
+    confidence_range: [0, 95]          # Strict range enforcement
+    
+  # Production monitoring
+  monitoring:
+    enable_performance_tracking: true
+    enable_prediction_auditing: true
+    log_parameter_usage: true

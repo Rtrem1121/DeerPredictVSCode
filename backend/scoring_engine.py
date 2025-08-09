@@ -24,6 +24,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 import math
 
+# Import configuration management
+from .config_manager import get_config
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -63,13 +66,19 @@ class TerrainScoreComponents:
     isolation_score: float = 0.0
     
     def total_score(self, weights: Optional[Dict[str, float]] = None) -> float:
-        """Calculate weighted total terrain score"""
+        """Calculate weighted total terrain score using configuration"""
         if weights is None:
-            weights = {
-                'elevation': 0.15, 'slope': 0.15, 'aspect': 0.10,
-                'cover': 0.25, 'drainage': 0.15, 'connectivity': 0.10,
-                'isolation': 0.10
-            }
+            # Get weights from configuration
+            config = get_config()
+            weights = config.get_terrain_weights()
+            
+            # Fallback defaults if configuration missing
+            if not weights:
+                weights = {
+                    'elevation': 0.15, 'slope': 0.15, 'aspect': 0.10,
+                    'cover': 0.25, 'drainage': 0.15, 'connectivity': 0.10,
+                    'isolation': 0.10
+                }
         
         return (
             self.elevation_score * weights.get('elevation', 0.15) +
@@ -87,39 +96,38 @@ class ScoringEngine:
     """
     
     def __init__(self):
-        """Initialize the scoring engine with default parameters"""
+        """Initialize the scoring engine with configuration-based parameters"""
+        self.config = get_config()
         self.seasonal_weights = self._initialize_seasonal_weights()
         self.weather_modifiers = self._initialize_weather_modifiers()
         self.terrain_preferences = self._initialize_terrain_preferences()
         
-        logger.info("🎯 Scoring Engine initialized")
+        logger.info("🎯 Scoring Engine initialized with configuration")
     
     def _initialize_seasonal_weights(self) -> Dict[str, Dict[str, float]]:
-        """Initialize seasonal weighting factors"""
-        return {
-            "early_season": {
-                "travel": 1.0,
-                "bedding": 1.0,
-                "feeding": 1.2,
-                "movement": 0.9
-            },
-            "rut": {
-                "travel": 1.3,
-                "bedding": 0.9,
-                "feeding": 1.0,
-                "movement": 1.4
-            },
-            "late_season": {
-                "travel": 0.8,
-                "bedding": 1.5,
-                "feeding": 1.1,
-                "movement": 0.7
-            }
+        """Initialize seasonal weighting factors from configuration"""
+        config_weights = self.config.get_seasonal_weights()
+        
+        # Provide fallback defaults if configuration is missing
+        defaults = {
+            "early_season": {"travel": 1.0, "bedding": 1.0, "feeding": 1.2, "movement": 0.9},
+            "rut": {"travel": 1.3, "bedding": 0.9, "feeding": 1.0, "movement": 1.4},
+            "late_season": {"travel": 0.8, "bedding": 1.5, "feeding": 1.1, "movement": 0.7}
         }
+        
+        # Merge configuration with defaults
+        for season in defaults:
+            if season in config_weights:
+                defaults[season].update(config_weights[season])
+        
+        return defaults
     
     def _initialize_weather_modifiers(self) -> Dict[str, Dict[str, float]]:
-        """Initialize weather impact modifiers"""
-        return {
+        """Initialize weather impact modifiers from configuration"""
+        config_modifiers = self.config.get_weather_modifiers()
+        
+        # Provide fallback defaults
+        defaults = {
             "clear": {"travel": 1.0, "bedding": 1.0, "feeding": 1.0},
             "cloudy": {"travel": 1.1, "bedding": 1.0, "feeding": 1.0},
             "light_rain": {"travel": 0.8, "bedding": 1.2, "feeding": 0.9},
@@ -129,6 +137,10 @@ class ScoringEngine:
             "hot": {"travel": 0.6, "bedding": 1.4, "feeding": 0.7},
             "windy": {"travel": 0.8, "bedding": 1.2, "feeding": 0.9}
         }
+        
+        # Update with configuration values
+        defaults.update(config_modifiers)
+        return defaults
     
     def _initialize_terrain_preferences(self) -> Dict[str, Dict[str, Tuple[float, float]]]:
         """Initialize terrain preference ranges (min, max) for different behaviors"""

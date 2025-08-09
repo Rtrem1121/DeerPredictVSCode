@@ -1,0 +1,41 @@
+# Testing Configuration
+# Minimal configuration for unit and integration testing
+
+deer_prediction_config:
+  version: "1.0.0-test"
+  description: "Testing environment configuration"
+  
+  # Simplified parameters for predictable testing
+  mature_buck_preferences:
+    habitat:
+      min_bedding_thickness: 50.0      # Lower for easier test setup
+      escape_route_count: 2            # Fewer routes needed for testing
+      human_avoidance_buffer: 500.0    # Smaller buffer for test scenarios
+      
+  # Simplified scoring for test validation
+  scoring_factors:
+    confidence_bonuses:
+      thick_cover_bonus: 10.0          # Round numbers for easy validation
+      escape_route_bonus: 10.0
+      elevation_bonus: 10.0
+      isolation_bonus: 10.0
+      water_proximity_bonus: 5.0
+      terrain_complexity_bonus: 5.0
+      
+    base_values:
+      base_confidence: 50              # Lower base for more test range
+      
+  # Simplified seasonal weights
+  seasonal_weights:
+    early_season: {travel: 1.0, bedding: 1.0, feeding: 1.0, movement: 1.0}
+    rut: {travel: 1.2, bedding: 1.0, feeding: 1.0, movement: 1.2}
+    late_season: {travel: 1.0, bedding: 1.2, feeding: 1.0, movement: 0.8}
+    
+  # Test-friendly API settings
+  api_settings:
+    suggestion_threshold: 1.0          # Very low for comprehensive testing
+    min_suggestion_rating: 2.0         # Low minimum for test coverage
+    
+  # Relaxed validation for testing edge cases
+  validation:
+    confidence_range: [-50, 150]       # Wide range for edge case testing

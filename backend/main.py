@@ -20,6 +20,9 @@ from .distance_scorer import (
     score_stand_placement
 )
 
+# Import configuration management
+from .config_manager import get_config
+
 # Configure logging for containers
 logging.basicConfig(
     level=logging.INFO,
@@ -67,8 +70,18 @@ class PredictionRequest(BaseModel):
     lon: float
     date_time: str # ISO format
     season: str # e.g., "rut", "early_season", "late_season"
-    suggestion_threshold: float = 5.0  # Show suggestions when rating is below this
-    min_suggestion_rating: float = 8.0  # Minimum rating for suggestions
+    # These will be loaded from configuration
+    suggestion_threshold: float = None  # Show suggestions when rating is below this
+    min_suggestion_rating: float = None  # Minimum rating for suggestions
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Load API settings from configuration if not provided
+        if self.suggestion_threshold is None or self.min_suggestion_rating is None:
+            config = get_config()
+            api_settings = config.get_api_settings()
+            self.suggestion_threshold = self.suggestion_threshold or api_settings.get('suggestion_threshold', 5.0)
+            self.min_suggestion_rating = self.min_suggestion_rating or api_settings.get('min_suggestion_rating', 8.0)
 
 class PredictionResponse(BaseModel):
     travel_corridors: Dict[str, Any]
@@ -140,10 +153,14 @@ def health_check():
     try:
         # Test database/file access
         rules = load_rules()
+        config = get_config()
+        metadata = config.get_metadata()
         return {
             "status": "healthy",
             "version": "0.3.0",
             "rules_loaded": len(rules),
+            "config_environment": metadata.environment,
+            "config_version": metadata.version,
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -462,34 +479,42 @@ def determine_stand_type(pattern: Dict, terrain_features: Dict, wind_direction: 
 
 def calculate_stand_confidence_with_thermals(pattern: Dict, terrain_features: Dict, weather_data: Dict, season: str, wind_direction: float, thermal_data: Dict) -> float:
     """Calculate confidence score for stand placement including thermal effects (0-100)"""
-    base_confidence = 70  # Start with base confidence
+    # Get configuration values
+    config = get_config()
+    api_settings = config.get_api_settings()
+    scoring_factors = config.get_scoring_factors()
+    
+    base_confidence = scoring_factors.get('base_values', {}).get('base_confidence', 70)
     
     # Distance factor (closer is generally better for bow hunting)
     if pattern['distance'] < 0.0006:  # Under 100 yards
-        base_confidence += 10
+        base_confidence += api_settings.get('deer_activity_bonus', 10)
     elif pattern['distance'] > 0.001:  # Over 150 yards
-        base_confidence -= 5
+        base_confidence -= api_settings.get('feeding_area_bonus', 5)
     
     # Combined wind and thermal favorability
     wind_thermal_score = calculate_combined_wind_favorability(pattern['direction'], wind_direction, thermal_data, terrain_features)
-    base_confidence += (wind_thermal_score - 50) * 0.4  # Enhanced weight for thermal effects
+    thermal_weight = api_settings.get('thermal_weight_multiplier', 0.4)
+    base_confidence += (wind_thermal_score - 50) * thermal_weight
     
     # Terrain features bonus
+    terrain_bonus = scoring_factors.get('confidence_bonuses', {}).get('terrain_complexity_bonus', 15)
     if terrain_features.get('saddles') and 270 <= pattern['direction'] <= 90:
-        base_confidence += 15  # Good saddle coverage
+        base_confidence += terrain_bonus  # Good saddle coverage
     if terrain_features.get('ridges') and pattern['direction'] in [0, 45, 315]:
-        base_confidence += 10  # Ridge approach coverage
+        base_confidence += terrain_bonus * 0.67  # Ridge approach coverage
     
     # Thermal-specific bonuses
     if thermal_data['is_thermal_active']:
+        thermal_bonus = scoring_factors.get('confidence_bonuses', {}).get('elevation_bonus', 12)
         if thermal_data['hunting_advantage'] == 'MORNING_RIDGE':
             # Morning ridge hunting bonus for upper elevation stands
             if pattern['direction'] in [0, 45, 315] and terrain_features.get('ridges'):
-                base_confidence += 12
+                base_confidence += thermal_bonus
         elif thermal_data['hunting_advantage'] == 'EVENING_VALLEY':
             # Evening valley hunting bonus for lower elevation stands
             if pattern['direction'] in [135, 180, 225] and terrain_features.get('valleys'):
-                base_confidence += 12
+                base_confidence += thermal_bonus
         
         # Strong thermal strength bonus
         if thermal_data['thermal_strength'] >= 7:
@@ -2389,3 +2414,76 @@ async def get_lidar_status():
             status["test_error"] = str(e)
     
     return status
+
+# --- Configuration Management Endpoints ---
+
+@app.get("/config/status", summary="Get configuration status", tags=["configuration"])
+def get_config_status():
+    """Get current configuration status and metadata"""
+    config = get_config()
+    metadata = config.get_metadata()
+    
+    return {
+        "environment": metadata.environment,
+        "version": metadata.version,
+        "last_loaded": metadata.last_loaded.isoformat() if metadata.last_loaded else None,
+        "source_files": metadata.source_files,
+        "validation_errors": metadata.validation_errors,
+        "configuration_sections": {
+            "mature_buck_preferences": bool(config.get_mature_buck_preferences()),
+            "scoring_factors": bool(config.get_scoring_factors()),
+            "seasonal_weights": bool(config.get_seasonal_weights()),
+            "weather_modifiers": bool(config.get_weather_modifiers()),
+            "distance_parameters": bool(config.get_distance_parameters()),
+            "api_settings": bool(config.get_api_settings())
+        }
+    }
+
+@app.get("/config/parameters", summary="Get all configuration parameters", tags=["configuration"])
+def get_config_parameters():
+    """Get all current configuration parameters"""
+    config = get_config()
+    
+    return {
+        "mature_buck_preferences": config.get_mature_buck_preferences(),
+        "scoring_factors": config.get_scoring_factors(),
+        "seasonal_weights": config.get_seasonal_weights(),
+        "weather_modifiers": config.get_weather_modifiers(),
+        "distance_parameters": config.get_distance_parameters(),
+        "terrain_weights": config.get_terrain_weights(),
+        "api_settings": config.get_api_settings(),
+        "ml_parameters": config.get_ml_parameters()
+    }
+
+@app.post("/config/reload", summary="Reload configuration", tags=["configuration"])
+def reload_configuration():
+    """Reload configuration from files (admin only)"""
+    try:
+        config = get_config()
+        config.reload()
+        metadata = config.get_metadata()
+        
+        return {
+            "status": "success",
+            "message": "Configuration reloaded successfully",
+            "version": metadata.version,
+            "last_loaded": metadata.last_loaded.isoformat() if metadata.last_loaded else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to reload configuration: {str(e)}")
+
+@app.put("/config/parameter/{key_path}", summary="Update configuration parameter", tags=["configuration"])
+def update_config_parameter(key_path: str, value: Any):
+    """Update a specific configuration parameter (admin only)"""
+    try:
+        config = get_config()
+        config.update_config(key_path, value, persist=False)  # Don't persist to file for safety
+        
+        return {
+            "status": "success",
+            "message": f"Parameter {key_path} updated successfully",
+            "key_path": key_path,
+            "new_value": value
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to update parameter: {str(e)}")

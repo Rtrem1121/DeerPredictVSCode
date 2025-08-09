@@ -37,6 +37,8 @@ from .distance_scorer import (
     score_agricultural_proximity,
     score_escape_routes
 )
+# Import configuration management
+from .config_manager import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +58,29 @@ class PressureLevel(Enum):
 
 @dataclass
 class MatureBuckPreferences:
-    """Terrain and habitat preferences specific to mature bucks"""
-    min_bedding_thickness: float = 80.0      # Minimum canopy cover %
-    escape_route_count: int = 3              # Minimum escape routes needed
-    human_avoidance_buffer: float = 800.0    # Meters from human activity
-    elevation_preference_min: float = 305.0  # Minimum elevation (meters)
-    slope_preference_max: float = 30.0       # Maximum comfortable slope degrees
-    water_proximity_max: float = 400.0       # Maximum distance to water (meters)
+    """Terrain and habitat preferences specific to mature bucks - now configurable"""
+    
+    def __init__(self):
+        """Initialize preferences from configuration"""
+        config = get_config()
+        prefs = config.get_mature_buck_preferences()
+        
+        # Habitat preferences
+        habitat = prefs.get('habitat', {})
+        self.min_bedding_thickness = habitat.get('min_bedding_thickness', 80.0)
+        self.escape_route_count = habitat.get('escape_route_count', 3)
+        self.human_avoidance_buffer = habitat.get('human_avoidance_buffer', 800.0)
+        
+        # Terrain preferences  
+        terrain = prefs.get('terrain', {})
+        self.elevation_preference_min = terrain.get('elevation_preference_min', 305.0)
+        self.slope_preference_max = terrain.get('slope_preference_max', 30.0)
+        self.water_proximity_max = terrain.get('water_proximity_max', 400.0)
+        
+        # Behavioral preferences
+        behavioral = prefs.get('behavioral', {})
+        self.pressure_sensitivity = behavioral.get('pressure_sensitivity', 0.8)
+        self.movement_confidence_threshold = behavioral.get('movement_confidence_threshold', 0.7)
     
 class MatureBuckBehaviorModel:
     """
@@ -76,6 +94,7 @@ class MatureBuckBehaviorModel:
     def __init__(self):
         self.preferences = MatureBuckPreferences()
         self.confidence_factors = self._initialize_confidence_factors()
+        self.config = get_config()
     
     def _safe_float_conversion(self, value, default: float = 0.0) -> float:
         """Safely convert numpy arrays or other values to float"""
@@ -96,15 +115,24 @@ class MatureBuckBehaviorModel:
                 return default
         
     def _initialize_confidence_factors(self) -> Dict[str, float]:
-        """Initialize confidence scoring factors for mature buck predictions"""
+        """Initialize confidence scoring factors from configuration"""
+        config = get_config()
+        scoring_factors = config.get_scoring_factors()
+        
+        # Get bonuses from configuration
+        bonuses = scoring_factors.get('confidence_bonuses', {})
+        penalties = scoring_factors.get('confidence_penalties', {})
+        
         return {
-            'thick_cover_bonus': 25.0,        # Bonus for heavy cover
-            'escape_route_bonus': 20.0,       # Bonus for multiple escape routes
-            'pressure_penalty': -30.0,        # Penalty for high pressure areas
-            'elevation_bonus': 15.0,          # Bonus for preferred elevation
-            'isolation_bonus': 20.0,          # Bonus for remote areas
-            'water_proximity_bonus': 10.0,    # Bonus for water access
-            'terrain_complexity_bonus': 15.0  # Bonus for complex terrain
+            'thick_cover_bonus': bonuses.get('thick_cover_bonus', 25.0),
+            'escape_route_bonus': bonuses.get('escape_route_bonus', 20.0),
+            'elevation_bonus': bonuses.get('elevation_bonus', 15.0),
+            'isolation_bonus': bonuses.get('isolation_bonus', 20.0),
+            'water_proximity_bonus': bonuses.get('water_proximity_bonus', 10.0),
+            'terrain_complexity_bonus': bonuses.get('terrain_complexity_bonus', 15.0),
+            'pressure_penalty': penalties.get('pressure_penalty', -30.0),
+            'road_proximity_penalty': penalties.get('road_proximity_penalty', -15.0),
+            'human_activity_penalty': penalties.get('human_activity_penalty', -25.0)
         }
     
     def analyze_mature_buck_terrain(self, terrain_features: Dict, lat: float, lon: float) -> Dict[str, float]:

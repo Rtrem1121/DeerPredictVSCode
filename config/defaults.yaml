@@ -1,0 +1,158 @@
+# Deer Prediction System - Default Configuration
+# This file contains all configurable parameters for the deer prediction system
+# Domain experts can modify these values to fine-tune system behavior
+
+deer_prediction_config:
+  version: "1.0.0"
+  last_updated: "2025-08-09"
+  description: "Default configuration for Vermont deer prediction system"
+  
+  # Mature Buck Habitat Preferences
+  mature_buck_preferences:
+    habitat:
+      min_bedding_thickness: 80.0      # Minimum canopy cover percentage
+      escape_route_count: 3            # Minimum number of escape routes needed
+      human_avoidance_buffer: 800.0    # Meters from human activity to avoid
+      
+    terrain:
+      elevation_preference_min: 305.0  # Minimum preferred elevation (meters)
+      slope_preference_max: 30.0       # Maximum comfortable slope (degrees)
+      water_proximity_max: 400.0       # Maximum acceptable distance to water (meters)
+      
+    behavioral:
+      pressure_sensitivity: 0.8        # How sensitive to hunting pressure (0-1)
+      movement_confidence_threshold: 0.7  # Confidence needed for movement (0-1)
+      
+  # Scoring and Confidence Factors
+  scoring_factors:
+    confidence_bonuses:
+      thick_cover_bonus: 25.0          # Bonus for heavy canopy cover
+      escape_route_bonus: 20.0         # Bonus for multiple escape routes
+      elevation_bonus: 15.0            # Bonus for preferred elevation
+      isolation_bonus: 20.0            # Bonus for remote, isolated areas
+      water_proximity_bonus: 10.0      # Bonus for water access
+      terrain_complexity_bonus: 15.0   # Bonus for complex terrain features
+      
+    confidence_penalties:
+      pressure_penalty: -30.0          # Penalty for high pressure areas
+      road_proximity_penalty: -15.0    # Penalty for being too close to roads
+      human_activity_penalty: -25.0    # Penalty for human activity presence
+      
+    base_values:
+      base_confidence: 70              # Starting confidence score
+      max_confidence: 95               # Maximum achievable confidence
+      min_confidence: 5                # Minimum confidence floor
+      
+  # Seasonal Behavior Weights
+  seasonal_weights:
+    early_season:
+      travel: 1.0                      # Normal travel patterns
+      bedding: 1.0                     # Normal bedding behavior
+      feeding: 1.2                     # Increased feeding focus
+      movement: 0.9                    # Slightly reduced movement
+      
+    rut:
+      travel: 1.3                      # Increased travel during rut
+      bedding: 0.9                     # Reduced bedding time
+      feeding: 1.0                     # Normal feeding
+      movement: 1.4                    # High movement activity
+      
+    late_season:
+      travel: 0.8                      # Reduced travel in winter
+      bedding: 1.5                     # Extended bedding periods
+      feeding: 1.1                     # Slightly increased feeding focus
+      movement: 0.7                    # Minimal movement in cold
+      
+  # Weather Impact Modifiers
+  weather_modifiers:
+    clear:
+      travel: 1.0
+      bedding: 1.0
+      feeding: 1.0
+      
+    cloudy:
+      travel: 1.1                      # Slight increase in activity
+      bedding: 1.0
+      feeding: 1.0
+      
+    light_rain:
+      travel: 0.8                      # Reduced travel in light rain
+      bedding: 1.2                     # More bedding time
+      feeding: 0.9                     # Slightly reduced feeding
+      
+    heavy_rain:
+      travel: 0.5                      # Minimal travel in heavy rain
+      bedding: 1.5                     # Extended bedding
+      feeding: 0.6                     # Reduced feeding activity
+      
+    snow:
+      travel: 0.7                      # Reduced travel in snow
+      bedding: 1.3                     # More bedding time
+      feeding: 0.8                     # Reduced feeding activity
+      
+    cold_front:
+      travel: 1.3                      # Increased activity before front
+      bedding: 0.9                     # Less bedding before weather
+      feeding: 1.2                     # Increased feeding before front
+      
+    hot:
+      travel: 0.6                      # Minimal travel in heat
+      bedding: 1.4                     # Extended bedding in shade
+      feeding: 0.7                     # Reduced daytime feeding
+      
+    windy:
+      travel: 0.8                      # Reduced travel in wind
+      bedding: 1.2                     # More bedding time
+      feeding: 0.9                     # Slightly reduced feeding
+      
+  # Distance and Proximity Parameters
+  distance_parameters:
+    road_impact_range: 500.0           # Yards - road influence radius
+    agricultural_benefit_range: 800.0  # Yards - agricultural area benefit radius
+    stand_optimal_min: 30.0            # Yards - minimum optimal stand distance
+    stand_optimal_max: 200.0           # Yards - maximum optimal stand distance
+    escape_route_max: 300.0            # Yards - maximum escape route distance
+    concealment_critical: 100.0        # Yards - critical concealment distance
+    
+  # Terrain Scoring Weights
+  terrain_weights:
+    elevation: 0.15                    # Weight for elevation scoring
+    slope: 0.15                        # Weight for slope analysis
+    aspect: 0.10                       # Weight for aspect (sun exposure)
+    cover: 0.25                        # Weight for canopy cover
+    drainage: 0.15                     # Weight for drainage features
+    connectivity: 0.10                 # Weight for habitat connectivity
+    isolation: 0.10                    # Weight for isolation factors
+    
+  # API and User Interface Settings
+  api_settings:
+    suggestion_threshold: 5.0          # Show suggestions when rating below this
+    min_suggestion_rating: 8.0         # Minimum rating for valid suggestions
+    deer_activity_bonus: 10            # Bonus for confirmed deer activity
+    feeding_area_bonus: 5              # Bonus for feeding area proximity
+    thermal_weight_multiplier: 0.4     # Weight for thermal effects
+    huntable_threshold: 75.0           # Minimum score for huntable locations
+    
+  # Machine Learning Parameters
+  ml_parameters:
+    feature_importance_threshold: 0.01  # Minimum feature importance to consider
+    model_confidence_threshold: 0.6     # Minimum ML model confidence
+    ensemble_weight: 0.3                # Weight of ML prediction in ensemble
+    training_data_min_samples: 100      # Minimum samples for model training
+    
+  # Validation and Constraints
+  validation:
+    confidence_range: [0, 100]         # Valid confidence score range
+    distance_range: [0, 5000]          # Valid distance range (yards)
+    elevation_range: [0, 2000]         # Valid elevation range (meters)
+    slope_range: [0, 60]               # Valid slope range (degrees)
+    
+  # Regional Configurations (Future Enhancement)
+  regional_overrides:
+    vermont_northeast:
+      enabled: false
+      elevation_adjustment: 1.1
+      
+    vermont_southwest:
+      enabled: false
+      agricultural_weight: 1.2

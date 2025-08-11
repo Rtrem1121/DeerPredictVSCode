@@ -15,7 +15,7 @@ from scipy.spatial import ConvexHull
 from scipy.ndimage import convolve, laplace, gaussian_filter
 
 # Import unified scoring framework
-from .scoring_engine import (
+from scoring_engine import (
     get_scoring_engine, 
     ScoringContext,
     score_with_context
@@ -553,6 +553,11 @@ def analyze_terrain_and_vegetation(elevation_grid, vegetation_grid):
     conifer_corridor = forest & (elevation_grid > 300) & (elevation_grid <= 500)
     hardwood = forest & (elevation_grid <= 300)  # Lower elevation hardwoods
     
+    # Deep forest - dense forest areas away from edges (critical for bedding rules)
+    from scipy.ndimage import distance_transform_edt
+    forest_distance = distance_transform_edt(forest)
+    deep_forest = forest & (forest_distance > 1)  # Forest areas >1 pixel from forest edge (less strict)
+    
     # Vermont-specific habitat features enhanced with agricultural awareness
     winter_yard_potential = conifer_dense & (elevation_grid < 610)  # <2000ft elevation, dense softwoods
     hardwood_bench = hardwood & southwest_slope & (slope > 5) & (slope < 20)  # Mast-producing benches
@@ -592,6 +597,7 @@ def analyze_terrain_and_vegetation(elevation_grid, vegetation_grid):
         'hardwood': hardwood,
         'field': field,
         'forest': forest,
+        'deep_forest': deep_forest,  # Added for bedding rules
     'is_forest': forest,
         'water': water,
         

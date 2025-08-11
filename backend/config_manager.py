@@ -351,6 +351,32 @@ class DeerPredictionConfig:
             if persist:
                 self._persist_config_change(key_path, value)
     
+    def get_value(self, key_path: str, default: Any = None) -> Any:
+        """
+        Get configuration value using dot notation path
+        
+        Args:
+            key_path: Dot notation path (e.g., 'features.lidar_integration')
+            default: Default value if key not found
+            
+        Returns:
+            Configuration value or default
+        """
+        try:
+            keys = key_path.split('.')
+            current = self.data  # Use self.data instead of self.config
+            
+            for key in keys:
+                if isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    return default
+            
+            return current
+        except Exception as e:
+            logger.warning(f"Error getting config value {key_path}: {e}")
+            return default
+    
     def _persist_config_change(self, key_path: str, value: Any):
         """Persist configuration change to file (placeholder for future implementation)"""
         # This would implement saving changes back to configuration files

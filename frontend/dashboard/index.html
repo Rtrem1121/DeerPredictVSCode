@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vermont Deer Prediction Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1.5rem;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3c72 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            text-align: center;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .status-item {
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .status-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-healthy { color: #28a745; }
+        .status-warning { color: #ffc107; }
+        .status-critical { color: #dc3545; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #2c5aa0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 0.75rem;
+            background: rgba(44, 90, 160, 0.1);
+            border-radius: 8px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c5aa0;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100px;
+            color: #666;
+        }
+
+        .error {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 8px;
+            padding: 1rem;
+            color: #c53030;
+            text-align: center;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #2c5aa0 0%, #1e3c72 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.3);
+        }
+
+        .last-updated {
+            text-align: center;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                padding: 1rem;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🦌 Vermont Deer Prediction Analytics</h1>
+        <p>Real-time monitoring and performance insights</p>
+    </div>
+
+    <div class="status-bar" id="status-bar">
+        <div class="status-item">
+            <div class="status-value" id="system-status">Loading...</div>
+            <div class="status-label">System Status</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="cpu-usage">--%</div>
+            <div class="status-label">CPU Usage</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="memory-usage">--%</div>
+            <div class="status-label">Memory Usage</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="response-time">--ms</div>
+            <div class="status-label">Avg Response Time</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="predictions-today">--</div>
+            <div class="status-label">Predictions Today</div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- System Health Card -->
+        <div class="card">
+            <h3><span class="card-icon">💚</span>System Health</h3>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-value" id="health-cpu">--%</div>
+                    <div class="metric-label">CPU</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="health-memory">--%</div>
+                    <div class="metric-label">Memory</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="health-disk">--%</div>
+                    <div class="metric-label">Disk</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="health-status">--</div>
+                    <div class="metric-label">Status</div>
+                </div>
+            </div>
+            <button class="refresh-btn" onclick="refreshSystemHealth()">Refresh Health</button>
+        </div>
+
+        <!-- Prediction Analytics Card -->
+        <div class="card">
+            <h3><span class="card-icon">📊</span>Prediction Analytics</h3>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-value" id="total-predictions">--</div>
+                    <div class="metric-label">Total Predictions</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="avg-confidence">--%</div>
+                    <div class="metric-label">Avg Confidence</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="avg-rating">--</div>
+                    <div class="metric-label">Avg Rating</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="active-days">--</div>
+                    <div class="metric-label">Active Days</div>
+                </div>
+            </div>
+            <button class="refresh-btn" onclick="refreshPredictionAnalytics()">Refresh Analytics</button>
+        </div>
+
+        <!-- Performance Trends Chart -->
+        <div class="card">
+            <h3><span class="card-icon">📈</span>Performance Trends</h3>
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
+            <button class="refresh-btn" onclick="refreshPerformanceChart()">Refresh Chart</button>
+        </div>
+
+        <!-- Confidence Distribution Chart -->
+        <div class="card">
+            <h3><span class="card-icon">🎯</span>Confidence Distribution</h3>
+            <div class="chart-container">
+                <canvas id="confidenceChart"></canvas>
+            </div>
+            <button class="refresh-btn" onclick="refreshConfidenceChart()">Refresh Chart</button>
+        </div>
+
+        <!-- Configuration Info Card -->
+        <div class="card">
+            <h3><span class="card-icon">⚙️</span>Configuration</h3>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-value" id="config-environment">--</div>
+                    <div class="metric-label">Environment</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="config-version">--</div>
+                    <div class="metric-label">Version</div>
+                </div>
+            </div>
+            <div id="config-details" style="margin-top: 1rem; font-size: 0.9rem; color: #666;"></div>
+            <button class="refresh-btn" onclick="refreshConfiguration()">Refresh Config</button>
+        </div>
+
+        <!-- Recent Activity Card -->
+        <div class="card">
+            <h3><span class="card-icon">🕒</span>Recent Activity</h3>
+            <div id="recent-activity" class="loading">Loading recent activity...</div>
+            <button class="refresh-btn" onclick="refreshRecentActivity()">Refresh Activity</button>
+        </div>
+    </div>
+
+    <div class="last-updated">
+        Last updated: <span id="last-updated-time">--</span>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:8001';
+        const REFRESH_INTERVAL = 30000; // 30 seconds
+
+        // Chart instances
+        let performanceChart = null;
+        let confidenceChart = null;
+
+        // Utility functions
+        function formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString();
+        }
+
+        function formatPercentage(value) {
+            return value ? `${value.toFixed(1)}%` : '--%';
+        }
+
+        function formatNumber(value, decimals = 1) {
+            return value ? value.toFixed(decimals) : '--';
+        }
+
+        function getStatusClass(status) {
+            switch (status?.toLowerCase()) {
+                case 'healthy': return 'status-healthy';
+                case 'warning': return 'status-warning';
+                case 'critical': return 'status-critical';
+                default: return '';
+            }
+        }
+
+        // API calls
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                throw error;
+            }
+        }
+
+        // Update functions
+        async function updateDashboardOverview() {
+            try {
+                const data = await fetchData('/dashboard/overview');
+                
+                // Update status bar
+                const systemStatus = data.system_health?.overall_status || 'unknown';
+                document.getElementById('system-status').textContent = systemStatus.toUpperCase();
+                document.getElementById('system-status').className = `status-value ${getStatusClass(systemStatus)}`;
+                
+                document.getElementById('cpu-usage').textContent = formatPercentage(data.system_health?.cpu_usage);
+                document.getElementById('memory-usage').textContent = formatPercentage(data.system_health?.memory_usage);
+                document.getElementById('response-time').textContent = `${formatNumber(data.system_health?.response_time)}ms`;
+                document.getElementById('predictions-today').textContent = data.prediction_summary?.total_predictions || '--';
+
+                // Update health metrics
+                document.getElementById('health-cpu').textContent = formatPercentage(data.system_health?.cpu_usage);
+                document.getElementById('health-memory').textContent = formatPercentage(data.system_health?.memory_usage);
+                document.getElementById('health-disk').textContent = '--'; // Add disk usage to API
+                document.getElementById('health-status').textContent = systemStatus.toUpperCase();
+
+                // Update prediction analytics
+                document.getElementById('total-predictions').textContent = data.prediction_summary?.total_predictions || '--';
+                document.getElementById('avg-confidence').textContent = formatPercentage(data.prediction_summary?.avg_confidence);
+                document.getElementById('avg-rating').textContent = formatNumber(data.prediction_summary?.avg_rating);
+                document.getElementById('active-days').textContent = '--'; // Add to API
+
+                // Update configuration
+                document.getElementById('config-environment').textContent = data.configuration?.environment || '--';
+                document.getElementById('config-version').textContent = data.configuration?.version || '--';
+
+                // Update timestamp
+                document.getElementById('last-updated-time').textContent = formatDateTime(data.timestamp);
+
+            } catch (error) {
+                console.error('Error updating dashboard overview:', error);
+                showError('dashboard-overview', error.message);
+            }
+        }
+
+        async function refreshSystemHealth() {
+            try {
+                const data = await fetchData('/monitoring/health');
+                
+                document.getElementById('health-cpu').textContent = formatPercentage(data.cpu_usage_percent);
+                document.getElementById('health-memory').textContent = formatPercentage(data.memory_usage_percent);
+                document.getElementById('health-disk').textContent = formatPercentage(data.disk_usage_percent);
+                document.getElementById('health-status').textContent = data.overall_status.toUpperCase();
+                
+            } catch (error) {
+                console.error('Error refreshing system health:', error);
+                showError('system-health', error.message);
+            }
+        }
+
+        async function refreshPredictionAnalytics() {
+            try {
+                const data = await fetchData('/analytics/predictions?days=7');
+                
+                document.getElementById('total-predictions').textContent = data.summary?.total_predictions || '--';
+                document.getElementById('avg-confidence').textContent = formatPercentage(data.summary?.avg_confidence);
+                document.getElementById('avg-rating').textContent = formatNumber(data.summary?.avg_rating);
+                document.getElementById('active-days').textContent = data.summary?.active_days || '--';
+                
+            } catch (error) {
+                console.error('Error refreshing prediction analytics:', error);
+                showError('prediction-analytics', error.message);
+            }
+        }
+
+        async function refreshPerformanceChart() {
+            try {
+                const data = await fetchData('/monitoring/metrics?hours=24');
+                
+                // Process metrics data for chart
+                const cpuData = data.filter(m => m.metric_type === 'cpu_usage');
+                const memoryData = data.filter(m => m.metric_type === 'memory_usage');
+                
+                const labels = cpuData.slice(-24).map(d => new Date(d.timestamp).toLocaleTimeString());
+                const cpuValues = cpuData.slice(-24).map(d => d.value);
+                const memoryValues = memoryData.slice(-24).map(d => d.value);
+
+                if (performanceChart) {
+                    performanceChart.destroy();
+                }
+
+                const ctx = document.getElementById('performanceChart').getContext('2d');
+                performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'CPU Usage (%)',
+                                data: cpuValues,
+                                borderColor: '#2c5aa0',
+                                backgroundColor: 'rgba(44, 90, 160, 0.1)',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Memory Usage (%)',
+                                data: memoryValues,
+                                borderColor: '#28a745',
+                                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error refreshing performance chart:', error);
+                showError('performance-chart', error.message);
+            }
+        }
+
+        async function refreshConfidenceChart() {
+            try {
+                const data = await fetchData('/analytics/predictions?days=7');
+                
+                if (data.confidence_distribution && data.confidence_distribution.length > 0) {
+                    const labels = data.confidence_distribution.map(d => d.confidence_range);
+                    const values = data.confidence_distribution.map(d => d.count);
+
+                    if (confidenceChart) {
+                        confidenceChart.destroy();
+                    }
+
+                    const ctx = document.getElementById('confidenceChart').getContext('2d');
+                    confidenceChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: values,
+                                backgroundColor: [
+                                    '#dc3545',
+                                    '#ffc107',
+                                    '#2c5aa0',
+                                    '#28a745'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                } else {
+                    document.getElementById('confidenceChart').parentNode.innerHTML = 
+                        '<div class="loading">No confidence data available</div>';
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing confidence chart:', error);
+                showError('confidence-chart', error.message);
+            }
+        }
+
+        async function refreshConfiguration() {
+            try {
+                const data = await fetchData('/config/current');
+                
+                document.getElementById('config-environment').textContent = data.metadata?.environment || '--';
+                document.getElementById('config-version').textContent = data.metadata?.version || '--';
+                
+                const details = document.getElementById('config-details');
+                details.innerHTML = `
+                    <strong>Parameters loaded:</strong><br>
+                    • Mature Buck: ${Object.keys(data.parameters?.mature_buck || {}).length} settings<br>
+                    • Distance: ${Object.keys(data.parameters?.distance || {}).length} settings<br>
+                    • Weather: ${Object.keys(data.parameters?.weather || {}).length} settings<br>
+                    • Timing: ${Object.keys(data.parameters?.timing || {}).length} settings
+                `;
+                
+            } catch (error) {
+                console.error('Error refreshing configuration:', error);
+                showError('configuration', error.message);
+            }
+        }
+
+        async function refreshRecentActivity() {
+            const activityDiv = document.getElementById('recent-activity');
+            activityDiv.innerHTML = `
+                <div style="text-align: center; color: #666;">
+                    <p>Recent activity tracking coming soon...</p>
+                    <p style="font-size: 0.8rem; margin-top: 0.5rem;">
+                        This will show recent predictions, alerts, and system events.
+                    </p>
+                </div>
+            `;
+        }
+
+        function showError(context, message) {
+            console.error(`Error in ${context}:`, message);
+            // Could implement user-friendly error display here
+        }
+
+        // Auto-refresh functionality
+        function startAutoRefresh() {
+            updateDashboardOverview();
+            setInterval(updateDashboardOverview, REFRESH_INTERVAL);
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Deer Prediction Analytics Dashboard loaded');
+            
+            // Initial load
+            startAutoRefresh();
+            
+            // Load charts
+            setTimeout(() => {
+                refreshPerformanceChart();
+                refreshConfidenceChart();
+            }, 1000);
+        });
+
+        // Manual refresh button (global)
+        function refreshAll() {
+            updateDashboardOverview();
+            refreshSystemHealth();
+            refreshPredictionAnalytics();
+            refreshPerformanceChart();
+            refreshConfidenceChart();
+            refreshConfiguration();
+            refreshRecentActivity();
+        }
+    </script>
+</body>
+</html>

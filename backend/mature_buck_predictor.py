@@ -24,23 +24,98 @@ from dataclasses import dataclass
 from enum import Enum
 
 # Import unified scoring framework
-from .scoring_engine import (
-    get_scoring_engine, 
-    ScoringContext, 
-    TerrainScoreComponents,
-    score_terrain_suitability,
-    score_with_context
-)
-from .distance_scorer import (
-    get_distance_scorer,
-    score_road_proximity,
-    score_agricultural_proximity,
-    score_escape_routes
-)
+try:
+    from .scoring_engine import (
+        get_scoring_engine, 
+        ScoringContext, 
+        TerrainScoreComponents,
+        score_terrain_suitability,
+        score_with_context
+    )
+except ImportError:
+    from scoring_engine import (
+        get_scoring_engine, 
+        ScoringContext, 
+        TerrainScoreComponents,
+        score_terrain_suitability,
+        score_with_context
+    )
+
+try:
+    from .distance_scorer import (
+        get_distance_scorer,
+        score_road_proximity,
+        score_agricultural_proximity,
+        score_escape_routes
+    )
+except ImportError:
+    from distance_scorer import (
+        get_distance_scorer,
+        score_road_proximity,
+        score_agricultural_proximity,
+        score_escape_routes
+    )
+# Import advanced terrain analysis
+try:
+    from .terrain_analyzer import (
+        get_terrain_analyzer,
+        enhance_mature_buck_prediction_with_terrain,
+        TerrainFeatureType
+    )
+except ImportError:
+    from terrain_analyzer import (
+        get_terrain_analyzer,
+        enhance_mature_buck_prediction_with_terrain,
+        TerrainFeatureType
+    )
+
+# Import wind analysis system
+try:
+    from .wind_analysis import (
+        get_wind_analyzer,
+        WindAnalyzer,
+        WindData,
+        WindOptimizedPosition,
+        ScentDispersion
+    )
+except ImportError:
+    from wind_analysis import (
+        get_wind_analyzer,
+        WindAnalyzer,
+        WindData,
+        WindOptimizedPosition,
+        ScentDispersion
+    )
+
 # Import configuration management
-from .config_manager import get_config
+try:
+    from .config_manager import get_config
+except ImportError:
+    from config_manager import get_config
 
 logger = logging.getLogger(__name__)
+
+# Proximity scoring configuration
+PROXIMITY_THRESHOLDS = {
+    'bedding': {
+        'min_optimal': 75,      # yards - too close spooks deer
+        'max_optimal': 200,     # yards - effective shooting range
+        'max_useful': 400       # yards - beyond this, proximity doesn't help
+    },
+    'feeding': {
+        'min_optimal': 25,      # yards - can be closer to feeding areas
+        'max_optimal': 150,     # yards - effective range for feeding interception
+        'max_useful': 300       # yards - maximum useful proximity
+    }
+}
+
+PROXIMITY_CONFIG = {
+    'bedding_weight': 0.6,      # Bedding proximity importance (60%)
+    'feeding_weight': 0.4,      # Feeding proximity importance (40%)
+    'confidence_impact': 0.15,  # Max confidence adjustment (15%)
+    'enable_multi_zone': True,  # Consider multiple zones
+    'distance_penalty_factor': 2.0  # Penalty multiplier for poor proximity
+}
 
 class BuckAgeClass(Enum):
     """Buck age classifications with different behavior patterns"""
@@ -95,6 +170,8 @@ class MatureBuckBehaviorModel:
         self.preferences = MatureBuckPreferences()
         self.confidence_factors = self._initialize_confidence_factors()
         self.config = get_config()
+        self.wind_analyzer = get_wind_analyzer()
+        logger.info("🌬️ Wind analysis enabled for mature buck predictions")
     
     def _safe_float_conversion(self, value, default: float = 0.0) -> float:
         """Safely convert numpy arrays or other values to float"""
@@ -137,7 +214,7 @@ class MatureBuckBehaviorModel:
     
     def analyze_mature_buck_terrain(self, terrain_features: Dict, lat: float, lon: float) -> Dict[str, float]:
         """
-        Analyze terrain suitability for mature bucks
+        Analyze terrain suitability for mature bucks using enhanced algorithms
         
         Args:
             terrain_features: Terrain analysis results
@@ -149,6 +226,28 @@ class MatureBuckBehaviorModel:
         """
         logger.info(f"Analyzing mature buck terrain preferences for {lat}, {lon}")
         
+        # FIRST: Map existing terrain features to mature buck expected features
+        try:
+            from terrain_feature_mapper import get_terrain_mapper
+            terrain_mapper = get_terrain_mapper()
+            enhanced_terrain_features = terrain_mapper.map_terrain_features(terrain_features, lat, lon)
+            logger.info(f"✅ Terrain features mapped for location-specific analysis")
+        except Exception as e:
+            logger.warning(f"Terrain feature mapping failed: {e}, using original features")
+            enhanced_terrain_features = terrain_features
+        
+        # Try enhanced algorithm first, fall back to original if needed
+        try:
+            from enhanced_accuracy import enhanced_terrain_analysis
+            enhanced_scores = enhanced_terrain_analysis(enhanced_terrain_features, lat, lon)
+            logger.info(f"Using enhanced terrain analysis - Overall: {enhanced_scores['overall_suitability']:.2f}%")
+            return enhanced_scores
+        except ImportError:
+            logger.warning("Enhanced algorithms not available, using standard analysis")
+        except Exception as e:
+            logger.warning(f"Enhanced algorithm failed: {e}, falling back to standard")
+        
+        # Original algorithm as fallback (now using enhanced terrain features)
         scores = {
             'bedding_suitability': 0.0,
             'escape_route_quality': 0.0,
@@ -157,22 +256,23 @@ class MatureBuckBehaviorModel:
             'overall_suitability': 0.0
         }
         
-        # Analyze bedding area suitability
-        scores['bedding_suitability'] = self._score_bedding_areas(terrain_features)
+        # Analyze bedding area suitability (using enhanced features)
+        scores['bedding_suitability'] = self._score_bedding_areas(enhanced_terrain_features)
         
-        # Evaluate escape route options
-        scores['escape_route_quality'] = self._score_escape_routes(terrain_features)
+        # Evaluate escape route options (using enhanced features)
+        scores['escape_route_quality'] = self._score_escape_routes(enhanced_terrain_features)
         
-        # Assess isolation from human activity
-        scores['isolation_score'] = self._score_isolation(terrain_features, lat, lon)
+        # Assess isolation from human activity (using enhanced features)
+        scores['isolation_score'] = self._score_isolation(enhanced_terrain_features, lat, lon)
         
-        # Calculate pressure resistance
-        scores['pressure_resistance'] = self._score_pressure_resistance(terrain_features)
+        # Calculate pressure resistance (using enhanced features)
+        scores['pressure_resistance'] = self._score_pressure_resistance(enhanced_terrain_features)
         
         # Calculate overall suitability
         scores['overall_suitability'] = self._calculate_overall_suitability(scores)
         
         logger.info(f"Mature buck terrain analysis complete. Overall score: {scores['overall_suitability']:.2f}")
+        logger.info(f"🎯 Location-specific scores: Bedding={scores['bedding_suitability']:.1f}%, Escape={scores['escape_route_quality']:.1f}%, Isolation={scores['isolation_score']:.1f}%, Pressure={scores['pressure_resistance']:.1f}%")
         return scores
     
     def _score_bedding_areas(self, terrain_features: Dict) -> float:
@@ -336,13 +436,30 @@ class MatureBuckBehaviorModel:
             'behavioral_notes': []
         }
         
-        # Season-specific movement patterns
-        if season == "early_season":
-            movement_data.update(self._early_season_patterns(time_of_day, terrain_features, weather_data))
-        elif season == "rut":
-            movement_data.update(self._rut_season_patterns(time_of_day, terrain_features, weather_data))
-        elif season == "late_season":
-            movement_data.update(self._late_season_patterns(time_of_day, terrain_features, weather_data))
+        # Try enhanced movement prediction first
+        try:
+            from enhanced_accuracy import enhanced_movement_prediction
+            enhanced_prediction = enhanced_movement_prediction(season, time_of_day, terrain_features, weather_data)
+            movement_data.update(enhanced_prediction)
+            logger.info(f"Using enhanced movement prediction - Probability: {movement_data['movement_probability']:.1f}%")
+        except ImportError:
+            logger.warning("Enhanced movement prediction not available, using standard analysis")
+            # Fall back to original seasonal patterns
+            if season == "early_season":
+                movement_data.update(self._early_season_patterns(time_of_day, terrain_features, weather_data))
+            elif season == "rut":
+                movement_data.update(self._rut_season_patterns(time_of_day, terrain_features, weather_data))
+            elif season == "late_season":
+                movement_data.update(self._late_season_patterns(time_of_day, terrain_features, weather_data))
+        except Exception as e:
+            logger.warning(f"Enhanced movement prediction failed: {e}, using standard analysis")
+            # Fall back to original seasonal patterns
+            if season == "early_season":
+                movement_data.update(self._early_season_patterns(time_of_day, terrain_features, weather_data))
+            elif season == "rut":
+                movement_data.update(self._rut_season_patterns(time_of_day, terrain_features, weather_data))
+            elif season == "late_season":
+                movement_data.update(self._late_season_patterns(time_of_day, terrain_features, weather_data))
         
         # Populate spatial predictions
         movement_data['movement_corridors'] = self._identify_movement_corridors(terrain_features, lat, lon)
@@ -358,6 +475,74 @@ class MatureBuckBehaviorModel:
         )
         
         return movement_data
+    
+    def predict_with_advanced_terrain_analysis(self, season: str, time_of_day: int, 
+                                             terrain_features: Dict, weather_data: Dict, 
+                                             lat: float, lon: float) -> Dict[str, any]:
+        """
+        Enhanced mature buck prediction using advanced terrain feature detection
+        
+        This method combines traditional terrain analysis with sophisticated 5x5 elevation
+        grid analysis to detect travel corridors, funnels, and terrain features that
+        mature bucks specifically prefer.
+        
+        Args:
+            season: Hunting season (early_season, rut, late_season)
+            time_of_day: Hour of day (0-23)
+            terrain_features: Basic terrain analysis results
+            weather_data: Current weather conditions
+            lat: Latitude coordinate
+            lon: Longitude coordinate
+            
+        Returns:
+            Enhanced movement prediction with terrain feature analysis
+        """
+        logger.info(f"🎯 Starting enhanced mature buck prediction with advanced terrain analysis")
+        
+        # Start with basic movement prediction
+        basic_prediction = self.predict_mature_buck_movement(
+            season, time_of_day, terrain_features, weather_data, lat, lon
+        )
+        
+        # Enhance with advanced terrain analysis
+        enhanced_prediction = enhance_mature_buck_prediction_with_terrain(
+            basic_prediction, lat, lon
+        )
+        
+        # Extract terrain analysis for additional insights
+        terrain_analysis = enhanced_prediction['advanced_terrain_analysis']
+        
+        # Enhance movement corridors with detected terrain features
+        enhanced_corridors = self._enhance_corridors_with_terrain_features(
+            enhanced_prediction['movement_corridors'], 
+            terrain_analysis['travel_corridors'],
+            terrain_analysis['detected_features']
+        )
+        enhanced_prediction['movement_corridors'] = enhanced_corridors
+        
+        # Enhance bedding predictions with terrain benches and slope breaks
+        enhanced_bedding = self._enhance_bedding_with_terrain_features(
+            enhanced_prediction['bedding_predictions'],
+            terrain_analysis['detected_features']
+        )
+        enhanced_prediction['bedding_predictions'] = enhanced_bedding
+        
+        # Add specific terrain-based stand recommendations
+        enhanced_prediction['terrain_stand_recommendations'] = self._generate_terrain_based_stands(
+            terrain_analysis, lat, lon
+        )
+        
+        # Add natural funnel analysis
+        enhanced_prediction['natural_funnels'] = terrain_analysis['natural_funnels']
+        
+        # Enhanced behavioral insights based on terrain
+        enhanced_prediction['terrain_behavioral_insights'] = self._generate_terrain_behavioral_insights(
+            terrain_analysis, season, weather_data
+        )
+        
+        logger.info(f"✅ Enhanced prediction complete with {len(terrain_analysis['detected_features'])} terrain features")
+        
+        return enhanced_prediction
     
     def _early_season_patterns(self, time_of_day: int, terrain_features: Dict, weather_data: Dict) -> Dict:
         """Early season movement patterns for mature bucks"""
@@ -821,6 +1006,375 @@ class MatureBuckBehaviorModel:
         bedding_locations.sort(key=lambda x: x['confidence'], reverse=True)
         return bedding_locations[:3]  # Return top 3 bedding areas
     
+    def _enhance_corridors_with_terrain_features(self, basic_corridors: List[Dict], 
+                                               terrain_corridors: List[Dict],
+                                               detected_features: List[Dict]) -> List[Dict]:
+        """
+        Enhance movement corridors with detected terrain features
+        
+        Args:
+            basic_corridors: Basic corridor predictions
+            terrain_corridors: Detected terrain corridors
+            detected_features: All detected terrain features
+            
+        Returns:
+            Enhanced corridor predictions with terrain feature integration
+        """
+        enhanced_corridors = basic_corridors.copy()
+        
+        # Add terrain-detected corridors
+        for terrain_corridor in terrain_corridors:
+            # Create enhanced corridor entry
+            enhanced_corridor = {
+                'lat': terrain_corridor['corridor_lat'],
+                'lon': terrain_corridor['corridor_lon'],
+                'type': f"terrain_{terrain_corridor['type']}",
+                'confidence': terrain_corridor['confidence'],
+                'description': f"Terrain-detected {terrain_corridor['type'].replace('_', ' ')}",
+                'terrain_analysis': True,
+                'mature_buck_suitability': terrain_corridor['mature_buck_suitability'],
+                'terrain_features': terrain_corridor.get('primary_feature', {}),
+                'suitability_factors': {
+                    'feature_based': True,
+                    'terrain_confidence': terrain_corridor['confidence'],
+                    'corridor_type': terrain_corridor['type'],
+                    **terrain_corridor.get('properties', {})
+                }
+            }
+            enhanced_corridors.append(enhanced_corridor)
+        
+        # Enhance existing corridors with nearby terrain features
+        for corridor in enhanced_corridors:
+            if not corridor.get('terrain_analysis', False):
+                # Find nearby terrain features
+                corridor_lat = corridor['lat']
+                corridor_lon = corridor['lon']
+                
+                nearby_features = []
+                for feature in detected_features:
+                    # Calculate approximate distance (simple lat/lon difference)
+                    lat_diff = abs(feature['lat'] - corridor_lat)
+                    lon_diff = abs(feature['lon'] - corridor_lon)
+                    distance_approx = (lat_diff + lon_diff) * 111000  # Rough meters
+                    
+                    if distance_approx <= 100:  # Within 100m
+                        nearby_features.append(feature)
+                
+                if nearby_features:
+                    # Enhance corridor with nearby feature data
+                    best_feature = max(nearby_features, key=lambda x: x['mature_buck_score'])
+                    corridor['terrain_enhancement'] = {
+                        'nearby_features': len(nearby_features),
+                        'best_feature_type': best_feature['type'],
+                        'best_feature_score': best_feature['mature_buck_score'],
+                        'terrain_confidence_boost': min(10.0, best_feature['mature_buck_score'] / 10.0)
+                    }
+                    corridor['confidence'] = min(100.0, corridor['confidence'] + corridor['terrain_enhancement']['terrain_confidence_boost'])
+        
+        # Sort by confidence and return top corridors
+        enhanced_corridors.sort(key=lambda x: x['confidence'], reverse=True)
+        return enhanced_corridors[:6]  # Return top 6 enhanced corridors
+    
+    def _enhance_bedding_with_terrain_features(self, basic_bedding: List[Dict], 
+                                             detected_features: List[Dict]) -> List[Dict]:
+        """
+        Enhance bedding predictions with terrain benches and slope breaks
+        
+        Args:
+            basic_bedding: Basic bedding area predictions
+            detected_features: All detected terrain features
+            
+        Returns:
+            Enhanced bedding predictions with terrain feature integration
+        """
+        enhanced_bedding = basic_bedding.copy()
+        
+        # Find terrain features suitable for bedding
+        bedding_features = [f for f in detected_features 
+                           if f['type'] in ['bench', 'slope_break'] and f['mature_buck_score'] >= 60.0]
+        
+        for feature in bedding_features:
+            # Create bedding area from terrain feature
+            terrain_bedding = {
+                'lat': feature['lat'],
+                'lon': feature['lon'],
+                'type': f"terrain_{feature['type']}_bedding",
+                'confidence': feature['confidence'],
+                'description': f"Terrain-detected {feature['type'].replace('_', ' ')} bedding area",
+                'terrain_characteristics': feature.get('properties', {}),
+                'suitability_factors': {
+                    'terrain_based': True,
+                    'feature_type': feature['type'],
+                    'mature_buck_score': feature['mature_buck_score'],
+                    'detection_confidence': feature['confidence']
+                }
+            }
+            
+            # Add specific terrain-based factors
+            if feature['type'] == 'bench':
+                terrain_bedding['suitability_factors'].update({
+                    'flatness': True,
+                    'size_adequate': feature['properties'].get('size_estimate_sqm', 0) >= 50,
+                    'bedding_comfort': feature['properties'].get('bedding_suitability', 0.5)
+                })
+            elif feature['type'] == 'slope_break':
+                terrain_bedding['suitability_factors'].update({
+                    'transition_zone': True,
+                    'accessibility': feature['properties'].get('accessibility', 0.5),
+                    'bedding_potential': feature['properties'].get('bedding_potential', False)
+                })
+            
+            enhanced_bedding.append(terrain_bedding)
+        
+        # Enhance existing bedding areas with nearby features
+        for bedding in enhanced_bedding:
+            if not bedding.get('terrain_characteristics'):
+                bedding_lat = bedding['lat']
+                bedding_lon = bedding['lon']
+                
+                # Find nearby terrain features that support bedding
+                nearby_support_features = []
+                for feature in detected_features:
+                    lat_diff = abs(feature['lat'] - bedding_lat)
+                    lon_diff = abs(feature['lon'] - bedding_lon)
+                    distance_approx = (lat_diff + lon_diff) * 111000
+                    
+                    if distance_approx <= 75:  # Within 75m
+                        if feature['type'] in ['saddle', 'slope_break', 'bench', 'drainage']:
+                            nearby_support_features.append(feature)
+                
+                if nearby_support_features:
+                    bedding['terrain_support'] = {
+                        'supporting_features': len(nearby_support_features),
+                        'best_support_type': max(nearby_support_features, 
+                                               key=lambda x: x['mature_buck_score'])['type'],
+                        'terrain_confidence_boost': min(8.0, len(nearby_support_features) * 2.0)
+                    }
+                    bedding['confidence'] = min(100.0, bedding['confidence'] + bedding['terrain_support']['terrain_confidence_boost'])
+        
+        # Sort by confidence and return top bedding areas
+        enhanced_bedding.sort(key=lambda x: x['confidence'], reverse=True)
+        return enhanced_bedding[:4]  # Return top 4 enhanced bedding areas
+    
+    def _generate_terrain_based_stands(self, terrain_analysis: Dict, lat: float, lon: float) -> List[Dict]:
+        """
+        Generate stand recommendations based on detected terrain features
+        
+        Args:
+            terrain_analysis: Complete terrain analysis results
+            lat: Base latitude
+            lon: Base longitude
+            
+        Returns:
+            List of terrain-based stand recommendations
+        """
+        stand_recommendations = []
+        
+        detected_features = terrain_analysis['detected_features']
+        natural_funnels = terrain_analysis['natural_funnels']
+        travel_corridors = terrain_analysis['travel_corridors']
+        
+        # Funnel-based stands (highest priority)
+        for funnel in natural_funnels:
+            if funnel['mature_buck_suitability'] >= 70.0:
+                stand = {
+                    'type': 'Natural Terrain Funnel Stand',
+                    'lat': funnel['center_lat'],
+                    'lon': funnel['center_lon'],
+                    'confidence': funnel['confidence'],
+                    'mature_buck_score': funnel['mature_buck_suitability'],
+                    'setup_requirements': [
+                        f"Position for {len(funnel['contributing_features'])} converging features",
+                        "Multiple approach angle coverage",
+                        "Wind consideration for funnel direction"
+                    ],
+                    'best_conditions': [
+                        "High pressure periods when bucks use secure routes",
+                        "Weather fronts that trigger movement",
+                        "Rut season for increased daylight activity"
+                    ],
+                    'terrain_advantages': {
+                        'natural_constraint': True,
+                        'multiple_features': funnel['properties']['feature_count'],
+                        'funnel_strength': funnel['properties']['funnel_strength'],
+                        'ambush_potential': funnel['properties']['ambush_potential']
+                    }
+                }
+                stand_recommendations.append(stand)
+        
+        # Saddle-based stands
+        saddle_features = [f for f in detected_features 
+                          if f['type'] == 'saddle' and f['mature_buck_score'] >= 65.0]
+        for saddle in saddle_features[:2]:  # Top 2 saddles
+            stand = {
+                'type': 'Saddle Ambush Stand',
+                'lat': saddle['lat'],
+                'lon': saddle['lon'],
+                'confidence': saddle['confidence'],
+                'mature_buck_score': saddle['mature_buck_score'],
+                'setup_requirements': [
+                    f"Position in saddle with {saddle['properties']['depth_meters']:.1f}m depth",
+                    "Cover approach routes on both sides",
+                    "Wind advantage from higher ground"
+                ],
+                'best_conditions': [
+                    "Any movement period - natural travel route",
+                    "Pressure situations when bucks seek easy passage",
+                    "Early morning and late evening transitions"
+                ],
+                'terrain_advantages': {
+                    'natural_funnel': True,
+                    'easy_passage': True,
+                    'saddle_depth': saddle['properties']['depth_meters'],
+                    'concealment_rating': saddle['properties']['concealment_rating']
+                }
+            }
+            stand_recommendations.append(stand)
+        
+        # Ridge corridor stands
+        ridge_corridors = [c for c in travel_corridors 
+                          if c['type'] == 'ridge_corridor' and c['mature_buck_suitability'] >= 60.0]
+        for ridge in ridge_corridors[:2]:  # Top 2 ridge corridors
+            stand = {
+                'type': 'Ridge Travel Corridor Stand',
+                'lat': ridge['corridor_lat'],
+                'lon': ridge['corridor_lon'],
+                'confidence': ridge['confidence'],
+                'mature_buck_score': ridge['mature_buck_suitability'],
+                'setup_requirements': [
+                    "Position along ridge spine travel route",
+                    "Multiple escape route coverage",
+                    "Elevation advantage for detection"
+                ],
+                'best_conditions': [
+                    "Dry conditions when ridges are preferred",
+                    "Clear weather for long-distance spotting",
+                    "Rut season travel between doe groups"
+                ],
+                'terrain_advantages': {
+                    'elevation_advantage': True,
+                    'travel_corridor': True,
+                    'escape_routes': ridge['properties']['escape_routes'],
+                    'seasonal_preference': ridge['properties']['seasonal_preference']
+                }
+            }
+            stand_recommendations.append(stand)
+        
+        # Drainage corridor stands
+        drainage_corridors = [c for c in travel_corridors 
+                             if c['type'] == 'drainage_corridor' and c['mature_buck_suitability'] >= 55.0]
+        for drainage in drainage_corridors[:1]:  # Top drainage corridor
+            stand = {
+                'type': 'Concealed Drainage Stand',
+                'lat': drainage['corridor_lat'],
+                'lon': drainage['corridor_lon'],
+                'confidence': drainage['confidence'],
+                'mature_buck_score': drainage['mature_buck_suitability'],
+                'setup_requirements': [
+                    "Position overlooking drainage corridor",
+                    "Concealed approach to avoid detection",
+                    "Cover multiple drainage access points"
+                ],
+                'best_conditions': [
+                    "High pressure periods - maximum concealment value",
+                    "Wet conditions when drainages are active",
+                    "Dawn and dusk for water access"
+                ],
+                'terrain_advantages': {
+                    'maximum_concealment': True,
+                    'water_access': True,
+                    'pressure_resistance': True,
+                    'year_round_viability': True
+                }
+            }
+            stand_recommendations.append(stand)
+        
+        # Sort by mature buck score
+        stand_recommendations.sort(key=lambda x: x['mature_buck_score'], reverse=True)
+        
+        return stand_recommendations[:4]  # Return top 4 terrain-based stands
+    
+    def _generate_terrain_behavioral_insights(self, terrain_analysis: Dict, season: str, weather_data: Dict) -> List[str]:
+        """
+        Generate behavioral insights based on terrain analysis
+        
+        Args:
+            terrain_analysis: Complete terrain analysis results
+            season: Current hunting season
+            weather_data: Weather conditions
+            
+        Returns:
+            List of terrain-based behavioral insights
+        """
+        insights = []
+        
+        mature_buck_analysis = terrain_analysis['mature_buck_analysis']
+        detected_features = terrain_analysis['detected_features']
+        natural_funnels = terrain_analysis['natural_funnels']
+        
+        # Overall terrain assessment
+        overall_score = mature_buck_analysis['overall_suitability']
+        if overall_score >= 80.0:
+            insights.append("🎯 PREMIUM mature buck terrain - expect regular use during appropriate conditions")
+        elif overall_score >= 60.0:
+            insights.append("✅ GOOD mature buck habitat - selective use based on pressure and weather")
+        elif overall_score >= 40.0:
+            insights.append("⚠️ MODERATE terrain - expect limited mature buck activity")
+        else:
+            insights.append("❌ CHALLENGING terrain for mature buck activity")
+        
+        # Feature-specific insights
+        feature_analysis = mature_buck_analysis['feature_analysis']
+        
+        if 'saddle' in feature_analysis:
+            saddle_data = feature_analysis['saddle']
+            if saddle_data['avg_score'] >= 70.0:
+                insights.append(f"🏔️ {saddle_data['count']} premium saddle(s) detected - expect consistent travel routes")
+        
+        if 'drainage' in feature_analysis:
+            drainage_data = feature_analysis['drainage']
+            if drainage_data['count'] >= 2:
+                insights.append(f"💧 Multiple drainage systems provide excellent concealed movement options")
+        
+        if 'bench' in feature_analysis:
+            bench_data = feature_analysis['bench']
+            if bench_data['avg_score'] >= 65.0:
+                insights.append(f"🛏️ High-quality bedding sites detected - expect daytime presence")
+        
+        # Seasonal behavioral insights
+        if season == "rut":
+            if len(natural_funnels) >= 2:
+                insights.append("💘 RUT ADVANTAGE: Multiple funnels increase doe monitoring opportunities")
+            if feature_analysis.get('ridge_spine', {}).get('count', 0) >= 1:
+                insights.append("🦌 RUT TRAVEL: Ridge systems ideal for covering territory during rut")
+        
+        elif season == "early_season":
+            if feature_analysis.get('drainage', {}).get('avg_score', 0) >= 60.0:
+                insights.append("🌅 EARLY SEASON: Drainage corridors provide security during high pressure")
+        
+        elif season == "late_season":
+            if overall_score >= 70.0:
+                insights.append("❄️ LATE SEASON: High-quality terrain becomes critical for energy conservation")
+        
+        # Weather-based insights
+        pressure_trend = weather_data.get('pressure_trend', 'stable')
+        if pressure_trend == 'falling' and len(natural_funnels) >= 1:
+            insights.append("📉 PRESSURE DROP: Funnel activity likely to increase - prime opportunity")
+        
+        wind_speed = weather_data.get('wind_speed', 5)
+        if wind_speed >= 15 and feature_analysis.get('drainage', {}).get('count', 0) >= 1:
+            insights.append("💨 WINDY CONDITIONS: Drainage corridors provide wind protection and noise cover")
+        
+        # Strategic insights
+        corridor_analysis = mature_buck_analysis['corridor_analysis']
+        if corridor_analysis['corridor_diversity'] >= 3:
+            insights.append("🎯 TACTICAL ADVANTAGE: Multiple corridor types allow pressure adaptation")
+        
+        if corridor_analysis['total_corridors'] >= 4:
+            insights.append("🗺️ COMPLEX MOVEMENT: Multiple travel options suggest established mature buck territory")
+        
+        return insights
+    
     def _predict_feeding_zones(self, terrain_features: Dict, lat: float, lon: float, season: str) -> List[Dict]:
         """
         Predict feeding zones for mature bucks based on terrain and seasonal patterns
@@ -987,6 +1541,225 @@ class MatureBuckBehaviorModel:
         # Sort by confidence and return top zones
         feeding_zones.sort(key=lambda x: x['confidence'], reverse=True)
         return feeding_zones[:4]  # Return top 4 feeding zones
+    
+    def _calculate_proximity_score(self, distance_yards: float, 
+                                  min_optimal: float, 
+                                  max_optimal: float, 
+                                  max_useful: float) -> float:
+        """
+        Calculate proximity score based on distance and optimal ranges
+        
+        Args:
+            distance_yards: Distance to zone in yards
+            min_optimal: Minimum optimal distance
+            max_optimal: Maximum optimal distance  
+            max_useful: Maximum useful distance
+            
+        Returns:
+            Proximity score (0-100)
+            
+        Scoring Logic:
+        - 0 to min_optimal: Linear increase from 60 to 100
+        - min_optimal to max_optimal: 100 (optimal range)  
+        - max_optimal to max_useful: Linear decrease from 100 to 20
+        - Beyond max_useful: 10 (minimal benefit)
+        """
+        if distance_yards <= min_optimal:
+            # Too close - linear increase from 60 to 100
+            if distance_yards <= 0:
+                return 60.0
+            return 60.0 + (40.0 * (distance_yards / min_optimal))
+        
+        elif distance_yards <= max_optimal:
+            # Optimal range - maximum score
+            return 100.0
+        
+        elif distance_yards <= max_useful:
+            # Useful but declining - linear decrease from 100 to 20
+            range_size = max_useful - max_optimal
+            distance_beyond_optimal = distance_yards - max_optimal
+            decline_factor = distance_beyond_optimal / range_size
+            return 100.0 - (80.0 * decline_factor)
+        
+        else:
+            # Beyond useful range - minimal benefit
+            return 10.0
+    
+    def _calculate_multi_zone_distances(self, stand_lat: float, stand_lon: float, 
+                                       zone_locations: List[Dict]) -> Dict:
+        """
+        Calculate distances to multiple zones and return analysis
+        
+        Args:
+            stand_lat: Stand latitude
+            stand_lon: Stand longitude
+            zone_locations: List of zone dictionaries with lat/lon
+            
+        Returns:
+            {
+                'distances': [list of distances in yards],
+                'closest': {'distance': float, 'zone': dict},
+                'average_distance': float,
+                'within_optimal_count': int
+            }
+        """
+        if not zone_locations:
+            return {
+                'distances': [],
+                'closest': {'distance': float('inf'), 'zone': None},
+                'average_distance': float('inf'),
+                'within_optimal_count': 0
+            }
+        
+        distances = []
+        closest_zone = None
+        closest_distance = float('inf')
+        
+        for zone in zone_locations:
+            zone_lat = zone.get('lat')
+            zone_lon = zone.get('lon')
+            
+            if zone_lat is None or zone_lon is None:
+                continue
+                
+            # Calculate distance in miles, convert to yards
+            distance_miles = self._calculate_haversine_distance(
+                stand_lat, stand_lon, zone_lat, zone_lon
+            )
+            distance_yards = distance_miles * 1760
+            
+            distances.append(distance_yards)
+            
+            if distance_yards < closest_distance:
+                closest_distance = distance_yards
+                closest_zone = zone
+        
+        if not distances:
+            return {
+                'distances': [],
+                'closest': {'distance': float('inf'), 'zone': None},
+                'average_distance': float('inf'),
+                'within_optimal_count': 0
+            }
+        
+        return {
+            'distances': distances,
+            'closest': {'distance': closest_distance, 'zone': closest_zone},
+            'average_distance': sum(distances) / len(distances),
+            'within_optimal_count': len([d for d in distances if d <= 200])  # Within 200 yards
+        }
+    
+    def calculate_zone_proximity_scores(self, stand_lat: float, stand_lon: float, 
+                                       bedding_locations: List[Dict], 
+                                       feeding_locations: List[Dict]) -> Dict:
+        """
+        Calculate proximity scores for stand relative to deer activity zones
+        
+        Args:
+            stand_lat: Stand latitude
+            stand_lon: Stand longitude
+            bedding_locations: List of predicted bedding locations
+            feeding_locations: List of predicted feeding locations
+            
+        Returns:
+            {
+                'bedding_proximity': {
+                    'closest_distance_yards': float,
+                    'average_distance_yards': float,
+                    'proximity_score': float (0-100),
+                    'optimal_range': bool
+                },
+                'feeding_proximity': {
+                    'closest_distance_yards': float,
+                    'average_distance_yards': float, 
+                    'proximity_score': float (0-100),
+                    'optimal_range': bool
+                },
+                'combined_proximity_score': float (0-100)
+            }
+        """
+        # Calculate bedding proximity
+        bedding_analysis = self._calculate_multi_zone_distances(
+            stand_lat, stand_lon, bedding_locations
+        )
+        
+        bedding_thresholds = PROXIMITY_THRESHOLDS['bedding']
+        bedding_closest = bedding_analysis['closest']['distance']
+        bedding_score = self._calculate_proximity_score(
+            bedding_closest,
+            bedding_thresholds['min_optimal'],
+            bedding_thresholds['max_optimal'],
+            bedding_thresholds['max_useful']
+        )
+        
+        bedding_optimal = (bedding_thresholds['min_optimal'] <= 
+                          bedding_closest <= bedding_thresholds['max_optimal'])
+        
+        # Calculate feeding proximity
+        feeding_analysis = self._calculate_multi_zone_distances(
+            stand_lat, stand_lon, feeding_locations
+        )
+        
+        feeding_thresholds = PROXIMITY_THRESHOLDS['feeding']
+        feeding_closest = feeding_analysis['closest']['distance']
+        feeding_score = self._calculate_proximity_score(
+            feeding_closest,
+            feeding_thresholds['min_optimal'],
+            feeding_thresholds['max_optimal'],
+            feeding_thresholds['max_useful']
+        )
+        
+        feeding_optimal = (feeding_thresholds['min_optimal'] <= 
+                          feeding_closest <= feeding_thresholds['max_optimal'])
+        
+        # Calculate combined score using configured weights
+        combined_score = (
+            bedding_score * PROXIMITY_CONFIG['bedding_weight'] +
+            feeding_score * PROXIMITY_CONFIG['feeding_weight']
+        )
+        
+        return {
+            'bedding_proximity': {
+                'closest_distance_yards': bedding_closest,
+                'average_distance_yards': bedding_analysis['average_distance'],
+                'proximity_score': bedding_score,
+                'optimal_range': bedding_optimal
+            },
+            'feeding_proximity': {
+                'closest_distance_yards': feeding_closest,
+                'average_distance_yards': feeding_analysis['average_distance'],
+                'proximity_score': feeding_score,
+                'optimal_range': feeding_optimal
+            },
+            'combined_proximity_score': combined_score
+        }
+    
+    def _calculate_haversine_distance(self, lat1: float, lon1: float, 
+                                     lat2: float, lon2: float) -> float:
+        """
+        Calculate distance between two points using Haversine formula
+        
+        Args:
+            lat1, lon1: First point coordinates
+            lat2, lon2: Second point coordinates
+            
+        Returns:
+            Distance in miles
+        """
+        import math
+        
+        # Convert to radians
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        dlat_rad = math.radians(lat2 - lat1)
+        dlon_rad = math.radians(lon2 - lon1)
+        
+        # Haversine formula
+        a = (math.sin(dlat_rad/2)**2 + 
+             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon_rad/2)**2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        return 3959 * c  # Earth radius in miles
 
 def _safe_float_conversion_standalone(value, default: float = 0.0) -> float:
     """Safely convert numpy arrays or other values to float - standalone version"""
@@ -1008,9 +1781,9 @@ def _safe_float_conversion_standalone(value, default: float = 0.0) -> float:
 
 def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: Dict, 
                                mature_buck_scores: Dict, lat: float, lon: float, 
-                               strategy_index: int) -> Dict:
+                               strategy_index: int, wind_data: Optional[WindData] = None) -> Dict:
     """
-    Find optimal stand position based on strategy type and terrain features
+    Find optimal stand position based on strategy type, terrain features, and wind conditions
     
     Args:
         strategy: Stand strategy configuration
@@ -1019,9 +1792,10 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         lat: Base latitude
         lon: Base longitude
         strategy_index: Index for positioning variation
+        wind_data: Optional wind data for positioning optimization
         
     Returns:
-        Dict with lat, lon, and positioning justification
+        Dict with lat, lon, positioning justification, and wind analysis
     """
     meters_to_degrees = 1.0 / 111000.0
     strategy_type = strategy['type']
@@ -1034,12 +1808,13 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
     elevation = _safe_float_conversion_standalone(terrain_analysis.get('elevation'), 0.0)
     canopy_closure = _safe_float_conversion_standalone(terrain_analysis.get('canopy_closure'), 50.0)
     
+    # Base positioning logic (unchanged)
     if strategy_type == 'Escape Route Ambush':
         # Position between bedding and escape routes
         if drainage_density >= 1.0:
             # Use drainage systems for escape route positioning
-            angle = (45 + strategy_index * 90) * np.pi / 180
-            distance = 120 + drainage_density * 30  # Distance based on drainage density
+            base_angle = (45 + strategy_index * 90)
+            base_distance = 120 + drainage_density * 30  # Distance based on drainage density
             justification = f"Positioned along drainage corridor with {drainage_density:.1f} density"
             precision_factors = {
                 'drainage_density': drainage_density,
@@ -1048,8 +1823,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
             }
         else:
             # Fallback to ridge-based positioning
-            angle = (30 + strategy_index * 120) * np.pi / 180
-            distance = 100 + ridge_connectivity * 50
+            base_angle = (30 + strategy_index * 120)
+            base_distance = 100 + ridge_connectivity * 50
             justification = f"Ridge-based escape route position"
             precision_factors = {
                 'ridge_connectivity': ridge_connectivity,
@@ -1060,8 +1835,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         # Position near agricultural or forest edges
         if ag_proximity <= 300.0:
             # Position at agricultural edge
-            angle = 225 * np.pi / 180  # Southwest of ag area
-            distance = ag_proximity + 60  # Just outside ag boundary
+            base_angle = 225  # Southwest of ag area
+            base_distance = ag_proximity + 60  # Just outside ag boundary
             justification = f"Agricultural edge position, {ag_proximity:.0f}m from crops"
             precision_factors = {
                 'agricultural_proximity': ag_proximity,
@@ -1070,8 +1845,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
             }
         else:
             # Position at forest opening
-            angle = (180 + strategy_index * 45) * np.pi / 180
-            distance = 150 + canopy_closure * 2  # Distance based on cover density
+            base_angle = (180 + strategy_index * 45)
+            base_distance = 150 + canopy_closure * 2  # Distance based on cover density
             justification = f"Forest opening edge with {canopy_closure:.0f}% canopy cover"
             precision_factors = {
                 'canopy_closure': canopy_closure,
@@ -1083,8 +1858,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         # Position in thickest, most remote cover
         if escape_cover_density >= 70.0:
             # Use thick cover areas
-            angle = (90 + strategy_index * 180) * np.pi / 180
-            distance = 200 + escape_cover_density * 1.5  # Deep in thick cover
+            base_angle = (90 + strategy_index * 180)
+            base_distance = 200 + escape_cover_density * 1.5  # Deep in thick cover
             justification = f"Deep sanctuary in {escape_cover_density:.0f}% cover density"
             precision_factors = {
                 'escape_cover_density': escape_cover_density,
@@ -1093,8 +1868,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
             }
         else:
             # Use elevation for sanctuary
-            angle = (135 + strategy_index * 90) * np.pi / 180
-            distance = 180 + elevation * 0.3  # Higher elevation for sanctuary
+            base_angle = (135 + strategy_index * 90)
+            base_distance = 180 + elevation * 0.3  # Higher elevation for sanctuary
             justification = f"Elevation sanctuary at {elevation:.0f}m"
             precision_factors = {
                 'elevation': elevation,
@@ -1106,8 +1881,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         # Position at natural terrain funnels
         if ridge_connectivity >= 0.6:
             # Use actual ridge systems
-            angle = (0 + strategy_index * 180) * np.pi / 180  # North/South ridge positions
-            distance = 80 + ridge_connectivity * 120  # Close to ridge features
+            base_angle = (0 + strategy_index * 180)  # North/South ridge positions
+            base_distance = 80 + ridge_connectivity * 120  # Close to ridge features
             justification = f"Ridge saddle with {ridge_connectivity:.1f} connectivity"
             precision_factors = {
                 'ridge_connectivity': ridge_connectivity,
@@ -1116,8 +1891,8 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
             }
         else:
             # Use drainage convergence as funnel
-            angle = (315 + strategy_index * 45) * np.pi / 180
-            distance = 110 + drainage_density * 40
+            base_angle = (315 + strategy_index * 45)
+            base_distance = 110 + drainage_density * 40
             justification = f"Drainage convergence funnel"
             precision_factors = {
                 'drainage_density': drainage_density,
@@ -1126,26 +1901,115 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
             }
     else:
         # Default positioning
-        angle = (strategy_index * 90) * np.pi / 180
-        distance = 150
+        base_angle = (strategy_index * 90)
+        base_distance = 150
         justification = "General terrain positioning"
         precision_factors = {'positioning_method': 'default'}
     
-    # Calculate coordinates
-    offset_lat = distance * np.cos(angle) * meters_to_degrees
-    offset_lon = distance * np.sin(angle) * meters_to_degrees
+    # Wind-aware positioning optimization
+    wind_optimized_data = None
+    final_angle = base_angle
+    wind_adjustment_info = {}
+    
+    if wind_data:
+        try:
+            # Create a wind analyzer instance for this calculation
+            from wind_analysis import WindAnalyzer
+            wind_analyzer = WindAnalyzer()
+            
+            # Calculate wind-optimized position relative to predicted bedding area
+            # Use the base coordinates as the "target" bedding area
+            wind_position = wind_analyzer.calculate_optimal_downwind_position(
+                target_lat=lat,
+                target_lon=lon,
+                wind_data=wind_data,
+                distance_yards=base_distance * 1.09361,  # Convert meters to yards
+                strategy_type=strategy_type.lower().replace(' ', '_')
+            )
+            
+            # Extract wind-optimized angle
+            wind_angle = wind_position.downwind_angle
+            
+            # Blend terrain-based angle with wind-optimized angle
+            # Weight wind more heavily for certain strategies
+            if strategy_type in ['Escape Route Ambush', 'Secluded Feeding Edge']:
+                wind_weight = 0.7  # Prioritize wind for ambush strategies
+            elif strategy_type == 'Pressure Sanctuary':
+                wind_weight = 0.4  # Less wind dependence for sanctuaries
+            else:
+                wind_weight = 0.6  # Moderate wind consideration
+            
+            # Calculate blended angle
+            angle_diff = abs(wind_angle - base_angle)
+            if angle_diff > 180:
+                angle_diff = 360 - angle_diff
+            
+            # If wind and terrain angles are too far apart, find a compromise
+            if angle_diff <= 90:
+                # Blend the angles
+                final_angle = (wind_weight * wind_angle + (1 - wind_weight) * base_angle)
+            else:
+                # Use terrain angle but add wind safety margin
+                final_angle = base_angle
+                wind_weight = 0.2  # Reduce wind influence when conflict is high
+            
+            # Store wind optimization data
+            wind_optimized_data = wind_position
+            wind_adjustment_info = {
+                'wind_direction': wind_data.direction_degrees,
+                'wind_speed': wind_data.speed_mph,
+                'wind_consistency': wind_data.consistency.value,
+                'optimal_wind_angle': wind_angle,
+                'terrain_angle': base_angle,
+                'final_angle': final_angle,
+                'wind_weight_used': wind_weight,
+                'wind_advantage_score': wind_position.wind_advantage_score,
+                'scent_safety_margin': wind_position.scent_safety_margin,
+                'entry_route': wind_position.optimal_entry_route,
+                'fallback_positions': wind_position.fallback_positions
+            }
+            
+            # Update justification with wind information
+            wind_status = "favorable" if wind_position.wind_advantage_score > 60 else "acceptable" if wind_position.wind_advantage_score > 40 else "challenging"
+            justification += f" | Wind: {wind_data.direction_degrees:.0f}° at {wind_data.speed_mph:.1f}mph ({wind_status})"
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Wind optimization failed: {e}")
+            # Fall back to terrain-only positioning
+            final_angle = base_angle
+    
+    # Calculate final coordinates using wind-adjusted angle
+    angle_rad = final_angle * np.pi / 180
+    offset_lat = base_distance * np.cos(angle_rad) * meters_to_degrees
+    offset_lon = base_distance * np.sin(angle_rad) * meters_to_degrees
     
     stand_lat = lat + offset_lat
     stand_lon = lon + offset_lon
     
-    return {
+    # Prepare return data
+    result = {
         'lat': stand_lat,
         'lon': stand_lon,
         'justification': justification,
         'precision_factors': precision_factors,
-        'distance_from_center': distance,
-        'positioning_angle': angle * 180 / np.pi
+        'distance_from_center': base_distance,
+        'positioning_angle': final_angle,
+        'wind_optimized': wind_data is not None,
+        'wind_data': wind_adjustment_info
     }
+    
+    # Add wind optimization details if available
+    if wind_optimized_data:
+        result['wind_optimization'] = {
+            'downwind_position': (wind_optimized_data.latitude, wind_optimized_data.longitude),
+            'wind_advantage_score': wind_optimized_data.wind_advantage_score,
+            'scent_safety_margin': wind_optimized_data.scent_safety_margin,
+            'confidence_modifiers': wind_optimized_data.confidence_modifiers,
+            'entry_route': wind_optimized_data.optimal_entry_route,
+            'fallback_positions': wind_optimized_data.fallback_positions
+        }
+    
+    return result
 
 def _calculate_terrain_bonus_for_strategy(strategy: Dict, terrain_analysis: Dict) -> float:
     """
@@ -1218,21 +2082,45 @@ def get_mature_buck_predictor() -> MatureBuckBehaviorModel:
 
 # Mature buck specific stand recommendations
 def generate_mature_buck_stand_recommendations(terrain_analysis: Dict, mature_buck_scores: Dict, 
-                                             lat: float, lon: float) -> List[Dict]:
+                                             lat: float, lon: float, 
+                                             weather_data: Optional[Dict] = None) -> List[Dict]:
     """
-    Generate stand recommendations specifically optimized for mature bucks
+    Generate stand recommendations specifically optimized for mature bucks with wind analysis
     
     Args:
         terrain_analysis: Terrain analysis results
         mature_buck_scores: Mature buck terrain scores
         lat: Latitude coordinate
         lon: Longitude coordinate
+        weather_data: Optional weather data including wind information
         
     Returns:
-        List of mature buck optimized stand recommendations
+        List of mature buck optimized stand recommendations with wind optimization
     """
     recommendations = []
     
+    # Fetch current wind data if weather_data is available
+    wind_data = None
+    if weather_data:
+        try:
+            from wind_analysis import get_wind_analyzer
+            wind_analyzer = get_wind_analyzer()
+            wind_data = wind_analyzer.fetch_current_wind_data(lat, lon)
+            logger.info(f"🌬️ Wind data integrated: {wind_data.direction_degrees:.0f}° at {wind_data.speed_mph:.1f}mph")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to fetch wind data: {e}")
+    
+    # Generate bedding and feeding predictions for proximity analysis
+    try:
+        buck_predictor = get_mature_buck_predictor()
+        bedding_locations = buck_predictor._predict_bedding_locations(terrain_analysis, lat, lon)
+        feeding_locations = buck_predictor._predict_feeding_zones(terrain_analysis, lat, lon, 'rut')  # Default to rut season
+        logger.info(f"🎯 Proximity analysis: {len(bedding_locations)} bedding zones, {len(feeding_locations)} feeding zones")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to generate proximity zones: {e}")
+        bedding_locations = []
+        feeding_locations = []
+
     # Mature buck stand strategies
     stand_strategies = [
         {
@@ -1240,35 +2128,39 @@ def generate_mature_buck_stand_recommendations(terrain_analysis: Dict, mature_bu
             'description': 'Position between bedding and primary escape corridor',
             'confidence_base': 85.0,
             'setup_requirements': ['Multiple escape routes', 'Thick cover nearby', 'Wind advantage'],
-            'best_times': 'Dawn and dusk during high pressure periods'
+            'best_times': 'Dawn and dusk during high pressure periods',
+            'wind_critical': True  # Wind is critical for ambush strategies
         },
         {
             'type': 'Secluded Feeding Edge',
             'description': 'Hidden position overlooking isolated food source',
             'confidence_base': 80.0,
             'setup_requirements': ['Remote food source', 'Concealed approach', 'Escape cover'],
-            'best_times': 'Night vision or thermal during rut'
+            'best_times': 'Night vision or thermal during rut',
+            'wind_critical': True  # Wind is critical for feeding areas
         },
         {
             'type': 'Pressure Sanctuary',
             'description': 'Deep cover position in low-pressure sanctuary',
             'confidence_base': 90.0,
             'setup_requirements': ['Difficult hunter access', 'Multiple cover types', 'Water nearby'],
-            'best_times': 'All day during peak rut'
+            'best_times': 'All day during peak rut',
+            'wind_critical': False  # Sanctuary less dependent on wind
         },
         {
             'type': 'Ridge Saddle Intercept',
             'description': 'Strategic position in natural travel funnel',
             'confidence_base': 75.0,
             'setup_requirements': ['Natural funnel', 'Elevation advantage', 'Cross wind setup'],
-            'best_times': 'Morning and evening transitions'
+            'best_times': 'Morning and evening transitions',
+            'wind_critical': True  # Funnel intercepts need good wind
         }
     ]
     
     for i, strategy in enumerate(stand_strategies):
-        # Calculate position based on terrain features and strategy type
+        # Calculate position based on terrain features, strategy type, and wind
         stand_position = _find_optimal_stand_position_for_strategy(
-            strategy, terrain_analysis, mature_buck_scores, lat, lon, i
+            strategy, terrain_analysis, mature_buck_scores, lat, lon, i, wind_data
         )
         
         # Adjust confidence based on terrain suitability
@@ -1278,25 +2170,135 @@ def generate_mature_buck_stand_recommendations(terrain_analysis: Dict, mature_bu
         # Add terrain-specific bonuses
         terrain_bonus = _calculate_terrain_bonus_for_strategy(strategy, terrain_analysis)
         confidence += terrain_bonus
+        
+        # Add wind-specific confidence adjustments
+        wind_confidence_adjustment = 0.0
+        wind_notes = []
+        
+        if wind_data and stand_position.get('wind_optimized'):
+            wind_info = stand_position.get('wind_data', {})
+            wind_advantage_score = wind_info.get('wind_advantage_score', 50.0)
+            
+            # Calculate wind confidence adjustment
+            if strategy['wind_critical']:
+                # Wind-critical strategies get larger adjustments
+                if wind_advantage_score >= 80:
+                    wind_confidence_adjustment = 15.0
+                    wind_notes.append("🌬️ Excellent wind conditions")
+                elif wind_advantage_score >= 60:
+                    wind_confidence_adjustment = 8.0
+                    wind_notes.append("🌬️ Good wind conditions")
+                elif wind_advantage_score >= 40:
+                    wind_confidence_adjustment = 2.0
+                    wind_notes.append("🌬️ Acceptable wind conditions")
+                else:
+                    wind_confidence_adjustment = -10.0
+                    wind_notes.append("⚠️ Challenging wind conditions")
+            else:
+                # Non-critical strategies get smaller adjustments
+                if wind_advantage_score >= 60:
+                    wind_confidence_adjustment = 5.0
+                    wind_notes.append("🌬️ Wind advantage present")
+                elif wind_advantage_score < 40:
+                    wind_confidence_adjustment = -3.0
+                    wind_notes.append("⚠️ Wind conditions suboptimal")
+            
+            # Add wind consistency bonus/penalty
+            wind_consistency = wind_info.get('wind_consistency', 'moderate')
+            if wind_consistency == 'steady':
+                wind_confidence_adjustment += 3.0
+                wind_notes.append("✅ Steady wind pattern")
+            elif wind_consistency == 'variable':
+                wind_confidence_adjustment -= 2.0
+                wind_notes.append("⚠️ Variable wind pattern")
+            elif wind_consistency == 'chaotic':
+                wind_confidence_adjustment -= 5.0
+                wind_notes.append("❌ Chaotic wind pattern")
+        
+        # Apply wind adjustment to confidence
+        confidence += wind_confidence_adjustment
+        
+        # Calculate proximity scores for this stand position
+        proximity_analysis = {}
+        proximity_confidence_adjustment = 0.0
+        proximity_notes = []
+        
+        if bedding_locations or feeding_locations:
+            try:
+                stand_lat = stand_position.get('lat', lat)
+                stand_lon = stand_position.get('lon', lon)
+                
+                proximity_analysis = buck_predictor.calculate_zone_proximity_scores(
+                    stand_lat, stand_lon, bedding_locations, feeding_locations
+                )
+                
+                # Calculate confidence adjustment based on proximity (up to 15% impact)
+                combined_proximity = proximity_analysis['combined_proximity_score']
+                proximity_confidence_adjustment = (combined_proximity - 50.0) * PROXIMITY_CONFIG['confidence_impact']
+                
+                # Add proximity insights
+                bedding_prox = proximity_analysis['bedding_proximity']
+                feeding_prox = proximity_analysis['feeding_proximity']
+                
+                if bedding_prox['optimal_range']:
+                    proximity_notes.append(f"🛏️ Optimal bedding distance ({bedding_prox['closest_distance_yards']:.0f} yds)")
+                else:
+                    proximity_notes.append(f"🛏️ Bedding distance: {bedding_prox['closest_distance_yards']:.0f} yds")
+                
+                if feeding_prox['optimal_range']:
+                    proximity_notes.append(f"🌿 Optimal feeding distance ({feeding_prox['closest_distance_yards']:.0f} yds)")
+                else:
+                    proximity_notes.append(f"🌿 Feeding distance: {feeding_prox['closest_distance_yards']:.0f} yds")
+                
+                if combined_proximity >= 80:
+                    proximity_notes.append("🎯 Excellent zone proximity - high intercept probability")
+                elif combined_proximity >= 60:
+                    proximity_notes.append("✅ Good zone proximity - solid positioning")
+                elif combined_proximity < 40:
+                    proximity_notes.append("⚠️ Suboptimal zone proximity - consider repositioning")
+                    
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to calculate proximity for stand {i+1}: {e}")
+        
+        # Apply proximity adjustment to confidence
+        confidence += proximity_confidence_adjustment
         confidence = min(confidence, 95.0)
+        
+        # Prepare setup requirements with wind information
+        setup_requirements = strategy['setup_requirements'].copy()
+        if wind_data:
+            wind_speed = wind_data.speed_mph
+            wind_direction = wind_data.direction_degrees
+            setup_requirements.append(f"Wind: {wind_direction:.0f}° at {wind_speed:.1f}mph")
         
         recommendation = {
             'type': strategy['type'],
             'description': strategy['description'],
             'coordinates': stand_position,
             'confidence': confidence,
-            'setup_requirements': strategy['setup_requirements'],
+            'setup_requirements': setup_requirements,
             'best_times': strategy['best_times'],
             'mature_buck_optimized': True,
             'pressure_resistance': mature_buck_scores.get('pressure_resistance', 50.0),
             'escape_route_quality': mature_buck_scores.get('escape_route_quality', 50.0),
             'terrain_justification': stand_position.get('justification', 'General terrain positioning'),
-            'precision_factors': stand_position.get('precision_factors', {})
+            'precision_factors': stand_position.get('precision_factors', {}),
+            'wind_optimized': stand_position.get('wind_optimized', False),
+            'wind_analysis': stand_position.get('wind_data', {}),
+            'wind_confidence_adjustment': wind_confidence_adjustment,
+            'wind_notes': wind_notes,
+            'proximity_analysis': proximity_analysis,
+            'proximity_confidence_adjustment': proximity_confidence_adjustment,
+            'proximity_notes': proximity_notes
         }
+        
+        # Add wind optimization details if available
+        if stand_position.get('wind_optimization'):
+            recommendation['wind_optimization'] = stand_position['wind_optimization']
         
         recommendations.append(recommendation)
     
-    # Sort by confidence
+    # Sort by confidence (now includes wind factors)
     recommendations.sort(key=lambda x: x['confidence'], reverse=True)
     
     return recommendations[:4]  # Return top 4 recommendations

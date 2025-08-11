@@ -11,6 +11,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./data:/app/data
+      - ./config:/app/config
       - ./logs:/app/logs
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}

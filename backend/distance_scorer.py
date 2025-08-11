@@ -23,7 +23,10 @@ from dataclasses import dataclass
 import logging
 
 # Import configuration management
-from .config_manager import get_config
+try:
+    from .config_manager import get_config
+except ImportError:
+    from config_manager import get_config
 
 logger = logging.getLogger(__name__)
 

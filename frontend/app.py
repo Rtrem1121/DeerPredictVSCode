@@ -3,6 +3,7 @@ import folium
 from streamlit_folium import st_folium
 import requests
 import json
+import os
 from datetime import datetime
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
 
@@ -68,7 +69,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Backend API URL ---
-BACKEND_URL = "http://backend:8000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # --- Main App ---
 st.markdown('<div class="vermont-header"><h1>🏔️ Vermont White-tailed Deer Movement Predictor</h1><p>Advanced habitat analysis for Vermont hunting conditions</p></div>', unsafe_allow_html=True)
@@ -624,8 +625,13 @@ if 'prediction' in st.session_state and st.session_state.prediction:
     # Add 5 Best Stand Locations - 🎯 Prime Hunting Spots!
     if prediction.get('five_best_stands') and len(prediction['five_best_stands']) > 0:
         for i, stand in enumerate(prediction['five_best_stands']):
-            stand_lat = stand['coordinates']['lat']
-            stand_lon = stand['coordinates']['lon']
+            # Handle both coordinate structures (enhanced vs traditional stands)
+            if 'coordinates' in stand:
+                stand_lat = stand['coordinates']['lat']
+                stand_lon = stand['coordinates']['lon']
+            else:
+                stand_lat = stand.get('lat', 0)
+                stand_lon = stand.get('lon', 0)
             
             # Choose marker style based on confidence and priority with hunting-specific icons
             if stand['confidence'] > 85:
@@ -766,463 +772,218 @@ if 'prediction' in st.session_state and st.session_state.prediction:
     # Display the interactive map
     st_folium(pred_map, width=700, height=500, key=f"pred_map_{lat}_{lon}")
 
-    # Create tabs for different result sections
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🎯 Hunt Schedule", "🌬️ Wind Forecast", "⭐ Best Stands", "🚶 Access Routes", "📊 Heatmaps"])
+    # === COMPREHENSIVE MATURE BUCK HUNTING ANALYSIS ===
+    st.markdown("---")
+    st.markdown("# 🦌 **Mature Buck Hunting Strategy**")
+    st.markdown("*Comprehensive analysis focused on targeting trophy-class bucks (3.5+ years)*")
     
-    with tab1:
-        st.markdown("### 🎯 Hunt Windows (Next 48 Hours)")
-        show_huntable_only = st.checkbox("Only show huntable stands (≥75% wind)", value=True)
+    # Get mature buck data from prediction
+    mature_buck_data = prediction.get('mature_buck_analysis', {})
+    
+    if mature_buck_data:
+        # === MATURE BUCK TERRAIN ASSESSMENT ===
+        terrain_scores = mature_buck_data.get('terrain_scores', {})
+        st.markdown("## �️ **Terrain Suitability for Mature Bucks**")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            overall_score = terrain_scores.get('overall_suitability', 0)
+            if overall_score >= 80:
+                st.metric("🎯 Overall Suitability", f"{overall_score:.0f}%", delta="EXCELLENT", delta_color="normal")
+            elif overall_score >= 65:
+                st.metric("🎯 Overall Suitability", f"{overall_score:.0f}%", delta="GOOD", delta_color="normal")
+            elif overall_score >= 50:
+                st.metric("🎯 Overall Suitability", f"{overall_score:.0f}%", delta="FAIR", delta_color="normal")
+            else:
+                st.metric("🎯 Overall Suitability", f"{overall_score:.0f}%", delta="POOR", delta_color="inverse")
+        
+        with col2:
+            pressure_resistance = terrain_scores.get('pressure_resistance', 0)
+            st.metric("🛡️ Pressure Resistance", f"{pressure_resistance:.0f}%")
+            
+        with col3:
+            escape_routes = terrain_scores.get('escape_route_quality', 0)
+            st.metric("🏃 Escape Routes", f"{escape_routes:.0f}%")
+            
+        with col4:
+            security_cover = terrain_scores.get('security_cover', 0)
+            st.metric("🌲 Security Cover", f"{security_cover:.0f}%")
+        
+        # === MATURE BUCK MOVEMENT PREDICTION ===
+        movement_data = mature_buck_data.get('movement_prediction', {})
+        if movement_data:
+            st.markdown("## 🚶 **Mature Buck Movement Patterns**")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                movement_prob = movement_data.get('movement_probability', 0)
+                confidence_score = movement_data.get('confidence_score', 0)
+                
+                if movement_prob >= 75:
+                    st.success(f"🟢 **HIGH Movement Probability: {movement_prob:.0f}%**")
+                elif movement_prob >= 50:
+                    st.info(f"🟡 **MODERATE Movement Probability: {movement_prob:.0f}%**")
+                else:
+                    st.warning(f"🔴 **LOW Movement Probability: {movement_prob:.0f}%**")
+                
+                st.metric("📊 Prediction Confidence", f"{confidence_score:.0f}%")
+            
+            with col2:
+                behavioral_notes = movement_data.get('behavioral_notes', [])
+                if behavioral_notes:
+                    st.markdown("**🧠 Key Behavioral Insights:**")
+                    for note in behavioral_notes[:3]:
+                        st.markdown(f"• {note}")
+        
+        # === SPECIALIZED MATURE BUCK STAND RECOMMENDATIONS ===
+        stand_recommendations = mature_buck_data.get('stand_recommendations', [])
+        if stand_recommendations:
+            st.markdown("## � **Specialized Mature Buck Stand Locations**")
+            st.markdown("*These stands are optimized specifically for mature buck behavior patterns*")
+            
+            for i, rec in enumerate(stand_recommendations, 1):
+                with st.expander(f"🦌 **STAND #{i}: {rec.get('type', 'Unknown')}** - Confidence: {rec.get('confidence', 0):.0f}%", expanded=i==1):
+                    
+                    # Stand coordinates and basic info
+                    coords = rec.get('coordinates', {})
+                    stand_lat = coords.get('lat', 0)
+                    stand_lon = coords.get('lon', 0)
+                    
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        st.markdown(f"**📍 GPS Coordinates:** `{stand_lat:.6f}, {stand_lon:.6f}`")
+                        st.markdown(f"**📝 Strategy:** {rec.get('description', 'N/A')}")
+                        st.markdown(f"**⏰ Best Times:** {rec.get('best_times', 'N/A')}")
+                        
+                        # Wind analysis if available
+                        if rec.get('wind_optimized'):
+                            wind_notes = rec.get('wind_notes', [])
+                            if wind_notes:
+                                st.markdown("**🌬️ Wind Considerations:**")
+                                for note in wind_notes:
+                                    st.markdown(f"  • {note}")
+                        
+                        # Proximity analysis
+                        proximity_analysis = rec.get('proximity_analysis', {})
+                        if proximity_analysis:
+                            bedding_prox = proximity_analysis.get('bedding_proximity', {})
+                            feeding_prox = proximity_analysis.get('feeding_proximity', {})
+                            
+                            if bedding_prox or feeding_prox:
+                                st.markdown("**🎯 Zone Proximity Analysis:**")
+                                if bedding_prox:
+                                    closest_bedding = bedding_prox.get('closest_distance_yards', 0)
+                                    st.markdown(f"  • �️ Closest bedding: {closest_bedding:.0f} yards")
+                                if feeding_prox:
+                                    closest_feeding = feeding_prox.get('closest_distance_yards', 0)
+                                    if closest_feeding is not None:
+                                        st.markdown(f"  • 🌾 Closest feeding: {closest_feeding:.0f} yards")
+                    
+                    with col2:
+                        # Confidence visualization
+                        confidence = rec.get('confidence', 0)
+                        if confidence >= 85:
+                            st.success(f"🎯 {confidence:.0f}% Confidence\n**PRIME LOCATION**")
+                        elif confidence >= 70:
+                            st.info(f"✅ {confidence:.0f}% Confidence\n**SOLID CHOICE**")
+                        else:
+                            st.warning(f"⚠️ {confidence:.0f}% Confidence\n**BACKUP OPTION**")
+                        
+                        # Pressure resistance
+                        pressure_resistance = rec.get('pressure_resistance', 0)
+                        if pressure_resistance >= 70:
+                            st.metric("🛡️ Pressure Resistance", f"{pressure_resistance:.0f}%", delta="HIGH")
+                        else:
+                            st.metric("�️ Pressure Resistance", f"{pressure_resistance:.0f}%")
+                    
+                    # Setup requirements
+                    setup_reqs = rec.get('setup_requirements', [])
+                    if setup_reqs:
+                        st.markdown("**🪜 Setup Requirements:**")
+                        for req in setup_reqs:
+                            st.markdown(f"  • {req}")
+    
+    # === HUNT TIMING RECOMMENDATIONS ===
+    st.markdown("## ⏰ **Optimal Hunt Timing**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🌅 **Best Hunt Windows**")
         schedule = prediction.get('hunt_schedule', [])
-        if not schedule:
-            st.info("Schedule will appear here after prediction if hourly weather is available.")
-        else:
-            # Rank hours by best stand score
+        if schedule:
+            # Show top 3 hunt windows
             def best_score(entry):
-                stands = entry.get('huntable' if show_huntable_only else 'top_three', [])
+                stands = entry.get('huntable', [])
                 return stands[0]['score'] if stands else 0
-            ranked_hours = sorted(schedule, key=best_score, reverse=True)[:10]
-            for item in ranked_hours:
+            ranked_hours = sorted(schedule, key=best_score, reverse=True)[:3]
+            
+            for item in ranked_hours[:3]:
                 hour = item.get('hour')
                 when = item.get('time', f"Hour {hour:02d}")
-                stands = item.get('huntable' if show_huntable_only else 'top_three', [])
-                if not stands:
-                    continue
-                top = stands[0]
-                # Summary line
-                st.markdown(f"**{when}** — Go at {hour:02d}:00 • {top['type']} • Score {top['score']} • 🌬️ {top['combined_wind_thermal']}%")
-                # Small detail list for 2-3 stands
-                for s in stands[:3]:
-                    st.caption(f"- {s['type']} • Score {s['score']} • Wind {s['wind_favorability']}% • Lat {s['coordinates'].get('lat', 0):.4f}, Lon {s['coordinates'].get('lon', 0):.4f}")
+                stands = item.get('huntable', [])
+                if stands:
+                    top = stands[0]
+                    st.markdown(f"**{when}** - Score: {top['score']} | Wind: {top.get('combined_wind_thermal', 0)}%")
+        else:
+            st.info("Hunt timing analysis will appear after prediction")
     
-    with tab2:
-        st.markdown("### 🌬️ Tomorrow's Wind Forecast")
-        # Parse tomorrow's forecast from the notes
+    with col2:
+        st.markdown("### 🌬️ **Wind Conditions**")
+        # Parse wind forecast from notes
         notes = prediction.get('notes', '')
-        
-        # Look for tomorrow's wind info in the notes
         import re
         wind_pattern = r"🌬️ \*\*Tomorrow's Wind Forecast\*\*:(.*?)(?=\n\n|\n•|\n\*\*|$)"
         wind_match = re.search(wind_pattern, notes, re.DOTALL)
         
         if wind_match:
             wind_info = wind_match.group(1).strip()
-            # Clean up the markdown formatting for display
             wind_lines = [line.strip() for line in wind_info.split('\n') if line.strip()]
             
-            for line in wind_lines:
+            for line in wind_lines[:3]:  # Show top 3 wind details
                 if 'Dominant Wind' in line:
-                    st.metric("Tomorrow's Wind", line.replace('• **Dominant Wind**: ', ''))
-                elif 'Best Morning Window' in line:
-                    st.write(f"🌅 **Morning**: {line.replace('• **Best Morning Window**: ', '')}")
-                elif 'Best Evening Window' in line:
-                    st.write(f"🌇 **Evening**: {line.replace('• **Best Evening Window**: ', '')}")
-                elif 'Wind Advice' in line:
-                    advice = line.replace('• **Wind Advice**: ', '')
-                    if 'excellent' in advice.lower():
-                        st.success(f"💨 {advice}")
-                    elif 'strong' in advice.lower() or 'postpone' in advice.lower():
-                        st.error(f"💨 {advice}")
-                    else:
-                        st.info(f"💨 {advice}")
-                elif 'Excellent all-day' in line:
-                    st.success("✅ Excellent all-day hunting conditions!")
-                elif 'Strong winds expected' in line:
-                    st.warning("⚠️ Strong winds expected - adjust strategy!")
+                    st.markdown(f"**Primary:** {line.replace('• **Dominant Wind**: ', '')}")
+                elif 'Best Morning' in line:
+                    st.markdown(f"**🌅 Morning:** {line.replace('• **Best Morning Window**: ', '')}")
+                elif 'Best Evening' in line:
+                    st.markdown(f"**🌇 Evening:** {line.replace('• **Best Evening Window**: ', '')}")
         else:
-            st.info("Wind forecast data will appear here after making a prediction")
+            st.info("Wind forecast will appear after prediction")
     
-    with tab3:
-        st.markdown("### ⭐ 5 Best Stand Locations")
-        if prediction.get('five_best_stands') and len(prediction['five_best_stands']) > 0:
-            st.markdown("**🎯 Hunting stands and 🦌 deer activity areas marked on map!** Click markers for detailed information.")
-            
-            # Show all 5 stands with detailed info
-            st.markdown("**🔥 Top 5 Priority Stands:**")
-            for i, stand in enumerate(prediction['five_best_stands'], 1):
-                confidence = stand['confidence']
-                if confidence > 85:
-                    emoji = "🔥"
-                    color = "🔴"
-                elif confidence > 75:
-                    emoji = "⭐"
-                    color = "🟠"
-                elif confidence > 65:
-                    emoji = "✅"
-                    color = "🟢"
-                else:
-                    emoji = "📍"
-                    color = "🔵"
-                
-                st.markdown(f"{emoji} **#{i}. {stand['type']}**")
-                st.markdown(f"   {color} {confidence:.0f}% confidence | {stand['distance_yards']} yds {stand['direction']}")
-                st.markdown(f"   📍 `{stand['coordinates']['lat']}, {stand['coordinates']['lon']}`")
-                
-                # Access route information
-                if 'access_route' in stand:
-                    route = stand['access_route']
-                    difficulty_colors = {
-                        'EASY': '🟢',
-                        'MODERATE': '🟡', 
-                        'DIFFICULT': '🟠',
-                        'VERY_DIFFICULT': '🔴'
-                    }
-                    color_icon = difficulty_colors.get(route['route_difficulty'], '⚫')
-                    st.markdown(f"   🚶 Access: {color_icon} {route['route_difficulty']} ({route['stealth_score']}/100)")
-                    
-                    # Key access warnings
-                    if route['wind_impact']['wind_advantage'] in ['poor', 'very_poor']:
-                        st.markdown("   ⚠️ WIND WARNING: Tailwind approach")
-                    if route['deer_zones']['bedding_risk'] in ['high', 'very_high']:
-                        st.markdown("   🛏️ High bedding risk")
-                
-                st.markdown("---")
-            
-            st.info("💡 **Tip**: Higher confidence = better deer activity expected")
-        else:
-            st.info("No stand location data available for this prediction.")
+    # === TERRAIN HEATMAPS ===
+    st.markdown("## 📊 **Terrain Analysis Heatmaps**")
     
-    with tab4:
-        st.markdown("### 🚶 Access Route Analysis")
-        if prediction.get('five_best_stands') and len(prediction['five_best_stands']) > 0:
-            # Check if any stands have access route data
-            has_access_routes = any('access_route' in stand for stand in prediction['five_best_stands'])
-            
-            if has_access_routes:
-                st.markdown("**🚗 Access Route Planning from Nearest Road**")
-                
-                for i, stand in enumerate(prediction['five_best_stands'], 1):
-                    if 'access_route' in stand:
-                        route = stand['access_route']
-                        st.markdown(f"**Stand #{i} - {stand['type']}**")
-                        
-                        # Access point information
-                        if 'access_point' in route:
-                            access = route['access_point']
-                            st.markdown(f"**📍 Starting from:** {access['access_type']} ({access['distance_miles']} miles away)")
-                            st.markdown(f"**🚗 Drive Time:** {access['estimated_drive_time']}")
-                        
-                        # Route summary
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.metric("Walking Distance", f"{route['total_distance_yards']} yds")
-                            st.metric("Stealth Score", f"{route['stealth_score']}/100")
-                        with col2:
-                            st.metric("Bearing", f"{route['direct_bearing']}°")
-                            st.metric("Difficulty", route['route_difficulty'])
-                        
-                        # Key recommendations
-                        if route['recommendations']:
-                            st.markdown("**🎯 Key Recommendations:**")
-                            for rec in route['recommendations'][:3]:  # Top 3 recommendations
-                                st.markdown(f"• {rec}")
-                        
-                        # Optimal timing
-                        if route['approach_timing']:
-                            timing = route['approach_timing']
-                            st.markdown(f"**⏰ Best Approach Time:** {timing['optimal_time']}")
-                        
-                        st.markdown("---")
-            else:
-                st.info("No access route data available for this prediction.")
-        else:
-            st.info("No access route data available for this prediction.")
+    with st.expander("📖 How to Read These Heatmaps", expanded=False):
+        st.markdown("""
+        **🔴 Red = High Activity (8-10)** - TARGET THESE AREAS!  
+        **🟡 Yellow = Good Activity (6-7)** - Solid backup spots  
+        **🔵 Blue = Low Activity (0-5)** - Avoid for mature bucks
+        
+        **Mature Buck Strategy:**
+        - Focus on RED zones in bedding areas (security)
+        - Hunt transition zones between bedding and feeding
+        - Prioritize escape route corridors (travel map)
+        """)
     
-    with tab5:
-        st.markdown("### 📊 Score Heatmaps")
-        
-        # Add score interpretation guide
-        with st.expander("📖 How to Read These Heatmaps"):
-            st.markdown("""
-            **🔴 Red = High Activity (8-10)** - HUNT HERE!  
-            **🟡 Yellow = Good Activity (6-7)** - Solid spots  
-            **🔵 Blue = Low Activity (0-5)** - Avoid these areas
-            
-            **Quick Tips:**
-            - Focus on the RED zones in each map
-            - Hunt where travel (red) meets feeding (red)
-            - Check all three maps together for best spots
-            """)
-        
-        heatmap_col1, heatmap_col2, heatmap_col3 = st.columns(3)
-        
-        with heatmap_col1:
-            st.image(f"data:image/png;base64,{prediction['travel_score_heatmap']}", caption="🚶 Travel Corridors - Where deer move")
-        
-        with heatmap_col2:
-            st.image(f"data:image/png;base64,{prediction['bedding_score_heatmap']}", caption="🛏️ Bedding Areas - Where deer rest")
-        
-        with heatmap_col3:
-            st.image(f"data:image/png;base64,{prediction['feeding_score_heatmap']}", caption="🌾 Feeding Areas - Where deer eat")
+    heatmap_col1, heatmap_col2, heatmap_col3 = st.columns(3)
+    
+    with heatmap_col1:
+        st.image(f"data:image/png;base64,{prediction['bedding_score_heatmap']}", caption="�️ Bedding Areas - Primary security zones")
+    
+    with heatmap_col2:
+        st.image(f"data:image/png;base64,{prediction['travel_score_heatmap']}", caption="� Travel Corridors - Escape routes & movement")
+    
+    with heatmap_col3:
+        st.image(f"data:image/png;base64,{prediction['feeding_score_heatmap']}", caption="🌾 Feeding Areas - Secondary targets")
 
-        # Show suggested better spots if available
-        if prediction.get('suggested_spots') and len(prediction['suggested_spots']) > 0:
-            st.markdown("### 🎯 Better Hunting Spots Found!")
-            st.warning(f"Your selected location has a low rating ({prediction['stand_rating']}/10). Check the map for {len(prediction['suggested_spots'])} better alternatives marked with stars!")
-            
-            with st.expander("View Suggested Spots Details"):
-                for i, spot in enumerate(prediction['suggested_spots']):
-                    st.write(f"**Spot #{i+1}** - Rating: {spot['rating']}/10")
-                    st.write(f"📍 {spot['distance_km']} km away")
-                    st.write(f"🎯 {spot['primary_activity']}")
-                    
-                    # Show score breakdown in small text
-                    col_a, col_b, col_c = st.columns(3)
-                    with col_a:
-                        st.metric("Travel", f"{spot['travel_score']}")
-                    with col_b:
-                        st.metric("Bedding", f"{spot['bedding_score']}")
-                    with col_c:
-                        st.metric("Feeding", f"{spot['feeding_score']}")
-                    
-                    st.write("---")
-                    
-                st.info("💡 **Hunting Tip:** Click on the 🎯 hunting stand markers and 🦌 deer activity markers on the map to see detailed setup strategies and GPS coordinates!")
-
-    # Show general notes
+    # === ADDITIONAL NOTES ===
     if prediction.get('notes'):
-        with st.expander("📝 Additional Notes"):
+        st.markdown("## 📝 **Additional Analysis Notes**")
+        with st.expander("View Detailed Analysis Notes", expanded=False):
             st.info(prediction['notes'])
 
-        # --- Stand Placement Recommendations (Moved to appear right after map selection) ---
-        if prediction.get('stand_recommendations') and len(prediction['stand_recommendations']) > 0:
-            st.markdown("---")
-            st.markdown("### 🏹 **Stand Placement Recommendations**")
-            st.markdown("*GPS coordinates and setup instructions for optimal stand locations*")
-            
-            for i, rec in enumerate(prediction['stand_recommendations']):
-                with st.expander(f"🎯 {rec['type']} - {rec['priority']} Priority"):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.markdown(f"**📍 GPS Coordinates:** `{rec['coordinates']['lat']}, {rec['coordinates']['lon']}`")
-                        st.markdown(f"**📏 Location:** {rec['distance']}")
-                        st.markdown(f"**🎯 Why This Spot:** {rec['reason']}")
-                        st.markdown(f"**🪜 Stand Setup:** {rec['setup']}")
-                        st.markdown(f"**🕐 Best Times:** {rec['best_times']}")
-                        st.markdown(f"**🚶 Approach:** {rec['approach']}")
-                    
-                    with col2:
-                        # Create a confidence meter
-                        confidence = rec.get('confidence', 70)
-                        if confidence >= 90:
-                            st.success(f"🎯 {confidence}% Confidence")
-                        elif confidence >= 75:
-                            st.info(f"✅ {confidence}% Confidence") 
-                        elif confidence >= 60:
-                            st.warning(f"⚠️ {confidence}% Confidence")
-                        else:
-                            st.error(f"🔍 {confidence}% Confidence")
-                        
-                        # Priority badge
-                        priority = rec['priority']
-                        if priority == 'HIGHEST':
-                            st.markdown("🥇 **TOP CHOICE**")
-                        elif priority == 'HIGH':
-                            st.markdown("🥈 **EXCELLENT**")
-                        elif priority == 'MEDIUM-HIGH':
-                            st.markdown("🥉 **VERY GOOD**")
-                        elif priority == 'MEDIUM':
-                            st.markdown("⭐ **GOOD**")
-                        else:
-                            st.markdown("🔍 **SCOUTING**")
-            
-            # Add copy-to-clipboard functionality for GPS coordinates
-            st.markdown("#### 📱 GPS Coordinates for Your Device:")
-            gps_text = ""
-            for i, rec in enumerate(prediction['stand_recommendations'][:3], 1):  # Top 3 only
-                gps_text += f"{i}. {rec['type']}: {rec['coordinates']['lat']}, {rec['coordinates']['lon']}\n"
-            
-            if gps_text:
-                st.text_area("Copy these coordinates to your GPS app:", gps_text, height=100)
-                st.info("💡 **Tip:** Copy these coordinates and paste them into your hunting GPS app, Google Maps, or OnX Hunt for navigation to your stand locations.")
-        
-        else:
-            st.markdown("---")
-            st.info("🔍 No specific stand recommendations available for this location. Try selecting a spot with terrain features like saddles, ridges, or forest edges.")
-
-        # --- Score Interpretation Guide ---
-        st.markdown("---")
-        st.markdown("### 📊 **Understanding Your Deer Activity Predictions**")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("""
-            #### 🔴 **Excellent (8-10)**
-            **HUNT THESE AREAS!**
-            - Prime deer activity
-            - High success probability
-            - Focus your hunting time here
-            """)
-            
-        with col2:
-            st.markdown("""
-            #### 🟡 **Good (6-7)**
-            **Solid Backup Options**
-            - Moderate deer activity
-            - Worth hunting if reds are busy
-            - Good secondary spots
-            """)
-            
-        with col3:
-            st.markdown("""
-            #### 🔵 **Low (0-5)**
-            **Avoid These Areas**
-            - Poor deer activity
-            - Walk through to reach reds
-            - Don't waste hunting time
-            """)
-        
-        # Current location rating with advice
-        st.markdown("---")
-        current_rating = prediction['stand_rating']
-        if current_rating >= 8:
-            st.success(f"🎯 **Your Selected Location: {current_rating}/10** - Excellent choice! This is a prime hunting area.")
-        elif current_rating >= 6:
-            st.info(f"✅ **Your Selected Location: {current_rating}/10** - Good hunting potential. Solid choice for this season.")
-        elif current_rating >= 4:
-            st.warning(f"⚠️ **Your Selected Location: {current_rating}/10** - Moderate potential. Consider the better spots marked on the map.")
-        else:
-            st.error(f"❌ **Your Selected Location: {current_rating}/10** - Low potential. Definitely check the better alternatives marked on the map!")
-
-        # --- Access Route Analysis ---
-        if prediction.get('five_best_stands') and len(prediction['five_best_stands']) > 0:
-            # Check if any stands have access route data
-            has_access_routes = any('access_route' in stand for stand in prediction['five_best_stands'])
-            
-            if has_access_routes:
-                st.markdown("---")
-                st.markdown("### 🚶 **Access Route Analysis from Nearest Roads**")
-                st.markdown("*Critical approach planning from parking/road access to hunting stands*")
-                
-                # Overall access difficulty summary
-                route_difficulties = []
-                critical_warnings = []
-                
-                for stand in prediction['five_best_stands']:
-                    if 'access_route' in stand:
-                        route = stand['access_route']
-                        route_difficulties.append(route['route_difficulty'])
-                        
-                        # Collect critical warnings
-                        if route['wind_impact']['wind_advantage'] in ['poor', 'very_poor']:
-                            critical_warnings.append(f"Stand #{prediction['five_best_stands'].index(stand)+1}: TAILWIND APPROACH")
-                        if route['deer_zones']['bedding_risk'] in ['high', 'very_high']:
-                            critical_warnings.append(f"Stand #{prediction['five_best_stands'].index(stand)+1}: HIGH BEDDING DISTURBANCE RISK")
-                
-                # Show critical warnings prominently
-                if critical_warnings:
-                    st.error("⚠️ **CRITICAL ACCESS WARNINGS:**")
-                    for warning in critical_warnings[:3]:  # Show top 3 warnings
-                        st.markdown(f"• {warning}")
-                    st.markdown("*Review detailed recommendations below*")
-                
-                # Detailed analysis for each stand
-                st.markdown("**🎯 Detailed Access Analysis by Stand:**")
-                
-                for i, stand in enumerate(prediction['five_best_stands'], 1):
-                    if 'access_route' in stand:
-                        route = stand['access_route']
-                        
-                        with st.expander(f"🚶 Stand #{i} Access Route - {stand['type']} ({route['route_difficulty']})", expanded=(i <= 2)):
-                            
-                            # Access point information
-                            if 'access_point' in route:
-                                access = route['access_point']
-                                st.markdown("**🚗 Access Point Information:**")
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.markdown(f"• **Road Type:** {access['access_type']}")
-                                    st.markdown(f"• **Distance to Road:** {access['distance_miles']} miles")
-                                with col2:
-                                    st.markdown(f"• **Drive Time:** {access['estimated_drive_time']}")
-                                    st.markdown(f"• **GPS to Access:** {access['lat']:.5f}, {access['lon']:.5f}")
-                                st.markdown("---")
-                            
-                            # Route metrics
-                            col1, col2, col3, col4 = st.columns(4)
-                            with col1:
-                                st.metric("🎯 Stealth Score", f"{route['stealth_score']}/100")
-                            with col2:
-                                st.metric("🚶 Walking Distance", f"{route['total_distance_yards']} yds")
-                            with col3:
-                                st.metric("🧭 Bearing", f"{route['direct_bearing']}°")
-                            with col4:
-                                difficulty_colors = {
-                                    'EASY': '🟢 EASY',
-                                    'MODERATE': '🟡 MODERATE', 
-                                    'DIFFICULT': '🟠 DIFFICULT',
-                                    'VERY_DIFFICULT': '🔴 VERY DIFFICULT'
-                                }
-                                st.metric("🚶 Difficulty", difficulty_colors.get(route['route_difficulty'], route['route_difficulty']))
-                            
-                            # Wind and thermal analysis
-                            wind_info = route['wind_impact']
-                            st.markdown("**🌬️ Wind & Thermal Analysis:**")
-                            
-                            wind_color = "🔴" if wind_info['wind_advantage'] in ['poor', 'very_poor'] else "🟢" if wind_info['wind_advantage'] == 'excellent' else "🟡"
-                            st.markdown(f"• Wind Status: {wind_color} {wind_info['wind_status'].title()} ({wind_info['wind_advantage']})")
-                            
-                            if route.get('approach_timing', {}).get('thermal_consideration', 'None') != 'None':
-                                thermal_color = "🟢" if wind_info['thermal_impact'] == 'favorable' else "🔴" if wind_info['thermal_impact'] == 'unfavorable' else "🟡"
-                                st.markdown(f"• Thermal Impact: {thermal_color} {wind_info['thermal_impact'].title()}")
-                            
-                            # Terrain and deer zone risks
-                            terrain = route['terrain_analysis']
-                            deer_zones = route['deer_zones']
-                            
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown("**🏔️ Terrain Factors:**")
-                                
-                                # Handle both original and LiDAR-enhanced terrain analysis
-                                if 'cover_quality' in terrain:
-                                    st.markdown(f"• Cover Quality: {terrain['cover_quality'].title()}")
-                                elif 'concealment_quality' in terrain:
-                                    st.markdown(f"• Concealment Quality: {terrain['concealment_quality'].title()}")
-                                    if 'concealment_score' in terrain:
-                                        st.markdown(f"• Concealment Score: {terrain['concealment_score']:.0f}%")
-                                
-                                st.markdown(f"• Noise Level: {terrain['noise_level'].title()}")
-                                
-                                # Handle both original and LiDAR-enhanced steep terrain detection
-                                is_steep = False
-                                if 'is_steep' in terrain:
-                                    is_steep = terrain['is_steep']
-                                elif 'max_slope' in terrain:
-                                    is_steep = terrain['max_slope'] > 15  # Consider steep if max slope > 15 degrees
-                                    if 'max_slope' in terrain:
-                                        st.markdown(f"• Max Slope: {terrain['max_slope']:.1f}°")
-                                
-                                if is_steep:
-                                    st.markdown("• ⛰️ Steep terrain - extra caution")
-                            
-                            with col2:
-                                st.markdown("**🦌 Deer Disturbance Risk:**")
-                                bedding_color = "🔴" if deer_zones['bedding_risk'] in ['high', 'very_high'] else "🟡" if deer_zones['bedding_risk'] == 'moderate' else "🟢"
-                                st.markdown(f"• Bedding Risk: {bedding_color} {deer_zones['bedding_risk'].title()}")
-                                
-                                feeding_color = "🔴" if deer_zones['feeding_risk'] in ['high', 'very_high'] else "🟡" if deer_zones['feeding_risk'] == 'moderate' else "🟢"
-                                st.markdown(f"• Feeding Risk: {feeding_color} {deer_zones['feeding_risk'].title()}")
-                            
-                            # Key recommendations
-                            if route['recommendations']:
-                                st.markdown("**🎯 Critical Recommendations:**")
-                                for rec in route['recommendations']:
-                                    st.markdown(f"• {rec}")
-                            
-                            # Optimal timing
-                            if route['approach_timing']:
-                                timing = route['approach_timing']
-                                st.markdown(f"**⏰ Optimal Approach Time:** {timing['optimal_time']}")
-                                st.markdown(f"**💡 Timing Notes:** {timing['timing_notes']}")
-                
-                # General access tips
-                st.info("""
-                **🎯 General Access Tips:**
-                • Always approach into the wind when possible
-                • Use terrain features for concealment
-                • Move slowly and deliberately
-                • Avoid deer bedding areas during rest periods
-                • Time your approach based on thermal patterns
-                """)
+    else:
+        st.error("Please make a prediction to see mature buck hunting analysis.")

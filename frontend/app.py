@@ -4,7 +4,7 @@ from streamlit_folium import st_folium
 import requests
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
 
 # --- Map Configuration ---
@@ -27,6 +27,64 @@ def create_map(location, zoom_start, map_type):
         )
     else:
         return folium.Map(location=location, zoom_start=zoom_start)
+
+def get_vermont_legal_hunting_hours(date):
+    """
+    Calculate legal hunting hours for Vermont based on date.
+    Vermont legal hunting hours: 30 minutes before sunrise to 30 minutes after sunset.
+    
+    Returns tuple of (earliest_time, latest_time) as datetime.time objects.
+    """
+    # Simplified sunrise/sunset table for Vermont (Montpelier)
+    # This is a basic approximation - in production, you'd use a proper astronomical library
+    sunrise_times = {
+        1: (7, 26), 2: (7, 8), 3: (6, 27), 4: (6, 31), 5: (5, 41), 6: (5, 9),
+        7: (5, 10), 8: (5, 38), 9: (6, 13), 10: (6, 48), 11: (7, 28), 12: (7, 6)
+    }
+    
+    sunset_times = {
+        1: (16, 22), 2: (17, 0), 3: (17, 39), 4: (19, 18), 5: (19, 54), 6: (20, 27),
+        7: (20, 38), 8: (20, 14), 9: (19, 26), 10: (18, 31), 11: (16, 40), 12: (16, 13)
+    }
+    
+    month = date.month
+    
+    # Get approximate sunrise/sunset for the month
+    sunrise_hour, sunrise_min = sunrise_times.get(month, (6, 30))
+    sunset_hour, sunset_min = sunset_times.get(month, (18, 30))
+    
+    # Calculate 30 minutes before sunrise and 30 minutes after sunset
+    sunrise_dt = datetime.combine(date, datetime.min.time().replace(hour=sunrise_hour, minute=sunrise_min))
+    sunset_dt = datetime.combine(date, datetime.min.time().replace(hour=sunset_hour, minute=sunset_min))
+    
+    earliest_hunting = (sunrise_dt - timedelta(minutes=30)).time()
+    latest_hunting = (sunset_dt + timedelta(minutes=30)).time()
+    
+    return earliest_hunting, latest_hunting
+
+def generate_legal_hunting_times(date):
+    """Generate list of legal hunting times for Vermont in 30-minute intervals"""
+    earliest, latest = get_vermont_legal_hunting_hours(date)
+    
+    # Convert to datetime objects for easier manipulation
+    earliest_dt = datetime.combine(date, earliest)
+    latest_dt = datetime.combine(date, latest)
+    
+    # If latest time is past midnight, adjust
+    if latest_dt < earliest_dt:
+        latest_dt += timedelta(days=1)
+    
+    # Generate times in 30-minute intervals
+    current_time = earliest_dt
+    hunting_times = []
+    
+    while current_time <= latest_dt:
+        # Format time for display
+        time_str = current_time.strftime("%I:%M %p")
+        hunting_times.append((current_time.time(), time_str))
+        current_time += timedelta(minutes=30)
+    
+    return hunting_times
 
 # --- App Configuration ---
 st.set_page_config(
@@ -235,7 +293,7 @@ with st.expander("🎯 Vermont-Enhanced Better Hunting Spots"):
     - Consider prevailing northwest winds for stand placement
     """)
 
-st.write("**Select a Vermont location, date, and season to predict deer activity with enhanced terrain analysis.**")
+st.write("**Select a Vermont location, date, and legal hunting time to predict deer activity with enhanced terrain analysis.**")
 
 # --- Input Widgets ---
 st.subheader("🎯 Hunting Prediction Setup")
@@ -248,7 +306,41 @@ with input_col1:
     date = st.date_input("Date", datetime.now())
 
 with input_col2:
-    time = st.time_input("Time", datetime.now().time())
+    # Generate legal hunting times for the selected date
+    legal_times = generate_legal_hunting_times(date)
+    time_options = [time_str for _, time_str in legal_times]
+    time_objects = [time_obj for time_obj, _ in legal_times]
+    
+    # Default to closest current time if within hunting hours, otherwise first available
+    current_time = datetime.now().time()
+    earliest, latest = get_vermont_legal_hunting_hours(date)
+    
+    default_index = 0
+    if earliest <= current_time <= latest:
+        # Find closest legal hunting time
+        current_minutes = current_time.hour * 60 + current_time.minute
+        closest_index = 0
+        closest_diff = float('inf')
+        
+        for i, (time_obj, _) in enumerate(legal_times):
+            time_minutes = time_obj.hour * 60 + time_obj.minute
+            diff = abs(time_minutes - current_minutes)
+            if diff < closest_diff:
+                closest_diff = diff
+                closest_index = i
+        default_index = closest_index
+    
+    selected_time_str = st.selectbox(
+        "Vermont Legal Hunting Time", 
+        time_options, 
+        index=default_index,
+        help="⚖️ Vermont law: 30 min before sunrise to 30 min after sunset"
+    )
+    
+    # Get the actual time object for the selected time
+    selected_index = time_options.index(selected_time_str)
+    time = time_objects[selected_index]
+    
     map_type = st.selectbox("Map Type", list(MAP_CONFIGS.keys()))
 
 with input_col3:
@@ -257,9 +349,12 @@ with input_col3:
     show_terrain_shading = st.checkbox("Show Terrain Shading", value=False, help="Add hillshade overlay for terrain visualization")
 
 with input_col4:
-    # Advanced options placeholder - can add more controls here if needed
-    st.write("**Map Options**")
-    st.write("Configure overlays in column 3 →")
+    # Vermont hunting hours information
+    st.write("**⚖️ Vermont Hunting Hours**")
+    earliest, latest = get_vermont_legal_hunting_hours(date)
+    st.write(f"**Legal Hours:** {earliest.strftime('%I:%M %p')} - {latest.strftime('%I:%M %p')}")
+    st.write("*30 min before sunrise to 30 min after sunset*")
+    st.caption("📅 Times update automatically based on selected date")
 
 # Show map description
 st.info(MAP_CONFIGS[map_type]["description"])

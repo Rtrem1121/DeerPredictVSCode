@@ -5887,3 +5887,6 @@ ValueError: can only convert an array of size 1 to a Python scalar
 2025-08-11 00:00:55,840 - main - INFO - Vermont prediction completed successfully with stand rating: 0.6
 2025-08-11 00:00:55,840 - main - INFO - Found 5 better spots with ratings up to 1.1
 2025-08-11 00:00:55,841 - main - INFO - Generated 5 optimal stand locations with top confidence: 88%
+2025-08-11 00:07:20,468 - main - WARNING - LiDAR integration disabled (set ENABLE_LIDAR=1 to enable)
+2025-08-11 00:07:22,328 - config_manager - INFO - ✅ Configuration loaded successfully (env: development, version: 1.0.0-dev)
+2025-08-11 00:07:22,332 - config_manager - INFO - 🔄 Configuration hot-reload enabled for /app/config

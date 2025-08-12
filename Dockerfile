@@ -34,14 +34,14 @@ COPY ./data /app/data
 COPY ./lidar /app/lidar
 
 # Set permissions and create logs directory
-RUN mkdir -p /app/logs && \
+RUN mkdir -p /app/logs /app/backend/scouting_data && \
     chown -R appuser:appuser /app /home/appuser
 
 # Switch to non-root user
 USER appuser
 
-# Change working directory to backend
-WORKDIR /app/backend
+# Set working directory to app root
+WORKDIR /app
 
 EXPOSE 8000
 
@@ -49,7 +49,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
 
 # --- Frontend Stage ---
 FROM base as frontend

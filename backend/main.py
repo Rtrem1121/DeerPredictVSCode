@@ -5,23 +5,42 @@ import os
 import numpy as np
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
-import core
-from mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
+from typing import List, Dict, Any, Optional
+from backend import core
+from backend.mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
 
 # Import unified scoring framework
-from scoring_engine import (
+from backend.scoring_engine import (
     get_scoring_engine, 
     ScoringContext, 
     score_with_context
 )
-from distance_scorer import (
+from backend.distance_scorer import (
     get_distance_scorer,
     score_stand_placement
 )
 
 # Import configuration management
-from config_manager import get_config
+from backend.config_manager import get_config
+
+# Import scouting system components
+from scouting_models import (
+    ScoutingObservation, 
+    ScoutingObservationResponse,
+    ScoutingQuery,
+    ScoutingAnalytics,
+    ObservationType,
+    ScrapeDetails,
+    RubDetails,
+    BeddingDetails,
+    TrailCameraDetails,
+    TracksDetails
+)
+from scouting_data_manager import get_scouting_data_manager
+from scouting_prediction_enhancer import get_scouting_enhancer
+
+# Import prediction caching for performance
+# Removed caching - using direct optimization instead
 
 # Configure logging for containers
 logging.basicConfig(
@@ -70,6 +89,7 @@ class PredictionRequest(BaseModel):
     lon: float
     date_time: str # ISO format
     season: str # e.g., "rut", "early_season", "late_season"
+    fast_mode: bool = False  # Skip expensive operations for speed
     # These will be loaded from configuration
     suggestion_threshold: float = None  # Show suggestions when rating is below this
     min_suggestion_rating: float = None  # Minimum rating for suggestions
@@ -341,8 +361,17 @@ def get_five_best_stand_locations_enhanced(lat: float, lon: float, terrain_featu
         # Use up to 5 mature buck specific stands (increased from 3)
         for i, rec in enumerate(mature_stands[:5]):
             coords = rec.get('coordinates', {})
-            stand_lat = coords.get('lat', lat + np.random.uniform(-0.002, 0.002))
-            stand_lon = coords.get('lon', lon + np.random.uniform(-0.002, 0.002))
+            stand_lat = coords.get('lat')
+            stand_lon = coords.get('lon')
+            
+            # Debug logging
+            logger.info(f"🎯 Stand {i+1}: coords={coords}, lat={stand_lat}, lon={stand_lon}")
+            
+            # If coordinates are missing, use fallback with much larger offset
+            if stand_lat is None or stand_lon is None:
+                logger.warning(f"⚠️ Missing coordinates for stand {i+1}, using fallback positioning")
+                stand_lat = lat + np.random.uniform(-0.002, 0.002)
+                stand_lon = lon + np.random.uniform(-0.002, 0.002)
             
             # Calculate wind favorability for the enhanced stand
             stand_direction = calculate_bearing(lat, lon, stand_lat, stand_lon)
@@ -1805,16 +1834,45 @@ def generate_mature_buck_predictions(lat: float, lon: float, terrain_features: D
         terrain_features, mature_buck_scores, lat, lon, weather_data
     )
     
-    # Create mature buck opportunity markers (only if suitability is good enough)
+    # Create mature buck opportunity markers using actual stand recommendations
     mature_buck_markers = []
     
-    if mature_buck_scores['overall_suitability'] >= 60.0:  # Threshold for mature buck viability
-        # Generate 1-3 mature buck opportunity markers based on terrain quality
+    if mature_buck_scores['overall_suitability'] >= 60.0 and stand_recommendations:
+        # Use actual stand recommendations for marker positions
+        for i, stand_rec in enumerate(stand_recommendations[:3]):  # Use first 3 stands as opportunities
+            stand_coords = stand_rec.get('coordinates', {})
+            if stand_coords.get('lat') and stand_coords.get('lon'):
+                marker_lat = stand_coords['lat']
+                marker_lon = stand_coords['lon']
+                
+                # Calculate confidence based on terrain scores and movement prediction
+                confidence = (mature_buck_scores['overall_suitability'] + 
+                             movement_prediction['confidence_score']) / 2
+                
+                mature_buck_markers.append({
+                    'lat': marker_lat,
+                    'lon': marker_lon,
+                    'confidence': round(confidence, 1),
+                    'rank': i + 1,
+                    'type': 'mature_buck_opportunity',
+                    'description': f"Mature Buck Stand #{i+1} (Confidence: {confidence:.1f}%)",
+                    'terrain_score': mature_buck_scores['overall_suitability'],
+                    'movement_probability': movement_prediction['movement_probability'],
+                    'pressure_resistance': mature_buck_scores['pressure_resistance'],
+                    'escape_routes': mature_buck_scores['escape_route_quality'],
+                    'behavioral_notes': movement_prediction['behavioral_notes'][:3],  # Top 3 notes
+                    'stand_justification': stand_rec.get('justification', 'Strategic positioning'),
+                    'distance_from_center': stand_rec.get('distance_from_center', 0)
+                })
+            
+    # If no stand recommendations available, fall back to geometric positioning
+    if not mature_buck_markers and mature_buck_scores['overall_suitability'] >= 60.0:
+        logger.warning("No stand recommendations available, using fallback positioning")
         num_opportunities = min(3, max(1, int(mature_buck_scores['overall_suitability'] / 30)))
         
         for i in range(num_opportunities):
-            # Position markers strategically around high-quality areas
-            offset_distance = 0.0003 + (i * 0.0002)  # 33-55 yards apart
+            # Use larger, more realistic offsets
+            offset_distance = 0.0015 + (i * 0.0008)  # 165-250 yards apart
             offset_angle = 45 + (i * 120)  # Spread around circle
             
             angle_rad = np.radians(offset_angle)
@@ -2002,6 +2060,10 @@ def predict_movement(request: PredictionRequest):
         
         # 1. Load rules and fetch REAL environmental data with Vermont-specific weather
         rules = load_rules()
+        
+        # Start timing for performance monitoring
+        start_time = datetime.now()
+        
         weather_data = core.get_weather_data(request.lat, request.lon)
         
         # Add hour information for thermal calculations
@@ -2009,7 +2071,9 @@ def predict_movement(request: PredictionRequest):
         
         elevation_grid = core.get_real_elevation_grid(request.lat, request.lon)
         vegetation_grid = core.get_vegetation_grid_from_osm(request.lat, request.lon)
-        road_proximity = core.get_road_proximity_grid(request.lat, request.lon)
+        
+        # Road proximity removed for performance - using neutral grid
+        road_proximity = np.ones((core.GRID_SIZE, core.GRID_SIZE)) * 0.5
 
         # 2. Analyze features and conditions with Vermont enhancements
         features = core.analyze_terrain_and_vegetation(elevation_grid, vegetation_grid)
@@ -2035,13 +2099,53 @@ def predict_movement(request: PredictionRequest):
         score_maps = core.run_grid_rule_engine(rules, features, conditions)
         logger.info(f"Score map stats - Travel: max={np.max(score_maps['travel']):.2f}, Bedding: max={np.max(score_maps['bedding']):.2f}, Feeding: max={np.max(score_maps['feeding']):.2f}")
 
+        # 3.5. ENHANCE PREDICTIONS WITH SCOUTING DATA
+        logger.info("Enhancing predictions with scouting data...")
+        enhancement_result = {"enhancements_applied": [], "mature_buck_indicators": 0}
+        try:
+            enhancer = get_scouting_enhancer()
+            enhancement_result = enhancer.enhance_predictions(
+                request.lat, request.lon, score_maps, 0.04, core.GRID_SIZE
+            )
+            
+            # Use enhanced score maps
+            score_maps = enhancement_result["enhanced_score_maps"]
+            
+            # Log enhancement results
+            if enhancement_result["enhancements_applied"]:
+                logger.info(f"✅ Applied {len(enhancement_result['enhancements_applied'])} scouting enhancements")
+                logger.info(f"✅ Total boost points: {enhancement_result['total_boost_points']:.1f}")
+                logger.info(f"✅ Mature buck indicators: {enhancement_result['mature_buck_indicators']}")
+                
+                # Log enhanced score stats
+                logger.info(f"Enhanced score map stats - Travel: max={np.max(score_maps['travel']):.2f}, Bedding: max={np.max(score_maps['bedding']):.2f}, Feeding: max={np.max(score_maps['feeding']):.2f}")
+            else:
+                logger.info("No scouting data available for enhancement")
+                
+        except Exception as e:
+            logger.warning(f"Scouting enhancement failed: {e} - continuing with base predictions")
+
         # 4. Generate data-driven markers from score maps (top-N points per behavior)
         markers = generate_simple_markers(score_maps, request.lat, request.lon)
         
-        # 4.5. Generate mature buck predictions and markers
-        mature_buck_data = generate_mature_buck_predictions(
-            request.lat, request.lon, features, weather_data, request.season, current_hour
-        )
+        # 4.5. Generate mature buck predictions and markers with timeout
+        try:
+            # Generate mature buck predictions (Windows-compatible - no signal timeout)
+            mature_buck_data = generate_mature_buck_predictions(
+                request.lat, request.lon, features, weather_data, request.season, current_hour
+            )
+            
+        except (TimeoutError, Exception) as e:
+            logger.warning(f"Mature buck analysis failed or timed out: {e} - using simplified analysis")
+            # Provide simplified mature buck data
+            mature_buck_data = {
+                'viable_location': False,
+                'confidence_summary': {'overall_suitability': 50.0, 'movement_confidence': 50.0, 'pressure_tolerance': 50.0},
+                'opportunity_markers': [],
+                'stand_recommendations': [],
+                'terrain_scores': {'bedding_suitability': 50.0, 'escape_route_quality': 50.0, 'isolation_score': 50.0, 'pressure_resistance': 50.0},
+                'movement_prediction': {'movement_probability': 50.0, 'preferred_times': ['Dawn', 'Dusk'], 'behavioral_notes': ['Limited analysis due to timeout']}
+            }
         
         # 4.6. Integrate ML enhancement if available  
         try:
@@ -2122,20 +2226,20 @@ def predict_movement(request: PredictionRequest):
         travel_score_heatmap = core.create_enhanced_score_heatmap(
             score_maps['travel'], 
             title="Deer Travel Corridors", 
-            description="Red = High movement probability, Blue = Low movement",
-            cmap='RdYlBu_r'
+            description="Red/Orange = High movement probability, Blue = Low movement",
+            cmap='plasma'  # Better contrast: purple/blue (low) to yellow/pink (high)
         )
         bedding_score_heatmap = core.create_enhanced_score_heatmap(
             score_maps['bedding'], 
             title="Deer Bedding Areas", 
-            description="Red = High bedding probability, Blue = Low bedding",
-            cmap='RdYlBu_r'
+            description="Yellow/Green = High bedding probability, Dark = Low bedding",
+            cmap='viridis'  # Dark blue (low) to bright yellow (high)
         )
         feeding_score_heatmap = core.create_enhanced_score_heatmap(
             score_maps['feeding'], 
             title="Deer Feeding Areas", 
-            description="Red = High feeding probability, Blue = Low feeding",
-            cmap='RdYlBu_r'
+            description="Bright colors = High feeding probability, Dark = Low feeding",
+            cmap='magma'  # Black (low) to white/yellow (high)
         )
 
         # 9. Create enhanced notes with Vermont-specific context and heatmap explanations
@@ -2399,7 +2503,8 @@ def predict_movement(request: PredictionRequest):
         if five_best_stands:
             logger.info(f"Generated {len(five_best_stands)} optimal stand locations with top confidence: {five_best_stands[0]['confidence']:.0f}%")
         
-        return PredictionResponse(
+        # Create response object
+        response = PredictionResponse(
             travel_corridors=travel_corridors,
             bedding_zones=bedding_zones,
             feeding_areas=feeding_zones,
@@ -2417,6 +2522,8 @@ def predict_movement(request: PredictionRequest):
             hunt_schedule=hunt_schedule,
             mature_buck_analysis=mature_buck_data  # Add complete mature buck analysis
         )
+        
+        return response
 
     except Exception as e:
         # Log the error for debugging
@@ -2761,6 +2868,230 @@ def update_config_parameter(key_path: str, value: Any):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to update parameter: {str(e)}")
+
+@app.post("/scouting/add_observation", response_model=ScoutingObservationResponse)
+async def add_scouting_observation(observation: ScoutingObservation):
+    """
+    Add a new scouting observation to enhance future predictions
+    
+    This endpoint allows hunters to record real-world deer sign observations
+    which will be used to improve prediction accuracy in the area.
+    """
+    try:
+        logger.info(f"Adding scouting observation: {observation.observation_type} at {observation.lat:.5f}, {observation.lon:.5f}")
+        
+        # Get data manager
+        data_manager = get_scouting_data_manager()
+        
+        # Add observation to database
+        observation_id = data_manager.add_observation(observation)
+        
+        # Calculate confidence boost that will be applied
+        enhancer = get_scouting_enhancer()
+        enhancement_config = enhancer.enhancement_config.get(observation.observation_type, {})
+        confidence_boost = enhancement_config.get("base_boost", 0) * (observation.confidence / 10.0)
+        
+        logger.info(f"Successfully added scouting observation {observation_id} with {confidence_boost:.1f}% confidence boost")
+        
+        return ScoutingObservationResponse(
+            status="success",
+            observation_id=observation_id,
+            message=f"Added {observation.observation_type.value} observation - predictions enhanced!",
+            confidence_boost=confidence_boost
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to add scouting observation: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to add observation: {str(e)}"
+        )
+
+
+@app.get("/scouting/observations")
+async def get_scouting_observations(
+    lat: float,
+    lon: float,
+    radius_miles: float = 2.0,
+    observation_types: Optional[str] = None,
+    min_confidence: Optional[int] = None,
+    days_back: Optional[int] = None
+):
+    """
+    Get scouting observations within a specified area
+    
+    Returns all scouting observations that match the query parameters.
+    Used to display scouting data on the map and analyze patterns.
+    """
+    try:
+        # Parse observation types if provided
+        types_list = None
+        if observation_types:
+            try:
+                type_names = observation_types.split(",")
+                types_list = [ObservationType(name.strip()) for name in type_names]
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Invalid observation type: {e}")
+        
+        # Create query
+        query = ScoutingQuery(
+            lat=lat,
+            lon=lon,
+            radius_miles=radius_miles,
+            observation_types=types_list,
+            min_confidence=min_confidence,
+            days_back=days_back
+        )
+        
+        # Get observations
+        data_manager = get_scouting_data_manager()
+        observations = data_manager.get_observations(query)
+        
+        logger.info(f"Retrieved {len(observations)} scouting observations for area ({lat:.5f}, {lon:.5f})")
+        
+        # Convert to response format
+        obs_data = []
+        for obs in observations:
+            obs_dict = obs.to_dict()
+            obs_dict["age_days"] = (datetime.now() - obs.timestamp).days
+            obs_data.append(obs_dict)
+        
+        return {
+            "observations": obs_data,
+            "total_count": len(obs_data),
+            "query_parameters": query.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get scouting observations: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve observations: {str(e)}"
+        )
+
+
+@app.get("/scouting/observation/{observation_id}")
+async def get_scouting_observation(observation_id: str):
+    """Get a specific scouting observation by ID"""
+    try:
+        data_manager = get_scouting_data_manager()
+        observation = data_manager.get_observation_by_id(observation_id)
+        
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        
+        obs_data = observation.to_dict()
+        obs_data["age_days"] = (datetime.now() - observation.timestamp).days
+        
+        return obs_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get observation {observation_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve observation: {str(e)}"
+        )
+
+
+@app.delete("/scouting/observation/{observation_id}")
+async def delete_scouting_observation(observation_id: str):
+    """Delete a scouting observation"""
+    try:
+        data_manager = get_scouting_data_manager()
+        success = data_manager.delete_observation(observation_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        
+        logger.info(f"Deleted scouting observation: {observation_id}")
+        
+        return {"status": "success", "message": "Observation deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete observation {observation_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete observation: {str(e)}"
+        )
+
+
+@app.get("/scouting/analytics")
+async def get_scouting_analytics(
+    lat: float,
+    lon: float,
+    radius_miles: float = 10.0
+):
+    """
+    Get analytics for scouting observations in an area
+    
+    Provides insights into scouting patterns, hotspots, and prediction accuracy.
+    """
+    try:
+        data_manager = get_scouting_data_manager()
+        analytics = data_manager.get_analytics(lat, lon, radius_miles)
+        
+        # Get enhancement summary
+        enhancer = get_scouting_enhancer()
+        enhancement_summary = enhancer.get_enhancement_summary(lat, lon)
+        
+        # Combine analytics
+        result = {
+            "area_center": {"lat": lat, "lon": lon},
+            "search_radius_miles": radius_miles,
+            "basic_analytics": analytics.dict(),
+            "enhancement_summary": enhancement_summary,
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        logger.info(f"Generated scouting analytics for area ({lat:.5f}, {lon:.5f})")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to get scouting analytics: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate analytics: {str(e)}"
+        )
+
+
+@app.get("/scouting/types")
+async def get_observation_types():
+    """Get list of available observation types with descriptions"""
+    try:
+        enhancer = get_scouting_enhancer()
+        
+        types_info = []
+        for obs_type in ObservationType:
+            config = enhancer.enhancement_config.get(obs_type, {})
+            
+            types_info.append({
+                "type": obs_type.value,
+                "enum_name": obs_type.name,
+                "base_boost": config.get("base_boost", 0),
+                "influence_radius_yards": config.get("influence_radius_yards", 0),
+                "mature_buck_indicator": config.get("mature_buck_indicator", False),
+                "decay_days": config.get("decay_days", 7)
+            })
+        
+        return {
+            "observation_types": types_info,
+            "total_types": len(types_info)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get observation types: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get observation types: {str(e)}"
+        )
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -175,21 +175,9 @@ class MatureBuckBehaviorModel:
     
     def _safe_float_conversion(self, value, default: float = 0.0) -> float:
         """Safely convert numpy arrays or other values to float"""
-        if value is None:
-            return default
-        
-        if hasattr(value, 'size'):
-            if value.size > 1:
-                return float(np.mean(value))
-            elif value.size == 1:
-                return float(value.item())
-            else:
-                return default
-        else:
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return default
+        # Use unified scoring engine's conversion for consistency
+        scoring_engine = get_scoring_engine()
+        return scoring_engine.safe_float_conversion(value, default)
         
     def _initialize_confidence_factors(self) -> Dict[str, float]:
         """Initialize confidence scoring factors from configuration"""
@@ -214,7 +202,7 @@ class MatureBuckBehaviorModel:
     
     def analyze_mature_buck_terrain(self, terrain_features: Dict, lat: float, lon: float) -> Dict[str, float]:
         """
-        Analyze terrain suitability for mature bucks using enhanced algorithms
+        Analyze terrain suitability for mature bucks using enhanced algorithms and unified scoring
         
         Args:
             terrain_features: Terrain analysis results
@@ -226,53 +214,82 @@ class MatureBuckBehaviorModel:
         """
         logger.info(f"Analyzing mature buck terrain preferences for {lat}, {lon}")
         
-        # FIRST: Map existing terrain features to mature buck expected features
+        # Get enhanced terrain features if available
+        enhanced_terrain_features = self._get_enhanced_terrain_features(terrain_features, lat, lon)
+        
+        # Try enhanced scoring algorithm
+        enhanced_scores = self._try_enhanced_scoring(enhanced_terrain_features, lat, lon)
+        if enhanced_scores:
+            return enhanced_scores
+            
+        # Use unified scoring framework for standard analysis
+        return self._perform_standard_terrain_analysis(enhanced_terrain_features, lat, lon)
+    
+    def _get_enhanced_terrain_features(self, terrain_features: Dict, lat: float, lon: float) -> Dict:
+        """Get enhanced terrain features using mapper if available"""
         try:
             from terrain_feature_mapper import get_terrain_mapper
             terrain_mapper = get_terrain_mapper()
-            enhanced_terrain_features = terrain_mapper.map_terrain_features(terrain_features, lat, lon)
-            logger.info(f"✅ Terrain features mapped for location-specific analysis")
+            enhanced_features = terrain_mapper.map_terrain_features(terrain_features, lat, lon)
+            logger.info("✅ Using enhanced terrain feature mapping")
+            return enhanced_features
         except Exception as e:
-            logger.warning(f"Terrain feature mapping failed: {e}, using original features")
-            enhanced_terrain_features = terrain_features
-        
-        # Try enhanced algorithm first, fall back to original if needed
+            logger.warning(f"Terrain feature mapping unavailable: {e}")
+            return terrain_features
+    
+    def _try_enhanced_scoring(self, terrain_features: Dict, lat: float, lon: float) -> Optional[Dict]:
+        """Attempt to use enhanced scoring algorithm"""
         try:
             from enhanced_accuracy import enhanced_terrain_analysis
-            enhanced_scores = enhanced_terrain_analysis(enhanced_terrain_features, lat, lon)
-            logger.info(f"Using enhanced terrain analysis - Overall: {enhanced_scores['overall_suitability']:.2f}%")
-            return enhanced_scores
-        except ImportError:
-            logger.warning("Enhanced algorithms not available, using standard analysis")
-        except Exception as e:
-            logger.warning(f"Enhanced algorithm failed: {e}, falling back to standard")
+            scores = enhanced_terrain_analysis(terrain_features, lat, lon)
+            logger.info(f"Using enhanced terrain analysis - Overall: {scores['overall_suitability']:.2f}%")
+            return scores
+        except (ImportError, Exception) as e:
+            logger.warning(f"Enhanced scoring unavailable: {e}")
+            return None
+    
+    def _perform_standard_terrain_analysis(self, terrain_features: Dict, 
+                                         lat: float, lon: float) -> Dict[str, float]:
+        """Perform standard terrain analysis using unified scoring framework"""
+        scoring_engine = get_scoring_engine()
         
-        # Original algorithm as fallback (now using enhanced terrain features)
+        # Create scoring context for terrain analysis
+        context = ScoringContext(
+            season="general",  # Non-seasonal analysis
+            time_of_day=12,    # Neutral time
+            weather_conditions=["clear"],  # Neutral weather
+            pressure_level="moderate",
+            behavior_type="mature_buck"  # Specific behavior type
+        )
+        
+        # Calculate terrain scores using unified framework
         scores = {
-            'bedding_suitability': 0.0,
-            'escape_route_quality': 0.0,
-            'isolation_score': 0.0,
-            'pressure_resistance': 0.0,
-            'overall_suitability': 0.0
+            'bedding_suitability': self._score_bedding_areas(terrain_features),
+            'escape_route_quality': self._score_escape_routes(terrain_features),
+            'isolation_score': self._score_isolation(terrain_features, lat, lon),
+            'pressure_resistance': self._score_pressure_resistance(terrain_features)
         }
         
-        # Analyze bedding area suitability (using enhanced features)
-        scores['bedding_suitability'] = self._score_bedding_areas(enhanced_terrain_features)
-        
-        # Evaluate escape route options (using enhanced features)
-        scores['escape_route_quality'] = self._score_escape_routes(enhanced_terrain_features)
-        
-        # Assess isolation from human activity (using enhanced features)
-        scores['isolation_score'] = self._score_isolation(enhanced_terrain_features, lat, lon)
-        
-        # Calculate pressure resistance (using enhanced features)
-        scores['pressure_resistance'] = self._score_pressure_resistance(enhanced_terrain_features)
+        # Apply mature buck specific adjustments
+        for score_type, base_score in scores.items():
+            adjusted_score = scoring_engine.apply_seasonal_weighting(
+                base_score, 
+                "general",     # Non-seasonal
+                "mature_buck"  # Behavior type
+            )
+            scores[score_type] = adjusted_score
         
         # Calculate overall suitability
         scores['overall_suitability'] = self._calculate_overall_suitability(scores)
         
-        logger.info(f"Mature buck terrain analysis complete. Overall score: {scores['overall_suitability']:.2f}")
-        logger.info(f"🎯 Location-specific scores: Bedding={scores['bedding_suitability']:.1f}%, Escape={scores['escape_route_quality']:.1f}%, Isolation={scores['isolation_score']:.1f}%, Pressure={scores['pressure_resistance']:.1f}%")
+        logger.info(f"Mature buck terrain analysis complete - Overall: {scores['overall_suitability']:.2f}%")
+        logger.info(
+            f"🎯 Scores: Bedding={scores['bedding_suitability']:.1f}%, "
+            f"Escape={scores['escape_route_quality']:.1f}%, "
+            f"Isolation={scores['isolation_score']:.1f}%, "
+            f"Pressure={scores['pressure_resistance']:.1f}%"
+        )
+        
         return scores
     
     def _score_bedding_areas(self, terrain_features: Dict) -> float:
@@ -280,13 +297,22 @@ class MatureBuckBehaviorModel:
         # Use unified scoring engine for consistent terrain evaluation
         scoring_engine = get_scoring_engine()
         
-        # Calculate terrain scores using unified framework
-        terrain_scores = scoring_engine.calculate_terrain_scores(terrain_features, "bedding")
+        # Create scoring context for bedding evaluation
+        context = ScoringContext(
+            season="general",  # Non-seasonal analysis
+            time_of_day=12,    # Neutral time
+            weather_conditions=["clear"],  # Neutral weather
+            pressure_level="moderate"
+        )
         
-        # Apply mature buck specific adjustments
-        base_score = terrain_scores.total_score()
+        # Calculate base confidence score for bedding
+        base_score = scoring_engine.calculate_confidence_score(
+            terrain_features, 
+            context,
+            "bedding"
+        )
         
-        # Mature buck specific bonuses
+        # Add mature buck specific bonuses
         canopy_closure = scoring_engine.safe_float_conversion(terrain_features.get('canopy_closure'), 50.0)
         if canopy_closure >= self.preferences.min_bedding_thickness:
             base_score += 10.0  # Extra bonus for very thick cover
@@ -300,23 +326,35 @@ class MatureBuckBehaviorModel:
     
     def _score_escape_routes(self, terrain_features: Dict) -> float:
         """Evaluate escape route quality for mature bucks using unified framework"""
-        # Use distance scorer for escape route evaluation
         distance_scorer = get_distance_scorer()
         scoring_engine = get_scoring_engine()
         
-        # Calculate terrain complexity score
-        terrain_scores = scoring_engine.calculate_terrain_scores(terrain_features, "travel")
+        # Create scoring context for escape routes
+        context = ScoringContext(
+            season="general",
+            time_of_day=12,
+            weather_conditions=["clear"],
+            pressure_level="moderate",
+            behavior_type="mature_buck"  # Specific behavior type
+        )
         
-        # Use escape route distance scoring
+        # Calculate base terrain and escape scores
+        base_terrain_score = scoring_engine.calculate_confidence_score(
+            terrain_features,
+            context,
+            "travel"
+        )
+        
+        # Calculate escape route score based on distance
         escape_distance = scoring_engine.safe_float_conversion(
             terrain_features.get('escape_route_distance'), 200.0
         )
         escape_score = distance_scorer.calculate_escape_route_score(escape_distance)
         
-        # Combine terrain travel score with escape route accessibility
-        base_score = (terrain_scores.connectivity_score + escape_score) / 2
+        # Combine terrain and escape accessibility
+        base_score = (base_terrain_score + escape_score) / 2
         
-        # Mature buck specific bonuses
+        # Mature buck specific bonuses for multiple escape corridors
         drainage_density = scoring_engine.safe_float_conversion(
             terrain_features.get('drainage_density'), 0.5
         )
@@ -426,7 +464,25 @@ class MatureBuckBehaviorModel:
         """
         logger.info(f"Predicting mature buck movement for {season}, hour {time_of_day}")
         
-        movement_data = {
+        # Initialize prediction data
+        movement_data = self._initialize_movement_data()
+        
+        # Get movement patterns (enhanced or standard)
+        movement_data.update(
+            self._get_movement_patterns(season, time_of_day, terrain_features, weather_data)
+        )
+        
+        # Add spatial predictions
+        self._add_spatial_predictions(movement_data, terrain_features, lat, lon, season)
+        
+        # Process environmental adjustments
+        self._process_environmental_adjustments(movement_data, terrain_features, weather_data)
+        
+        return movement_data
+        
+    def _initialize_movement_data(self) -> Dict[str, any]:
+        """Initialize the base movement prediction data structure"""
+        return {
             'movement_probability': 0.0,
             'preferred_times': [],
             'movement_corridors': [],
@@ -436,45 +492,51 @@ class MatureBuckBehaviorModel:
             'behavioral_notes': []
         }
         
-        # Try enhanced movement prediction first
+    def _get_movement_patterns(self, season: str, time_of_day: int,
+                             terrain_features: Dict, weather_data: Dict) -> Dict[str, any]:
+        """Get movement patterns using enhanced prediction if available, otherwise standard"""
         try:
             from enhanced_accuracy import enhanced_movement_prediction
-            enhanced_prediction = enhanced_movement_prediction(season, time_of_day, terrain_features, weather_data)
-            movement_data.update(enhanced_prediction)
-            logger.info(f"Using enhanced movement prediction - Probability: {movement_data['movement_probability']:.1f}%")
-        except ImportError:
-            logger.warning("Enhanced movement prediction not available, using standard analysis")
-            # Fall back to original seasonal patterns
-            if season == "early_season":
-                movement_data.update(self._early_season_patterns(time_of_day, terrain_features, weather_data))
-            elif season == "rut":
-                movement_data.update(self._rut_season_patterns(time_of_day, terrain_features, weather_data))
-            elif season == "late_season":
-                movement_data.update(self._late_season_patterns(time_of_day, terrain_features, weather_data))
-        except Exception as e:
-            logger.warning(f"Enhanced movement prediction failed: {e}, using standard analysis")
-            # Fall back to original seasonal patterns
-            if season == "early_season":
-                movement_data.update(self._early_season_patterns(time_of_day, terrain_features, weather_data))
-            elif season == "rut":
-                movement_data.update(self._rut_season_patterns(time_of_day, terrain_features, weather_data))
-            elif season == "late_season":
-                movement_data.update(self._late_season_patterns(time_of_day, terrain_features, weather_data))
+            prediction = enhanced_movement_prediction(season, time_of_day, terrain_features, weather_data)
+            logger.info(f"Using enhanced movement prediction - Probability: {prediction['movement_probability']:.1f}%")
+            return prediction
+        except (ImportError, Exception) as e:
+            logger.warning(f"Enhanced movement prediction unavailable/failed: {e}, using standard analysis")
+            return self._get_standard_movement_patterns(season, time_of_day, terrain_features, weather_data)
+            
+    def _get_standard_movement_patterns(self, season: str, time_of_day: int,
+                                      terrain_features: Dict, weather_data: Dict) -> Dict[str, any]:
+        """Get movement patterns using standard seasonal analysis"""
+        if season == "early_season":
+            return self._early_season_patterns(time_of_day, terrain_features, weather_data)
+        elif season == "rut":
+            return self._rut_season_patterns(time_of_day, terrain_features, weather_data)
+        else:  # late_season
+            return self._late_season_patterns(time_of_day, terrain_features, weather_data)
+            
+    def _add_spatial_predictions(self, movement_data: Dict, terrain_features: Dict,
+                               lat: float, lon: float, season: str):
+        """Add spatial predictions to movement data"""
+        movement_data['movement_corridors'] = self._identify_movement_corridors(
+            terrain_features, lat, lon
+        )
+        movement_data['bedding_predictions'] = self._predict_bedding_locations(
+            terrain_features, lat, lon
+        )
+        movement_data['feeding_predictions'] = self._predict_feeding_zones(
+            terrain_features, lat, lon, season
+        )
         
-        # Populate spatial predictions
-        movement_data['movement_corridors'] = self._identify_movement_corridors(terrain_features, lat, lon)
-        movement_data['bedding_predictions'] = self._predict_bedding_locations(terrain_features, lat, lon)
-        movement_data['feeding_predictions'] = self._predict_feeding_zones(terrain_features, lat, lon, season)
-        
+    def _process_environmental_adjustments(self, movement_data: Dict,
+                                         terrain_features: Dict, weather_data: Dict):
+        """Process environmental adjustments to movement data"""
         # Apply pressure adjustments
-        movement_data = self._apply_pressure_adjustments(movement_data, terrain_features)
+        movement_data.update(self._apply_pressure_adjustments(movement_data, terrain_features))
         
         # Calculate final confidence
         movement_data['confidence_score'] = self._calculate_movement_confidence(
             movement_data, terrain_features, weather_data
         )
-        
-        return movement_data
     
     def predict_with_advanced_terrain_analysis(self, season: str, time_of_day: int, 
                                              terrain_features: Dict, weather_data: Dict, 
@@ -636,19 +698,76 @@ class MatureBuckBehaviorModel:
         return patterns
     
     def _apply_pressure_adjustments(self, movement_data: Dict, terrain_features: Dict) -> Dict:
-        """Apply hunting pressure adjustments to movement predictions"""
-        pressure_level = self._assess_hunting_pressure(terrain_features)
+        """
+        Apply hunting pressure adjustments to movement predictions using configured factors
         
-        if pressure_level == PressureLevel.EXTREME:
-            movement_data['movement_probability'] *= 0.3  # 70% reduction
-            movement_data['behavioral_notes'].append("EXTREME pressure: Mostly nocturnal movement only")
-        elif pressure_level == PressureLevel.HIGH:
-            movement_data['movement_probability'] *= 0.5  # 50% reduction
-            movement_data['behavioral_notes'].append("HIGH pressure: Reduced daytime movement")
-        elif pressure_level == PressureLevel.MODERATE:
-            movement_data['movement_probability'] *= 0.7  # 30% reduction
-            movement_data['behavioral_notes'].append("MODERATE pressure: Cautious movement patterns")
+        Args:
+            movement_data: Current movement prediction data
+            terrain_features: Terrain analysis results
+            
+        Returns:
+            Updated movement data with pressure adjustments
         
+        Raises:
+            ValueError: If movement_data lacks required fields
+        """
+        if 'movement_probability' not in movement_data:
+            raise ValueError("Movement data missing required 'movement_probability' field")
+            
+        try:
+            pressure_level = self._assess_hunting_pressure(terrain_features)
+            original_probability = movement_data['movement_probability']
+            
+            # Get adjustment factors from configuration
+            config = get_config()
+            pressure_factors = config.get('mature_buck_preferences', {}).get('pressure_factors', {
+                'extreme': 0.3,  # 70% reduction
+                'high': 0.5,     # 50% reduction
+                'moderate': 0.7,  # 30% reduction
+                'minimal': 1.0    # No reduction
+            })
+            
+            # Apply configured pressure adjustment
+            adjustment = pressure_factors.get(pressure_level.value, 1.0)
+            movement_data['movement_probability'] *= adjustment
+            
+            # Add behavioral notes
+            if pressure_level == PressureLevel.EXTREME:
+                movement_data['behavioral_notes'].extend([
+                    "⚠️ EXTREME pressure: Mostly nocturnal movement only",
+                    "🌙 Primary movement period: 10 PM - 4 AM",
+                    "🏃‍♂️ Uses maximum cover for all movement"
+                ])
+            elif pressure_level == PressureLevel.HIGH:
+                movement_data['behavioral_notes'].extend([
+                    "⚠️ HIGH pressure: Reduced daytime movement",
+                    "🌅 Brief movement possible at dawn/dusk",
+                    "🌲 Prefers thick cover travel routes"
+                ])
+            elif pressure_level == PressureLevel.MODERATE:
+                movement_data['behavioral_notes'].extend([
+                    "⚠️ MODERATE pressure: Cautious movement patterns",
+                    "⏰ Movement possible throughout day",
+                    "👣 Uses established escape routes"
+                ])
+            else:
+                movement_data['behavioral_notes'].extend([
+                    "✅ MINIMAL pressure: Normal movement patterns",
+                    "🎯 Most predictable movement behavior",
+                    "🌞 Regular daytime activity possible"
+                ])
+            
+            # Log the adjustment
+            logger.info(
+                f"Applied pressure adjustment: {pressure_level.value} "
+                f"({original_probability:.1f}% → {movement_data['movement_probability']:.1f}%)"
+            )
+            
+        except Exception as e:
+            logger.error(f"Error applying pressure adjustments: {e}")
+            # Preserve original movement data on error
+            return movement_data
+            
         return movement_data
     
     def _assess_hunting_pressure(self, terrain_features: Dict) -> PressureLevel:
@@ -727,38 +846,56 @@ class MatureBuckBehaviorModel:
         return max(0.0, min(100.0, final_confidence + pressure_penalty))
     
     def _calculate_weather_factor(self, weather_data: Dict) -> float:
-        """Calculate weather impact on mature buck movement"""
-        factor = 0.0
+        """
+        Calculate weather impact on mature buck movement using the scoring engine
         
-        # Barometric pressure (falling pressure increases movement)
+        Args:
+            weather_data: Weather condition data
+            
+        Returns:
+            Weather impact factor (-100 to 100)
+        """
+        scoring_engine = get_scoring_engine()
+        
+        # Create weather conditions list for scoring engine
+        conditions = []
+        
+        # Check precipitation
+        precipitation = self._safe_float_conversion(weather_data.get('precipitation'), 0)
+        if precipitation > 5.0:
+            conditions.append('heavy_rain')
+        elif precipitation >= 0.1:
+            conditions.append('light_rain')
+            
+        # Check temperature and wind
+        temperature = self._safe_float_conversion(weather_data.get('temperature'), 15)
+        wind_speed = self._safe_float_conversion(weather_data.get('wind_speed'), 5)
+        
+        if temperature > 25:
+            conditions.append('hot')
+        elif temperature < -5:
+            conditions.append('cold_front')
+            
+        if wind_speed > 15:
+            conditions.append('windy')
+        
+        # Get base movement score
+        base_score = 70.0  # Default moderate activity level
+        adjusted_score = scoring_engine.apply_weather_modifiers(
+            base_score, 
+            'movement',
+            conditions or ['clear']  # Use 'clear' if no specific conditions
+        )
+        
+        # Additional pressure trend adjustment
         pressure_trend = weather_data.get('pressure_trend', 'stable')
         if pressure_trend == 'falling':
-            factor += 15.0
+            adjusted_score *= 1.2  # 20% increase for falling pressure
         elif pressure_trend == 'rising':
-            factor -= 5.0
+            adjusted_score *= 0.9  # 10% decrease for rising pressure
         
-        # Wind speed (moderate wind preferred, not calm or strong)
-        wind_speed = weather_data.get('wind_speed', 5)
-        if 3 <= wind_speed <= 12:
-            factor += 10.0
-        elif wind_speed > 20:
-            factor -= 15.0
-        
-        # Temperature comfort zone
-        temperature = weather_data.get('temperature', 15)
-        if -5 <= temperature <= 20:  # Celsius
-            factor += 5.0
-        elif temperature > 25 or temperature < -15:
-            factor -= 10.0
-        
-        # Precipitation (light rain/snow can trigger movement)
-        precipitation = weather_data.get('precipitation', 0)
-        if 0.1 <= precipitation <= 2.0:  # Light precipitation
-            factor += 8.0
-        elif precipitation > 5.0:  # Heavy precipitation
-            factor -= 12.0
-        
-        return factor
+        # Convert to factor range (-100 to 100)
+        return (adjusted_score - base_score) * 2  # Scale difference to factor range
 
     def _identify_movement_corridors(self, terrain_features: Dict, lat: float, lon: float) -> List[Dict]:
         """
@@ -1808,13 +1945,13 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
     elevation = _safe_float_conversion_standalone(terrain_analysis.get('elevation'), 0.0)
     canopy_closure = _safe_float_conversion_standalone(terrain_analysis.get('canopy_closure'), 50.0)
     
-    # Base positioning logic (unchanged)
+    # Base positioning logic - realistic hunting distances (100-400 yards)
     if strategy_type == 'Escape Route Ambush':
         # Position between bedding and escape routes
         if drainage_density >= 1.0:
             # Use drainage systems for escape route positioning
             base_angle = (45 + strategy_index * 90)
-            base_distance = 120 + drainage_density * 30  # Distance based on drainage density
+            base_distance = 200 + drainage_density * 80  # 200-280 meters (220-300 yards)
             justification = f"Positioned along drainage corridor with {drainage_density:.1f} density"
             precision_factors = {
                 'drainage_density': drainage_density,
@@ -1824,7 +1961,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         else:
             # Fallback to ridge-based positioning
             base_angle = (30 + strategy_index * 120)
-            base_distance = 100 + ridge_connectivity * 50
+            base_distance = 180 + ridge_connectivity * 120  # 180-300 meters (200-330 yards)
             justification = f"Ridge-based escape route position"
             precision_factors = {
                 'ridge_connectivity': ridge_connectivity,
@@ -1836,7 +1973,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         if ag_proximity <= 300.0:
             # Position at agricultural edge
             base_angle = 225  # Southwest of ag area
-            base_distance = ag_proximity + 60  # Just outside ag boundary
+            base_distance = ag_proximity + 120  # 120-420 meters from ag (130-460 yards)
             justification = f"Agricultural edge position, {ag_proximity:.0f}m from crops"
             precision_factors = {
                 'agricultural_proximity': ag_proximity,
@@ -1846,7 +1983,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         else:
             # Position at forest opening
             base_angle = (180 + strategy_index * 45)
-            base_distance = 150 + canopy_closure * 2  # Distance based on cover density
+            base_distance = 250 + canopy_closure * 2  # 250-350 meters (270-380 yards)
             justification = f"Forest opening edge with {canopy_closure:.0f}% canopy cover"
             precision_factors = {
                 'canopy_closure': canopy_closure,
@@ -1859,7 +1996,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         if escape_cover_density >= 70.0:
             # Use thick cover areas
             base_angle = (90 + strategy_index * 180)
-            base_distance = 200 + escape_cover_density * 1.5  # Deep in thick cover
+            base_distance = 300 + escape_cover_density * 2  # 300-440 meters (330-480 yards)
             justification = f"Deep sanctuary in {escape_cover_density:.0f}% cover density"
             precision_factors = {
                 'escape_cover_density': escape_cover_density,
@@ -1869,7 +2006,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         else:
             # Use elevation for sanctuary
             base_angle = (135 + strategy_index * 90)
-            base_distance = 180 + elevation * 0.3  # Higher elevation for sanctuary
+            base_distance = 280 + elevation * 0.5  # 280+ meters based on elevation (300+ yards)
             justification = f"Elevation sanctuary at {elevation:.0f}m"
             precision_factors = {
                 'elevation': elevation,
@@ -1882,7 +2019,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         if ridge_connectivity >= 0.6:
             # Use actual ridge systems
             base_angle = (0 + strategy_index * 180)  # North/South ridge positions
-            base_distance = 80 + ridge_connectivity * 120  # Close to ridge features
+            base_distance = 160 + ridge_connectivity * 200  # 160-360 meters (175-390 yards)
             justification = f"Ridge saddle with {ridge_connectivity:.1f} connectivity"
             precision_factors = {
                 'ridge_connectivity': ridge_connectivity,
@@ -1892,7 +2029,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
         else:
             # Use drainage convergence as funnel
             base_angle = (315 + strategy_index * 45)
-            base_distance = 110 + drainage_density * 40
+            base_distance = 200 + drainage_density * 80  # 200-280 meters (220-300 yards)
             justification = f"Drainage convergence funnel"
             precision_factors = {
                 'drainage_density': drainage_density,
@@ -1902,7 +2039,7 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
     else:
         # Default positioning
         base_angle = (strategy_index * 90)
-        base_distance = 150
+        base_distance = 220  # 220 meters (240 yards)
         justification = "General terrain positioning"
         precision_factors = {'positioning_method': 'default'}
     
@@ -1985,6 +2122,9 @@ def _find_optimal_stand_position_for_strategy(strategy: Dict, terrain_analysis: 
     
     stand_lat = lat + offset_lat
     stand_lon = lon + offset_lon
+    
+    # Debug logging for positioning
+    logger.info(f"🎯 {strategy_type}: base_distance={base_distance}m, angle={final_angle:.1f}°, offset_lat={offset_lat:.6f}, offset_lon={offset_lon:.6f}")
     
     # Prepare return data
     result = {

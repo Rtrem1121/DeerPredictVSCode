@@ -128,27 +128,77 @@ class DeerPredictionConfig:
             try:
                 # Start with defaults
                 config_data = self._load_config_file("defaults.yaml")
+                if not config_data:
+                    raise ConfigValidationError(
+                        parameter="defaults.yaml",
+                        value=None,
+                        expected="valid YAML file",
+                        message="Required default configuration file is missing or invalid"
+                    )
                 
                 # Override with environment-specific config
                 env_config = self._load_config_file(f"{self.environment}.yaml")
                 if env_config:
-                    config_data = self._deep_merge(config_data, env_config)
+                    try:
+                        config_data = self._deep_merge(config_data, env_config)
+                    except Exception as e:
+                        raise ConfigValidationError(
+                            parameter=f"{self.environment}.yaml",
+                            value=str(e),
+                            expected="mergeable configuration",
+                            message=f"Failed to merge environment configuration: {str(e)}"
+                        )
                 
                 # Apply any environment variable overrides
-                config_data = self._apply_env_overrides(config_data)
+                try:
+                    config_data = self._apply_env_overrides(config_data)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to apply some environment overrides: {str(e)}")
                 
                 # Validate configuration
                 self._validate_config(config_data)
                 
+                # Check for required sections
+                required_sections = [
+                    'mature_buck_preferences',
+                    'scoring_factors',
+                    'seasonal_weights',
+                    'distance_parameters'
+                ]
+                
+                deer_config = config_data.get('deer_prediction_config', {})
+                missing_sections = [
+                    section for section in required_sections 
+                    if section not in deer_config
+                ]
+                
+                if missing_sections:
+                    raise ConfigValidationError(
+                        parameter="deer_prediction_config",
+                        value=missing_sections,
+                        expected="all required sections",
+                        message=f"Missing required configuration sections: {', '.join(missing_sections)}"
+                    )
+                
                 # Store configuration
-                self._config_data = config_data.get('deer_prediction_config', {})
+                self._config_data = deer_config
                 self.metadata.last_loaded = datetime.now()
                 self.metadata.version = self._config_data.get('version', '1.0.0')
                 
-                logger.info(f"✅ Configuration loaded successfully (env: {self.environment}, version: {self.metadata.version})")
+                # Log configuration summary
+                total_params = sum(1 for _ in self._count_leaf_nodes_iter(self._config_data))
+                logger.info(f"✅ Configuration loaded successfully:")
+                logger.info(f"   Environment: {self.environment}")
+                logger.info(f"   Version: {self.metadata.version}")
+                logger.info(f"   Parameters: {total_params}")
+                logger.info(f"   Source files: {len(self.metadata.source_files)}")
+                
+            except ConfigValidationError as ve:
+                logger.error(f"❌ Configuration validation failed: {ve.message}")
+                self._load_fallback_config()
                 
             except Exception as e:
-                logger.error(f"❌ Failed to load configuration: {e}")
+                logger.error(f"❌ Unexpected error loading configuration: {str(e)}")
                 self._load_fallback_config()
     
     def _load_config_file(self, filename: str) -> Optional[Dict[str, Any]]:
@@ -184,31 +234,83 @@ class DeerPredictionConfig:
         return result
     
     def _apply_env_overrides(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Apply environment variable overrides"""
-        # Look for environment variables with DEER_PRED_ prefix
+        """
+        Apply environment variable overrides to configuration
+        
+        Supports:
+        - Nested keys via underscore: DEER_PRED_API_SETTINGS_BASE_CONFIDENCE
+        - Type conversion: strings, ints, floats, booleans, and JSON
+        - Arrays and objects via JSON strings
+        
+        Args:
+            config: Base configuration dictionary
+            
+        Returns:
+            Updated configuration with environment overrides applied
+        """
+        ENV_PREFIX = 'DEER_PRED_'
         overrides = {}
+        
         for key, value in os.environ.items():
-            if key.startswith('DEER_PRED_'):
-                # Convert DEER_PRED_API_SETTINGS_BASE_CONFIDENCE to nested dict
-                config_key = key[10:].lower()  # Remove DEER_PRED_ prefix
+            if not key.startswith(ENV_PREFIX):
+                continue
+                
+            # Extract and normalize config key
+            config_key = key[len(ENV_PREFIX):].lower()
+            if not config_key:
+                logger.warning(f"⚠️ Skipping empty config key from env var: {key}")
+                continue
+            
+            try:
+                # Parse value with type inference
                 try:
-                    # Try to parse as JSON for complex values
+                    # First attempt JSON parse for complex values
                     parsed_value = json.loads(value)
-                except:
-                    # Fallback to string/numeric parsing
-                    if value.lower() in ('true', 'false'):
-                        parsed_value = value.lower() == 'true'
-                    elif value.replace('.', '').replace('-', '').isdigit():
+                except json.JSONDecodeError:
+                    # Then try basic type conversion
+                    if value.lower() in ('true', 'false', 'yes', 'no', 'on', 'off'):
+                        parsed_value = value.lower() in ('true', 'yes', 'on')
+                    elif value.replace('.', '', 1).replace('-', '', 1).isdigit():
                         parsed_value = float(value) if '.' in value else int(value)
                     else:
                         parsed_value = value
                 
-                overrides[config_key] = parsed_value
+                # Build nested dictionary path
+                keys = config_key.split('_')
+                if not keys[-1]:  # Catch trailing underscore
+                    logger.warning(f"⚠️ Skipping invalid config key from env var: {key}")
+                    continue
+                    
+                d = overrides
+                for k in keys[:-1]:
+                    if not k:  # Catch empty segments
+                        logger.warning(f"⚠️ Skipping invalid config key segment in env var: {key}")
+                        continue
+                    if not isinstance(d, dict):
+                        logger.warning(f"⚠️ Cannot set nested key {k} in env var {key}, parent is not a dictionary")
+                        break
+                    d = d.setdefault(k, {})
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to process environment variable {key}: {str(e)}")
+                if isinstance(d, dict):
+                    d[keys[-1]] = parsed_value
+                    logger.debug(f"🔧 Applied environment override: {key} = {parsed_value}")
         
+        # Merge overrides into config if any were successfully processed
         if overrides:
-            logger.info(f"🔧 Applied {len(overrides)} environment variable overrides")
-            
+            override_count = sum(1 for _ in self._count_leaf_nodes_iter(overrides))
+            logger.info(f"🔧 Applied {override_count} environment variable overrides")
+            config = self._deep_merge(config, {"deer_prediction_config": overrides})
+        
         return config
+
+    def _count_leaf_nodes_iter(self, d: Union[Dict, Any]):
+        """Helper to count actual config values (leaf nodes) in nested dict"""
+        if not isinstance(d, dict):
+            yield 1
+        else:
+            for v in d.values():
+                yield from self._count_leaf_nodes_iter(v)
     
     def _validate_config(self, config: Dict[str, Any]):
         """Validate configuration parameters"""
@@ -218,27 +320,167 @@ class DeerPredictionConfig:
         # Validate confidence ranges
         if 'validation' in deer_config:
             confidence_range = deer_config['validation'].get('confidence_range', [0, 100])
-            if len(confidence_range) != 2 or confidence_range[0] >= confidence_range[1]:
-                errors.append("Invalid confidence_range: must be [min, max] with min < max")
+            if not isinstance(confidence_range, list):
+                errors.append(ConfigValidationError(
+                    parameter="validation.confidence_range",
+                    value=confidence_range,
+                    expected="list [min, max]",
+                    message="Confidence range must be a list of two numbers"
+                ))
+            elif len(confidence_range) != 2:
+                errors.append(ConfigValidationError(
+                    parameter="validation.confidence_range",
+                    value=confidence_range,
+                    expected="list of length 2",
+                    message="Confidence range must contain exactly two values [min, max]"
+                ))
+            elif any(not isinstance(x, (int, float)) for x in confidence_range):
+                errors.append(ConfigValidationError(
+                    parameter="validation.confidence_range",
+                    value=confidence_range,
+                    expected="numeric values",
+                    message="Confidence range values must be numbers"
+                ))
+            elif confidence_range[0] >= confidence_range[1]:
+                errors.append(ConfigValidationError(
+                    parameter="validation.confidence_range",
+                    value=confidence_range,
+                    expected="min < max",
+                    message="Confidence range minimum must be less than maximum"
+                ))
         
         # Validate distance parameters
         if 'distance_parameters' in deer_config:
             dist_params = deer_config['distance_parameters']
+            required_params = ['road_impact_range', 'agricultural_benefit_range', 'stand_optimal_min', 'stand_optimal_max']
+            
+            # Check for required parameters
+            for param in required_params:
+                if param not in dist_params:
+                    errors.append(ConfigValidationError(
+                        parameter=f"distance_parameters.{param}",
+                        value=None,
+                        expected="positive number",
+                        message=f"Required distance parameter '{param}' is missing"
+                    ))
+            
+            # Validate parameter values
             for key, value in dist_params.items():
-                if not isinstance(value, (int, float)) or value < 0:
-                    errors.append(f"Invalid distance parameter {key}: must be positive number")
+                if not isinstance(value, (int, float)):
+                    errors.append(ConfigValidationError(
+                        parameter=f"distance_parameters.{key}",
+                        value=value,
+                        expected="number",
+                        message=f"Distance parameter '{key}' must be a number"
+                    ))
+                elif value < 0:
+                    errors.append(ConfigValidationError(
+                        parameter=f"distance_parameters.{key}",
+                        value=value,
+                        expected="positive number",
+                        message=f"Distance parameter '{key}' must be positive"
+                    ))
+                
+            # Additional validation for min/max pairs
+            if 'stand_optimal_min' in dist_params and 'stand_optimal_max' in dist_params:
+                min_val = dist_params['stand_optimal_min']
+                max_val = dist_params['stand_optimal_max']
+                if isinstance(min_val, (int, float)) and isinstance(max_val, (int, float)) and min_val >= max_val:
+                    errors.append(ConfigValidationError(
+                        parameter="distance_parameters.stand_optimal_range",
+                        value=[min_val, max_val],
+                        expected="min < max",
+                        message="Stand optimal minimum must be less than maximum"
+                    ))
         
         # Validate seasonal weights
         if 'seasonal_weights' in deer_config:
-            for season, weights in deer_config['seasonal_weights'].items():
-                for behavior, weight in weights.items():
-                    if not isinstance(weight, (int, float)) or weight < 0:
-                        errors.append(f"Invalid seasonal weight {season}.{behavior}: must be positive number")
+            required_seasons = ['early_season', 'pre_rut', 'rut', 'post_rut', 'late_season']
+            required_behaviors = ['bedding', 'feeding', 'travel', 'movement']
+            
+            seasonal_weights = deer_config['seasonal_weights']
+            
+            # Check for required seasons
+            for season in required_seasons:
+                if season not in seasonal_weights:
+                    errors.append(ConfigValidationError(
+                        parameter=f"seasonal_weights.{season}",
+                        value=None,
+                        expected="behavior weights dictionary",
+                        message=f"Required season '{season}' is missing from seasonal weights"
+                    ))
+                else:
+                    # Check for required behaviors in each season
+                    for behavior in required_behaviors:
+                        if behavior not in seasonal_weights[season]:
+                            errors.append(ConfigValidationError(
+                                parameter=f"seasonal_weights.{season}.{behavior}",
+                                value=None,
+                                expected="weight value",
+                                message=f"Required behavior '{behavior}' is missing from {season} weights"
+                            ))
+            
+            # Validate weight values
+            for season, weights in seasonal_weights.items():
+                if not isinstance(weights, dict):
+                    errors.append(ConfigValidationError(
+                        parameter=f"seasonal_weights.{season}",
+                        value=weights,
+                        expected="dictionary",
+                        message=f"Season weights for '{season}' must be a dictionary"
+                    ))
+                else:
+                    for behavior, weight in weights.items():
+                        if not isinstance(weight, (int, float)):
+                            errors.append(ConfigValidationError(
+                                parameter=f"seasonal_weights.{season}.{behavior}",
+                                value=weight,
+                                expected="number",
+                                message=f"Weight for {season}.{behavior} must be a number"
+                            ))
+                        elif weight < 0:
+                            errors.append(ConfigValidationError(
+                                parameter=f"seasonal_weights.{season}.{behavior}",
+                                value=weight,
+                                expected="positive number",
+                                message=f"Weight for {season}.{behavior} must be positive"
+                            ))
         
-        self.metadata.validation_errors = errors
+        self.metadata.validation_errors = []
         
-        if errors:
-            logger.warning(f"⚠️ Configuration validation warnings: {'; '.join(errors)}")
+        # Process validation errors
+        for error in errors:
+            if isinstance(error, ConfigValidationError):
+                self.metadata.validation_errors.append({
+                    'parameter': error.parameter,
+                    'value': error.value,
+                    'expected': error.expected,
+                    'message': error.message
+                })
+                logger.warning(f"⚠️ Configuration validation error in {error.parameter}: {error.message}")
+            else:
+                # Handle legacy string errors for backward compatibility
+                self.metadata.validation_errors.append({
+                    'parameter': 'unknown',
+                    'value': None,
+                    'expected': 'unknown',
+                    'message': str(error)
+                })
+                logger.warning(f"⚠️ Configuration validation warning: {error}")
+        
+        if self.metadata.validation_errors:
+            error_count = len(self.metadata.validation_errors)
+            logger.warning(f"⚠️ Found {error_count} configuration validation issue{'s' if error_count > 1 else ''}")
+            
+            # Group errors by severity and provide summary
+            critical_params = ['validation.confidence_range', 'distance_parameters', 'seasonal_weights']
+            critical_errors = [e for e in self.metadata.validation_errors 
+                             if any(p in e['parameter'] for p in critical_params)]
+            
+            if critical_errors:
+                logger.error("❌ Critical configuration issues detected:")
+                for error in critical_errors:
+                    logger.error(f"   - {error['parameter']}: {error['message']}")
     
     def _load_fallback_config(self):
         """Load minimal fallback configuration when normal loading fails"""

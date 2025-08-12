@@ -13,9 +13,10 @@ services:
       - ./data:/app/data
       - ./config:/app/config
       - ./logs:/app/logs
+      - scouting_data:/app/backend/scouting_data
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/backend
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     restart: unless-stopped
     healthcheck:
@@ -82,3 +83,4 @@ networks:
 
 volumes:
   redis_data:
+  scouting_data:

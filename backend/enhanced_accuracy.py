@@ -25,13 +25,21 @@ def enhanced_terrain_analysis(terrain_features: Dict, lat: float, lon: float) ->
         Enhanced terrain scores
     """
     
-    # Extract terrain parameters with defaults
-    elevation = terrain_features.get('elevation', 800)
-    slope = terrain_features.get('slope', 5)
-    aspect = terrain_features.get('aspect', 180)
-    cover_density = terrain_features.get('cover_density', 0.6)
-    water_proximity = terrain_features.get('water_proximity', 300)
-    terrain_ruggedness = terrain_features.get('terrain_ruggedness', 0.3)
+    # Extract terrain parameters with defaults and safe conversion
+    def safe_float(value, default):
+        """Safely convert value to float, handling arrays"""
+        if isinstance(value, (list, tuple, np.ndarray)):
+            if len(value) > 0:
+                return float(value[0]) if hasattr(value[0], '__float__') else default
+            return default
+        return float(value) if value is not None else default
+    
+    elevation = safe_float(terrain_features.get('elevation'), 800)
+    slope = safe_float(terrain_features.get('slope'), 5)
+    aspect = safe_float(terrain_features.get('aspect'), 180)
+    cover_density = safe_float(terrain_features.get('cover_density'), 0.6)
+    water_proximity = safe_float(terrain_features.get('water_proximity'), 300)
+    terrain_ruggedness = safe_float(terrain_features.get('terrain_ruggedness'), 0.3)
     
     scores = {}
     
@@ -205,6 +213,15 @@ def enhanced_movement_prediction(season: str, time_of_day: int, terrain_features
         Enhanced movement prediction
     """
     
+    # Safe float conversion helper
+    def safe_float(value, default):
+        """Safely convert value to float, handling arrays"""
+        if isinstance(value, (list, tuple, np.ndarray)):
+            if len(value) > 0:
+                return float(value[0]) if hasattr(value[0], '__float__') else default
+            return default
+        return float(value) if value is not None else default
+    
     base_movement = 30  # Base movement probability
     
     # TIME OF DAY FACTORS (Enhanced)
@@ -239,9 +256,9 @@ def enhanced_movement_prediction(season: str, time_of_day: int, terrain_features
             base_movement += 10
     
     # WEATHER FACTORS (Enhanced)
-    temp = weather_data.get('temp', 45)
-    wind_speed = weather_data.get('wind_speed', 5)
-    pressure = weather_data.get('pressure', 30.0)
+    temp = safe_float(weather_data.get('temp'), 45)
+    wind_speed = safe_float(weather_data.get('wind_speed'), 5)
+    pressure = safe_float(weather_data.get('pressure'), 30.0)
     
     # Temperature effects
     if season == "early_season":
@@ -268,8 +285,8 @@ def enhanced_movement_prediction(season: str, time_of_day: int, terrain_features
         base_movement -= 10  # Low pressure (storm coming)
     
     # TERRAIN EFFECTS
-    elevation = terrain_features.get('elevation', 800)
-    cover_density = terrain_features.get('cover_density', 0.6)
+    elevation = safe_float(terrain_features.get('elevation'), 800)
+    cover_density = safe_float(terrain_features.get('cover_density'), 0.6)
     
     # Elevation effects on movement
     if 800 <= elevation <= 1500:

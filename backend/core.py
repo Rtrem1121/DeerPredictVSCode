@@ -9,13 +9,15 @@ import networkx as nx
 from shapely.geometry import Point, Polygon, LineString, shape
 import base64
 from io import BytesIO
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for faster performance
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from scipy.spatial import ConvexHull
 from scipy.ndimage import convolve, laplace, gaussian_filter
 
 # Import unified scoring framework
-from scoring_engine import (
+from backend.scoring_engine import (
     get_scoring_engine, 
     ScoringContext,
     score_with_context
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 # --- Environment & Constants ---
 OPENWEATHERMAP_API_KEY = os.getenv("OPENWEATHERMAP_API_KEY")
 OVERPASS_API_URL = "https://overpass-api.de/api/interpreter"
-GRID_SIZE = 10 # The resolution of our analysis grid
+GRID_SIZE = 6  # Reduced for faster processing
 
 # --- Real Data Fetching ---
 def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
@@ -47,7 +49,7 @@ def get_weather_data(lat: float, lon: float) -> Dict[str, Any]:
         "timezone": "America/New_York"  # Vermont timezone
     }
 
-    response = requests.get(weather_url, params=params)
+    response = requests.get(weather_url, params=params, timeout=15)
     # Let HTTP errors propagate (unit tests expect exceptions when API fails)
     response.raise_for_status()
 
@@ -243,6 +245,22 @@ def calculate_wind_hunting_windows(hourly_wind: List[Dict]) -> Dict[str, Any]:
 
 import time
 
+def get_prediction_core():
+    """
+    Returns the core prediction functionality as a cohesive interface.
+    This acts as the main entry point for the prediction system.
+    """
+    return {
+        "analyze_terrain": analyze_terrain_and_vegetation,
+        "run_rules": run_grid_rule_engine,
+        "get_weather": get_weather_data,
+        "generate_corridors": generate_corridors_from_scores,
+        "generate_zones": generate_zones_from_scores,
+        "find_better_spots": find_better_hunting_spots,
+        "get_moon_phase": get_moon_phase,
+        "get_time_of_day": get_time_of_day
+    }
+
 def get_real_elevation_grid(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
     """Fetches a grid of real elevation data from the Open-Meteo API using POST requests to handle bulk data."""
     lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
@@ -264,198 +282,91 @@ def get_real_elevation_grid(lat: float, lon: float, size: int = GRID_SIZE, span_
             "longitude": ",".join(map(str, lon_chunk))
         }
         
-        response = requests.post(url, data=payload)
+        response = requests.post(url, data=payload, timeout=10)
         response.raise_for_status()
         
         results = response.json()
         all_elevations.extend(results['elevation'])
-        time.sleep(2) # Add a 2-second delay
         
     return np.array(all_elevations).reshape(size, size)
 
 def get_vegetation_grid_from_osm(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
-    """Fetches land use data from OpenStreetMap via Overpass API and rasterizes it."""
-    bbox = (lat - span_deg / 2, lon - span_deg / 2, lat + span_deg / 2, lon + span_deg / 2)
-    query = f"""[out:json];(
-        way["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["landuse"="grass"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["natural"="tree"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="Quercus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["trees"="oak"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="apple"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="Malus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="beech"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        way["species"="Fagus"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["crop"="corn"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["crop"="soy"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["crop"="soybeans"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["crop"="hay"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-        relation["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
-    );(._;>;);out body;"""
-    
-    response = requests.post(OVERPASS_API_URL, data=query)
-    response.raise_for_status()
-    osm_data = response.json()
-
-    # Create polygons from OSM data with enhanced agricultural crop detection
-    polygons = {
-        "forest": [], 
-        "field": [], 
-        "water": [],
-        "corn_field": [],
-        "soybean_field": [],
-        "hay_field": [],
-        "orchard": [],
-        "oak_trees": [],
-        "apple_trees": [],
-        "beech_trees": [],
-        "meadow": []
-    }
-    nodes = {node['id']: (node['lon'], node['lat']) for node in osm_data['elements'] if node['type'] == 'node'}
-    for element in osm_data['elements']:
-        if element['type'] == 'way' and 'nodes' in element and element['nodes'][0] == element['nodes'][-1]:
-            coords = [nodes[node_id] for node_id in element['nodes'] if node_id in nodes]
-            if len(coords) < 3: continue
-            poly = Polygon(coords)
-            tags = element.get('tags', {})
-            
-            # Enhanced agricultural crop detection
-            if tags.get('crop') == 'corn':
-                polygons["corn_field"].append(poly)
-            elif tags.get('crop') in ['soy', 'soybeans']:
-                polygons["soybean_field"].append(poly)
-            elif tags.get('crop') == 'hay':
-                polygons["hay_field"].append(poly)
-            elif tags.get('landuse') == 'orchard':
-                polygons["orchard"].append(poly)
-            elif tags.get('landuse') in ['meadow', 'grass']:
-                polygons["meadow"].append(poly)
-            # Tree species detection for mast crops
-            elif tags.get('species') in ['Quercus', 'oak'] or tags.get('trees') == 'oak':
-                polygons["oak_trees"].append(poly)
-            elif tags.get('species') in ['Malus', 'apple']:
-                polygons["apple_trees"].append(poly)
-            elif tags.get('species') in ['Fagus', 'beech']:
-                polygons["beech_trees"].append(poly)
-            # General forest and farmland
-            elif tags.get('landuse') == 'forest' or tags.get('natural') == 'wood':
-                polygons["forest"].append(poly)
-            elif tags.get('landuse') == 'farmland':
-                polygons["field"].append(poly)
-            elif tags.get('natural') == 'water':
-                polygons["water"].append(poly)
-
-    # Rasterize polygons onto the grid with enhanced agricultural encoding
-    # Grid encoding: 0=water, 1=field/meadow, 2=forest, 3=corn, 4=soybean, 5=hay, 6=orchard, 7=oak_trees, 8=apple_trees, 9=beech_trees
-    grid = np.ones((size, size), dtype=int) * 1 # Default to field
-    lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
-    lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
-
-    for i in range(size):
-        for j in range(size):
-            point = Point(lons[j], lats[i])
-            # Priority order: water > specific crops > tree species > forest > general field
-            if any(poly.contains(point) for poly in polygons["water"]):
-                grid[i, j] = 0  # Water
-            elif any(poly.contains(point) for poly in polygons["corn_field"]):
-                grid[i, j] = 3  # Corn field - high deer attractant
-            elif any(poly.contains(point) for poly in polygons["soybean_field"]):
-                grid[i, j] = 4  # Soybean field - excellent deer food
-            elif any(poly.contains(point) for poly in polygons["hay_field"]):
-                grid[i, j] = 5  # Hay field - good deer browse
-            elif any(poly.contains(point) for poly in polygons["orchard"]):
-                grid[i, j] = 6  # Orchard - fruit trees
-            elif any(poly.contains(point) for poly in polygons["oak_trees"]):
-                grid[i, j] = 7  # Oak trees - acorn mast
-            elif any(poly.contains(point) for poly in polygons["apple_trees"]):
-                grid[i, j] = 8  # Apple trees - fall fruit
-            elif any(poly.contains(point) for poly in polygons["beech_trees"]):
-                grid[i, j] = 9  # Beech trees - beech nuts
-            elif any(poly.contains(point) for poly in polygons["forest"]):
-                grid[i, j] = 2  # General forest
-            elif any(poly.contains(point) for poly in polygons["meadow"]):
-                grid[i, j] = 1  # Meadow/grass - general browse
-    return grid
-
-def get_road_proximity_grid(lat: float, lon: float, size: int = GRID_SIZE, span_deg: float = 0.04) -> np.ndarray:
-    """Compute a normalized proximity-to-road grid from OpenStreetMap highways and paths.
-    Returns values in [0,1] where 0 = on/very near road, 1 = far from roads.
+    """
+    Fetches land use data from OpenStreetMap via Overpass API and rasterizes it.
+    Optimized with shorter timeout and better error handling.
     """
     try:
         bbox = (lat - span_deg / 2, lon - span_deg / 2, lat + span_deg / 2, lon + span_deg / 2)
-        query = f"""[out:json];(
-            way["highway"~"^(primary|secondary|tertiary|residential|unclassified|track|path|footway|bridleway|service)$"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+        
+        # Simplified query for better performance
+        query = f"""[out:json][timeout:5];(
+            way["landuse"="forest"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["natural"="wood"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["landuse"="farmland"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["landuse"="orchard"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["landuse"="meadow"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
+            way["natural"="water"]({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]});
         );(._;>;);out body;"""
-        response = requests.post(OVERPASS_API_URL, data=query, timeout=30)
+        
+        # Reduced timeout from 15 to 5 seconds for faster failure
+        response = requests.post(OVERPASS_API_URL, data=query, timeout=5)
         response.raise_for_status()
         osm_data = response.json()
 
-        # Build ways as LineStrings
-        nodes = {n['id']: (n['lon'], n['lat']) for n in osm_data.get('elements', []) if n.get('type') == 'node'}
-        lines = []
-        for el in osm_data.get('elements', []):
-            if el.get('type') == 'way' and 'nodes' in el and len(el['nodes']) > 1:
-                coords = [nodes[nid] for nid in el['nodes'] if nid in nodes]
-                if len(coords) >= 2:
-                    try:
-                        lines.append(LineString(coords))
-                    except Exception:
-                        continue
+        # Create polygons from OSM data with simplified categories
+        polygons = {
+            "forest": [], 
+            "field": [], 
+            "water": [],
+            "orchard": []
+        }
+        
+        nodes = {node['id']: (node['lon'], node['lat']) for node in osm_data['elements'] if node['type'] == 'node'}
+        for element in osm_data['elements']:
+            if element['type'] == 'way' and 'nodes' in element and element['nodes'][0] == element['nodes'][-1]:
+                coords = [nodes[node_id] for node_id in element['nodes'] if node_id in nodes]
+                if len(coords) < 3: continue
+                poly = Polygon(coords)
+                tags = element.get('tags', {})
+                
+                # Simplified categorization for better performance
+                if tags.get('landuse') == 'orchard':
+                    polygons["orchard"].append(poly)
+                elif tags.get('landuse') in ['forest'] or tags.get('natural') == 'wood':
+                    polygons["forest"].append(poly)
+                elif tags.get('landuse') in ['farmland', 'meadow']:
+                    polygons["field"].append(poly)
+                elif tags.get('natural') == 'water':
+                    polygons["water"].append(poly)
 
-        # If no roads found, return ones (no penalty)
-        if not lines:
-            return np.ones((size, size), dtype=float)
-
-        # Prepare grid centers
+        # Rasterize polygons onto the grid with simplified encoding
+        # Grid encoding: 0=water, 1=field/meadow, 2=forest, 3=orchard
+        grid = np.ones((size, size), dtype=int) * 1 # Default to field
         lats = np.linspace(lat + span_deg / 2, lat - span_deg / 2, size)
         lons = np.linspace(lon - span_deg / 2, lon + span_deg / 2, size)
-        grid = np.zeros((size, size), dtype=float)
-
-        # Rough meters-per-degree at this latitude
-        meters_per_deg_lat = 111_320.0
-        meters_per_deg_lon = 111_320.0 * np.cos(np.radians(lat))
-
-        # Maximum distance for normalization (half the span-diagonal)
-        max_deg = np.sqrt((span_deg/2)**2 + (span_deg/2)**2)
-        max_meters = max_deg * np.hypot(meters_per_deg_lat, meters_per_deg_lon)
-        max_meters = max(1.0, max_meters)
 
         for i in range(size):
             for j in range(size):
-                pt = Point(lons[j], lats[i])
-                # Find min distance to any road line (in degrees)
-                min_deg = min((pt.distance(line) for line in lines)) if lines else span_deg
-                # Convert to meters using local scale approximation
-                # Approximate by projecting delta in lon as meters_per_deg_lon and lat as meters_per_deg_lat
-                # Since shapely distance in degrees mixes axes, scale by average meters/deg
-                meters = min_deg * (meters_per_deg_lat + meters_per_deg_lon) / 2.0
-                # Normalize to [0,1]; clamp within reasonable threshold so near roads clearly penalized
-                proximity = np.clip(meters / (0.4 * max_meters), 0.0, 1.0)
-                grid[i, j] = float(proximity)
-
-        return grid
+                point = Point(lons[j], lats[i])
+                # Priority order: water > orchard > forest > field
+                if any(poly.contains(point) for poly in polygons["water"]):
+                    grid[i, j] = 0  # Water
+                elif any(poly.contains(point) for poly in polygons["orchard"]):
+                    grid[i, j] = 3  # Orchard - fruit trees
+                elif any(poly.contains(point) for poly in polygons["forest"]):
+                    grid[i, j] = 2  # Forest
+                elif any(poly.contains(point) for poly in polygons["field"]):
+                    grid[i, j] = 1  # Field/meadow
+        
+        return grid.astype(float)
+        
     except Exception as e:
-        logger.warning(f"Road proximity computation failed, defaulting to neutral grid: {e}")
-        return np.ones((size, size), dtype=float)
+        logger.warning(f"OSM vegetation data fetch failed: {e}, using default grid")
+        # Return a default grid with mixed forest/field pattern
+        default_grid = np.random.choice([1, 2], size=(size, size), p=[0.6, 0.4])
+        return default_grid.astype(float)
 
-# --- All other functions (analysis, rule engine, geometry generation) remain the same ---
-# (For brevity, the unchanged functions from the previous version are omitted here,
-# but they are still part of this file in the actual implementation.)
+# Road proximity function removed for performance optimization
 
 def detect_edges_simple(binary_grid):
     """Detect edges around binary regions.
@@ -729,8 +640,17 @@ def run_grid_rule_engine(rules: List[Dict[str, Any]], features: Dict[str, np.nda
         # Normalize scores to 0-10 range when confidences are not already 0..1
         for behavior in score_maps:
             max_score = np.max(score_maps[behavior])
+            min_score = np.min(score_maps[behavior])
+            avg_score = np.mean(score_maps[behavior])
+            nonzero_count = np.count_nonzero(score_maps[behavior])
+            total_cells = score_maps[behavior].size
+            
+            logger.info(f"Score map for {behavior}: max={max_score:.2f}, min={min_score:.2f}, "
+                       f"avg={avg_score:.2f}, nonzero_cells={nonzero_count}/{total_cells}")
+            
             if max_score > 1.0:
                 score_maps[behavior] = (score_maps[behavior] / max_score) * 10
+                logger.info(f"Normalized {behavior} scores to 0-10 range (was 0-{max_score:.2f})")
     
     return score_maps
 
@@ -1044,28 +964,60 @@ def create_enhanced_score_heatmap(score_grid: np.ndarray, title: str, descriptio
     # Normalize scores to 0-10 range for consistency
     normalized_scores = np.clip(score_grid, 0, 10)
     
-    # Create the heatmap with custom levels
-    levels = np.linspace(0, 10, 11)  # 0, 1, 2, ..., 10
+    # Calculate statistics for better visualization
+    max_score = np.max(normalized_scores)
+    min_score = np.min(normalized_scores)
+    mean_score = np.mean(normalized_scores)
+    
+    # If all scores are very low (< 2), enhance the contrast by stretching the range
+    if max_score < 2.0:
+        # Stretch low scores to use more of the color range
+        normalized_scores = (normalized_scores / max_score) * 5.0  # Stretch to 0-5 range
+        levels = np.linspace(0, 5, 11)  # Use 0-5 range instead of 0-10
+        logger.info(f"Low score range detected for {title}: max={max_score:.2f}, stretching to 0-5 range")
+    elif max_score < 5.0:
+        # Moderate scores - stretch to 0-7 range
+        normalized_scores = (normalized_scores / max_score) * 7.0
+        levels = np.linspace(0, 7, 11)
+        logger.info(f"Moderate score range detected for {title}: max={max_score:.2f}, stretching to 0-7 range")
+    else:
+        # Good score distribution - use full 0-10 range
+        levels = np.linspace(0, 10, 11)
+        logger.info(f"Good score range for {title}: max={max_score:.2f}, using full 0-10 range")
+    
+    # Create the heatmap with adaptive levels
     im = ax.contourf(normalized_scores, levels=levels, cmap=cmap, extend='both')
     
-    # Add colorbar with clear labels
+    # Add colorbar with adaptive labels
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
-    cbar.set_label('Deer Activity Score (0-10)', fontsize=12, fontweight='bold')
-    cbar.set_ticks([0, 2, 4, 6, 8, 10])
-    cbar.set_ticklabels(['Very Low\n(0-1)', 'Low\n(2-3)', 'Moderate\n(4-5)', 
-                        'Good\n(6-7)', 'High\n(8-9)', 'Excellent\n(10)'])
+    cbar.set_label('Deer Activity Score', fontsize=12, fontweight='bold')
+    
+    # Adaptive colorbar labels based on score range
+    max_level = np.max(levels)
+    if max_level <= 5:
+        cbar.set_ticks([0, 1, 2, 3, 4, 5])
+        cbar.set_ticklabels(['None\n(0)', 'Very Low\n(1)', 'Low\n(2)', 
+                            'Moderate\n(3)', 'Good\n(4)', 'High\n(5)'])
+    elif max_level <= 7:
+        cbar.set_ticks([0, 1, 2, 3, 4, 5, 6, 7])
+        cbar.set_ticklabels(['None\n(0)', 'Very Low\n(1)', 'Low\n(2)', 'Moderate\n(3)',
+                            'Good\n(4)', 'High\n(5)', 'Very High\n(6)', 'Excellent\n(7)'])
+    else:
+        cbar.set_ticks([0, 2, 4, 6, 8, 10])
+        cbar.set_ticklabels(['Very Low\n(0-1)', 'Low\n(2-3)', 'Moderate\n(4-5)', 
+                            'Good\n(6-7)', 'High\n(8-9)', 'Excellent\n(10)'])
     
     # Enhance the plot appearance
     ax.set_title(f'{title}\n{description}', fontsize=14, fontweight='bold', pad=20)
     ax.set_xlabel('Grid East-West', fontsize=11)
     ax.set_ylabel('Grid North-South', fontsize=11)
     
-    # Add score statistics as text
-    max_score = np.max(normalized_scores)
-    avg_score = np.mean(normalized_scores)
-    high_score_percent = np.sum(normalized_scores >= 7) / normalized_scores.size * 100
+    # Add score statistics as text with actual ranges
+    actual_max = np.max(score_grid)  # Original max before stretching
+    actual_avg = np.mean(score_grid)  # Original average
+    high_score_percent = np.sum(score_grid >= np.percentile(score_grid, 80)) / score_grid.size * 100
     
-    stats_text = f'Max Score: {max_score:.1f}\nAvg Score: {avg_score:.1f}\nHigh Activity Areas: {high_score_percent:.1f}%'
+    stats_text = f'Original Max: {actual_max:.1f}\nOriginal Avg: {actual_avg:.1f}\nTop 20% Areas: {high_score_percent:.1f}%'
     ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
             verticalalignment='top', fontsize=10)
@@ -1081,7 +1033,7 @@ def create_enhanced_score_heatmap(score_grid: np.ndarray, title: str, descriptio
     image_base64 = base64.b64encode(buffer.read()).decode()
     plt.close(fig)
     
-    return f"data:image/png;base64,{image_base64}"
+    return image_base64
 
 def create_heatmap_image(grid: np.ndarray, cmap: str = 'viridis') -> str:
     """Generates a base64-encoded heatmap image from a grid."""

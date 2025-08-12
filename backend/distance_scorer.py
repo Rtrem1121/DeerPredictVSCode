@@ -79,21 +79,17 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(road_distance_yards, 0.0)
         
-        if distance >= self.factors.road_impact_range:
-            # Far enough from roads - excellent
-            return 95.0
-        elif distance >= self.factors.road_impact_range * 0.7:
-            # Good distance from roads
-            ratio = distance / self.factors.road_impact_range
-            return 70.0 + (ratio * 25.0)
-        elif distance >= self.factors.road_impact_range * 0.3:
-            # Moderate distance from roads
-            ratio = distance / (self.factors.road_impact_range * 0.7)
-            return 40.0 + (ratio * 30.0)
-        else:
-            # Too close to roads - penalty
-            ratio = distance / (self.factors.road_impact_range * 0.3)
-            return 10.0 + (ratio * 30.0)
+        scoring_ranges = [
+            (self.factors.road_impact_range, lambda d: 95.0),
+            (self.factors.road_impact_range * 0.7, lambda d: 70.0 + (d / self.factors.road_impact_range * 25.0)),
+            (self.factors.road_impact_range * 0.3, lambda d: 40.0 + (d / (self.factors.road_impact_range * 0.7) * 30.0)),
+            (0, lambda d: 10.0 + (d / (self.factors.road_impact_range * 0.3) * 30.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance >= threshold:
+                return score_func(distance)
+        return 0.0
     
     def calculate_agricultural_proximity_score(self, ag_distance_yards: float) -> float:
         """
@@ -108,18 +104,14 @@ class DistanceScorer:
         distance = self.safe_distance_conversion(ag_distance_yards, 1000.0)
         
         if distance <= 100.0:
-            # Very close to food source - excellent
             return 95.0
         elif distance <= 300.0:
-            # Close to food source - very good
             ratio = (300.0 - distance) / 200.0
             return 75.0 + (ratio * 20.0)
         elif distance <= self.factors.agricultural_benefit_range:
-            # Within beneficial range - good
             ratio = (self.factors.agricultural_benefit_range - distance) / 500.0
             return 50.0 + (ratio * 25.0)
         else:
-            # Too far from agricultural areas
             max_penalty_distance = self.factors.agricultural_benefit_range * 2
             if distance <= max_penalty_distance:
                 ratio = (max_penalty_distance - distance) / self.factors.agricultural_benefit_range
@@ -139,35 +131,16 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(stand_distance_yards, 100.0)
         
-        if self.factors.stand_optimal_min <= distance <= self.factors.stand_optimal_max:
-            # Within optimal range
-            range_center = (self.factors.stand_optimal_min + self.factors.stand_optimal_max) / 2
-            distance_from_center = abs(distance - range_center)
-            range_width = (self.factors.stand_optimal_max - self.factors.stand_optimal_min) / 2
-            
-            if range_width > 0:
-                score = 100.0 - (distance_from_center / range_width) * 15.0
-            else:
-                score = 100.0
-            
-            return max(85.0, score)
-        
-        elif distance < self.factors.stand_optimal_min:
-            # Too close to stand
-            if distance <= 10.0:
-                return 20.0  # Very poor
-            else:
-                ratio = distance / self.factors.stand_optimal_min
-                return 20.0 + (ratio * 65.0)
-        
-        else:
-            # Too far from stand
-            max_useful_distance = self.factors.stand_optimal_max * 2
-            if distance <= max_useful_distance:
-                ratio = (max_useful_distance - distance) / self.factors.stand_optimal_max
-                return 40.0 + (ratio * 45.0)
-            else:
-                return 25.0
+        scoring_ranges = [
+            (self.factors.stand_optimal_min, lambda d: 20.0 + (d / self.factors.stand_optimal_min * 65.0) if d > 10.0 else 20.0),
+            (self.factors.stand_optimal_max, lambda d: 100.0 - (abs(d - (self.factors.stand_optimal_min + self.factors.stand_optimal_max) / 2) / ((self.factors.stand_optimal_max - self.factors.stand_optimal_min) / 2) * 15.0) if (self.factors.stand_optimal_max - self.factors.stand_optimal_min) > 0 else 100.0),
+            (self.factors.stand_optimal_max * 2, lambda d: 40.0 + ((self.factors.stand_optimal_max * 2 - d) / self.factors.stand_optimal_max * 45.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance <= threshold:
+                return max(25.0, score_func(distance))
+        return 25.0
     
     def calculate_escape_route_score(self, escape_distance_yards: float) -> float:
         """
@@ -181,25 +154,17 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(escape_distance_yards, 200.0)
         
-        if distance <= 50.0:
-            # Very close escape route - excellent
-            return 95.0
-        elif distance <= 150.0:
-            # Close escape route - very good
-            ratio = (150.0 - distance) / 100.0
-            return 75.0 + (ratio * 20.0)
-        elif distance <= self.factors.escape_route_max:
-            # Reasonable escape route access
-            ratio = (self.factors.escape_route_max - distance) / 150.0
-            return 50.0 + (ratio * 25.0)
-        else:
-            # Poor escape route access
-            max_penalty_distance = self.factors.escape_route_max * 2
-            if distance <= max_penalty_distance:
-                ratio = (max_penalty_distance - distance) / self.factors.escape_route_max
-                return 20.0 + (ratio * 30.0)
-            else:
-                return 20.0
+        scoring_ranges = [
+            (50.0, lambda d: 95.0),
+            (150.0, lambda d: 75.0 + ((150.0 - d) / 100.0 * 20.0)),
+            (self.factors.escape_route_max, lambda d: 50.0 + ((self.factors.escape_route_max - d) / 150.0 * 25.0)),
+            (self.factors.escape_route_max * 2, lambda d: 20.0 + ((self.factors.escape_route_max * 2 - d) / self.factors.escape_route_max * 30.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance <= threshold:
+                return score_func(distance)
+        return 20.0
     
     def calculate_concealment_score(self, visibility_distance_yards: float) -> float:
         """
@@ -213,24 +178,17 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(visibility_distance_yards, 50.0)
         
-        if distance <= 30.0:
-            # Excellent concealment
-            return 95.0
-        elif distance <= 60.0:
-            # Very good concealment
-            ratio = (60.0 - distance) / 30.0
-            return 80.0 + (ratio * 15.0)
-        elif distance <= self.factors.concealment_critical:
-            # Good concealment
-            ratio = (self.factors.concealment_critical - distance) / 40.0
-            return 60.0 + (ratio * 20.0)
-        elif distance <= 200.0:
-            # Moderate concealment
-            ratio = (200.0 - distance) / 100.0
-            return 30.0 + (ratio * 30.0)
-        else:
-            # Poor concealment
-            return 20.0
+        scoring_ranges = [
+            (30.0, lambda d: 95.0),
+            (60.0, lambda d: 80.0 + ((60.0 - d) / 30.0 * 15.0)),
+            (self.factors.concealment_critical, lambda d: 60.0 + ((self.factors.concealment_critical - d) / 40.0 * 20.0)),
+            (200.0, lambda d: 30.0 + ((200.0 - d) / 100.0 * 30.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance <= threshold:
+                return score_func(distance)
+        return 20.0
     
     def calculate_water_proximity_score(self, water_distance_yards: float) -> float:
         """
@@ -244,25 +202,17 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(water_distance_yards, 500.0)
         
-        if distance <= 100.0:
-            # Very close to water - excellent
-            return 90.0
-        elif distance <= 300.0:
-            # Reasonable water access
-            ratio = (300.0 - distance) / 200.0
-            return 70.0 + (ratio * 20.0)
-        elif distance <= 800.0:
-            # Moderate water access
-            ratio = (800.0 - distance) / 500.0
-            return 45.0 + (ratio * 25.0)
-        else:
-            # Poor water access
-            max_distance = 1500.0
-            if distance <= max_distance:
-                ratio = (max_distance - distance) / 700.0
-                return 20.0 + (ratio * 25.0)
-            else:
-                return 20.0
+        scoring_ranges = [
+            (100.0, lambda d: 90.0),
+            (300.0, lambda d: 70.0 + ((300.0 - d) / 200.0 * 20.0)),
+            (800.0, lambda d: 45.0 + ((800.0 - d) / 500.0 * 25.0)),
+            (1500.0, lambda d: 20.0 + ((1500.0 - d) / 700.0 * 25.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance <= threshold:
+                return score_func(distance)
+        return 20.0
     
     def calculate_terrain_edge_score(self, edge_distance_yards: float, 
                                    edge_type: str = "forest_field") -> float:
@@ -278,7 +228,6 @@ class DistanceScorer:
         """
         distance = self.safe_distance_conversion(edge_distance_yards, 200.0)
         
-        # Edge type modifiers
         edge_quality = {
             "forest_field": 1.0,
             "timber_opening": 0.9,
@@ -289,22 +238,16 @@ class DistanceScorer:
         
         quality_modifier = edge_quality.get(edge_type, 1.0)
         
-        if distance <= 50.0:
-            # Very close to edge - excellent for feeding/transition
-            base_score = 90.0
-        elif distance <= 150.0:
-            # Close to edge - very good
-            ratio = (150.0 - distance) / 100.0
-            base_score = 70.0 + (ratio * 20.0)
-        elif distance <= 400.0:
-            # Moderate edge access
-            ratio = (400.0 - distance) / 250.0
-            base_score = 45.0 + (ratio * 25.0)
-        else:
-            # Poor edge access
-            base_score = 30.0
-        
-        return base_score * quality_modifier
+        scoring_ranges = [
+            (50.0, lambda d: 90.0),
+            (150.0, lambda d: 70.0 + ((150.0 - d) / 100.0 * 20.0)),
+            (400.0, lambda d: 45.0 + ((400.0 - d) / 250.0 * 25.0)),
+        ]
+
+        for threshold, score_func in scoring_ranges:
+            if distance <= threshold:
+                return score_func(distance) * quality_modifier
+        return 30.0 * quality_modifier
     
     def calculate_thermal_corridor_score(self, thermal_distance_yards: float) -> float:
         """

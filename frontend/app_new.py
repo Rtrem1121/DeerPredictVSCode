@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
 
 # --- Backend Configuration ---
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8002')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
 
 # --- Map Configuration ---
 # Filter enabled map sources
@@ -189,8 +189,6 @@ if 'hunt_location' not in st.session_state:
     st.session_state.hunt_location = [44.26639, -72.58133]  # Vermont center
 if 'map_zoom' not in st.session_state:
     st.session_state.map_zoom = 12
-if 'prediction_data' not in st.session_state:
-    st.session_state.prediction_data = None
 
 # ==========================================
 # TAB 1: HUNT PREDICTIONS
@@ -275,63 +273,6 @@ with tab_predict:
             icon=folium.Icon(color='red', icon='bullseye')
         ).add_to(m)
         
-        # Add prediction markers if available
-        if 'prediction_data' in st.session_state and st.session_state.prediction_data:
-            pred = st.session_state.prediction_data
-            
-            # Add travel corridor markers (blue)
-            if 'travel_corridors' in pred and 'features' in pred['travel_corridors']:
-                for feature in pred['travel_corridors']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],  # lat, lon
-                        popup=f"🛤️ Travel Corridor<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='blue', icon='arrow-right')
-                    ).add_to(m)
-            
-            # Add bedding zone markers (green) 
-            if 'bedding_zones' in pred and 'features' in pred['bedding_zones']:
-                for feature in pred['bedding_zones']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🛏️ Bedding Area<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='green', icon='home')
-                    ).add_to(m)
-            
-            # Add feeding area markers (orange)
-            if 'feeding_areas' in pred and 'features' in pred['feeding_areas']:
-                for feature in pred['feeding_areas']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🌾 Feeding Area<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='orange', icon='leaf')
-                    ).add_to(m)
-            
-            # Add mature buck opportunity markers (purple with crosshair)
-            if 'mature_buck_opportunities' in pred and pred['mature_buck_opportunities'] and 'features' in pred['mature_buck_opportunities']:
-                for feature in pred['mature_buck_opportunities']['features']:
-                    coords = feature['geometry']['coordinates'] 
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🎯 Mature Buck Opportunity<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='purple', icon='crosshairs')
-                    ).add_to(m)
-            
-            # Add 5 best stand locations (stars)
-            if 'five_best_stands' in pred:
-                for i, stand in enumerate(pred['five_best_stands'], 1):
-                    folium.Marker(
-                        [stand['lat'], stand['lon']],
-                        popup=f"⭐ Stand #{i}<br>Confidence: {stand.get('confidence', 0):.0f}%<br>{stand.get('description', '')}",
-                        icon=folium.Icon(color='darkred', icon='star')
-                    ).add_to(m)
-        
         # Display map and capture click events
         map_data = st_folium(m, key="hunt_map", width=700, height=500)
         
@@ -345,16 +286,8 @@ with tab_predict:
     # Display current coordinates
     st.info(f"📍 **Hunt Coordinates:** {st.session_state.hunt_location[0]:.6f}, {st.session_state.hunt_location[1]:.6f}")
     
-    # Prediction buttons
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        generate_prediction = st.button("🎯 Generate Hunting Predictions", type="primary")
-    with col2:
-        if st.button("🗑️ Clear Map", help="Clear prediction markers from map"):
-            st.session_state.prediction_data = None
-            st.rerun()
-    
-    if generate_prediction:
+    # Prediction button
+    if st.button("🎯 Generate Hunting Predictions", type="primary"):
         with st.spinner("🧠 Analyzing deer movement patterns..."):
             # Prepare prediction request
             prediction_data = {
@@ -374,10 +307,6 @@ with tab_predict:
                 
                 if response.status_code == 200:
                     prediction = response.json()
-                    
-                    # Store prediction data in session state for map display
-                    st.session_state.prediction_data = prediction
-                    
                     st.success("✅ **Prediction Complete!**")
                     
                     # Display prediction results

@@ -1,0 +1,34 @@
+{
+  "backend_health": {
+    "status": "PASS",
+    "response_time": 0.010544,
+    "data": {
+      "status": "healthy",
+      "version": "0.3.0",
+      "rules_loaded": 26,
+      "config_environment": "development",
+      "config_version": "1.0.0-dev",
+      "timestamp": "2025-08-14T00:24:12.653008"
+    }
+  },
+  "prediction_algorithm": {
+    "status": "FAIL",
+    "results": [
+      {
+        "location": "Fred Johnson WMA",
+        "status": "FAIL",
+        "error": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"lat\":44.285,\"lon\":-73.0459,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"lat\":44.285,\"lon\":-73.0459,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}}]}"
+      },
+      {
+        "location": "Bolton Area",
+        "status": "FAIL",
+        "error": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"lat\":44.3637,\"lon\":-73.0091,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"lat\":44.3637,\"lon\":-73.0091,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}}]}"
+      },
+      {
+        "location": "Rupert Area",
+        "status": "FAIL",
+        "error": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"lat\":43.3154,\"lon\":-73.2254,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"lat\":43.3154,\"lon\":-73.2254,\"weather_conditions\":\"clear\",\"temperature\":45,\"wind_speed\":5,\"time_of_day\":\"dawn\"}}]}"
+      }
+    ]
+  }
+}

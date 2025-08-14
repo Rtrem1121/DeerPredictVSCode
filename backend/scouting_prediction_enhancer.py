@@ -13,7 +13,7 @@ import numpy as np
 import logging
 import math
 from typing import Dict, List, Tuple, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 try:
     from .scouting_models import ScoutingObservation, ObservationType
@@ -206,8 +206,12 @@ class ScoutingPredictionEnhancer:
                 logger.warning(f"No enhancement config for {obs.observation_type}")
                 return None
             
-            # Calculate age decay factor
-            age_days = (datetime.now() - obs.timestamp).days
+            # Calculate age decay factor with timezone handling
+            if obs.timestamp.tzinfo is not None:
+                now = datetime.now(timezone.utc)
+            else:
+                now = datetime.now()
+            age_days = (now - obs.timestamp).days
             decay_factor = max(0.1, 1.0 - (age_days / config["decay_days"]))
             
             # Calculate confidence factor
@@ -467,8 +471,12 @@ class ScoutingPredictionEnhancer:
                 
                 summary["avg_confidence"] = sum(obs.confidence for obs in observations) / len(observations)
                 
-                # Recent activity (last 7 days)
-                recent_cutoff = datetime.now() - timedelta(days=7)
+                # Recent activity (last 7 days) with timezone handling
+                # Use a reference timestamp that matches the observations
+                if observations and observations[0].timestamp.tzinfo is not None:
+                    recent_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+                else:
+                    recent_cutoff = datetime.now() - timedelta(days=7)
                 summary["recent_activity"] = [
                     {
                         "type": obs.observation_type.value,

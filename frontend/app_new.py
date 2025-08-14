@@ -263,6 +263,9 @@ with tab_predict:
             index=0
         )
         
+        # Store map type in session state for consistency across tabs
+        st.session_state.map_type = map_type
+        
         # Create and display map
         m = create_map(st.session_state.hunt_location, st.session_state.map_zoom, map_type)
         
@@ -400,8 +403,9 @@ with tab_scout:
         if entry_mode == "🗺️ Map-Based Entry":
             st.markdown("### 🗺️ Click on the map to add scouting observations")
             
-            # Map for scouting entry
-            scout_map = create_map(st.session_state.hunt_location, st.session_state.map_zoom, "Satellite")
+            # Map for scouting entry - using same map type as hunting predictions
+            map_type_for_scout = getattr(st.session_state, 'map_type', 'Topographic (USGS)')  # Fallback to USGS Topo if not set
+            scout_map = create_map(st.session_state.hunt_location, st.session_state.map_zoom, map_type_for_scout)
             
             # Load and display existing observations
             existing_obs = get_scouting_observations(

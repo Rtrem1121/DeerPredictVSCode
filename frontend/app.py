@@ -265,6 +265,9 @@ with tab_predict:
             index=0
         )
         
+        # Store map type in session state for consistency across tabs
+        st.session_state.map_type = map_type
+        
         # Create and display map
         m = create_map(st.session_state.hunt_location, st.session_state.map_zoom, map_type)
         
@@ -465,14 +468,115 @@ with tab_scout:
     if not observation_types:
         st.error("Unable to load observation types. Please check backend connection.")
     else:
-        # Create two modes: map entry and manual entry
-        entry_mode = st.radio("📝 Entry Mode", ["🗺️ Map-Based Entry", "✍️ Manual Entry"], horizontal=True)
+        # Create three modes: map entry, manual entry, and GPX import
+        entry_mode = st.radio("📝 Entry Mode", ["🗺️ Map-Based Entry", "✍️ Manual Entry", "📁 GPX Import"], horizontal=True)
         
-        if entry_mode == "🗺️ Map-Based Entry":
+        if entry_mode == "📁 GPX Import":
+            st.markdown("### 📁 Import Waypoints from GPX File")
+            st.markdown("Upload a GPX file from your GPS device or hunting app (OnX, Garmin, Gaia GPS, etc.)")
+            
+            # File uploader
+            uploaded_file = st.file_uploader(
+                "Choose GPX file", 
+                type=['gpx'],
+                help="Upload waypoints from your GPS device or hunting app"
+            )
+            
+            if uploaded_file is not None:
+                try:
+                    # Read file content
+                    gpx_content = uploaded_file.read().decode('utf-8')
+                    
+                    # Show file info
+                    st.success(f"📁 File loaded: {uploaded_file.name} ({len(gpx_content)} characters)")
+                    
+                    # Preview mode toggle
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        preview_mode = st.checkbox("🔍 Preview before importing", value=True)
+                    with col2:
+                        confidence_override = st.selectbox(
+                            "Override confidence (optional)", 
+                            options=[None] + list(range(1, 11)),
+                            format_func=lambda x: "Use waypoint data" if x is None else f"Set all to {x}/10"
+                        )
+                    
+                    # Import button
+                    if st.button("📥 Import Waypoints", type="primary"):
+                        with st.spinner("🔄 Processing GPX file..."):
+                            try:
+                                # Prepare request
+                                import_request = {
+                                    "gpx_content": gpx_content,
+                                    "auto_import": not preview_mode,
+                                    "confidence_override": confidence_override
+                                }
+                                
+                                # Call backend API
+                                response = requests.post(
+                                    f"{BACKEND_URL}/scouting/import_gpx",
+                                    json=import_request,
+                                    timeout=30
+                                )
+                                
+                                if response.status_code == 200:
+                                    result = response.json()
+                                    
+                                    # Show results
+                                    if result['status'] == 'success':
+                                        st.success(f"✅ {result['message']}")
+                                        st.balloons()
+                                    elif result['status'] == 'partial_success':
+                                        st.warning(f"⚠️ {result['message']}")
+                                    else:
+                                        st.error(f"❌ {result['message']}")
+                                    
+                                    # Show summary
+                                    col1, col2, col3 = st.columns(3)
+                                    with col1:
+                                        st.metric("📍 Total Waypoints", result['total_waypoints'])
+                                    with col2:
+                                        st.metric("✅ Imported", result['imported_observations'])
+                                    with col3:
+                                        st.metric("⏭️ Skipped", result['skipped_waypoints'])
+                                    
+                                    # Show preview
+                                    if result['preview']:
+                                        st.markdown("#### 📋 Preview:")
+                                        for i, obs in enumerate(result['preview']):
+                                            with st.expander(f"{obs['type']} - {obs['lat']:.5f}, {obs['lon']:.5f}"):
+                                                st.write(f"**Confidence:** {obs['confidence']}/10")
+                                                if obs['notes']:
+                                                    st.write(f"**Notes:** {obs['notes']}")
+                                    
+                                    # Show errors if any
+                                    if result.get('errors'):
+                                        with st.expander("⚠️ Errors/Warnings"):
+                                            for error in result['errors']:
+                                                st.warning(error)
+                                    
+                                    if result['status'] == 'success' and result['imported_observations'] > 0:
+                                        st.info("🔄 Refresh the Hunt Predictions tab to see enhanced predictions!")
+                                
+                                else:
+                                    st.error(f"❌ Import failed: {response.text}")
+                            
+                            except requests.exceptions.RequestException as e:
+                                st.error(f"❌ Connection error: {str(e)}")
+                            except Exception as e:
+                                st.error(f"❌ Import error: {str(e)}")
+                
+                except UnicodeDecodeError:
+                    st.error("❌ Unable to read GPX file. Please ensure it's a valid text-based GPX file.")
+                except Exception as e:
+                    st.error(f"❌ File error: {str(e)}")
+        
+        elif entry_mode == "🗺️ Map-Based Entry":
             st.markdown("### 🗺️ Click on the map to add scouting observations")
             
-            # Map for scouting entry
-            scout_map = create_map(st.session_state.hunt_location, st.session_state.map_zoom, "Satellite")
+            # Map for scouting entry - using same map type as hunting predictions
+            map_type_for_scout = getattr(st.session_state, 'map_type', 'Topographic (USGS)')  # Fallback to USGS Topo if not set
+            scout_map = create_map(st.session_state.hunt_location, st.session_state.map_zoom, map_type_for_scout)
             
             # Load and display existing observations
             existing_obs = get_scouting_observations(

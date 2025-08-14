@@ -13,7 +13,7 @@ import json
 import os
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 import math
@@ -325,7 +325,14 @@ class ScoutingDataManager:
     def _matches_date(self, observation: ScoutingObservation, query: ScoutingQuery) -> bool:
         """Check if observation is within the date range"""
         if query.days_back:
-            cutoff_date = datetime.now() - timedelta(days=query.days_back)
+            # Handle timezone-aware vs timezone-naive datetime comparison
+            if observation.timestamp.tzinfo is not None:
+                # observation.timestamp is timezone-aware, make cutoff_date timezone-aware too
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=query.days_back)
+            else:
+                # observation.timestamp is timezone-naive, use naive cutoff_date
+                cutoff_date = datetime.now() - timedelta(days=query.days_back)
+                
             if observation.timestamp < cutoff_date:
                 return False
         return True

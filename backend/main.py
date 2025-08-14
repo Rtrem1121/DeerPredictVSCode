@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 import os
 import numpy as np
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from backend import core
 from backend.mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
@@ -2953,7 +2953,12 @@ async def get_scouting_observations(
         obs_data = []
         for obs in observations:
             obs_dict = obs.to_dict()
-            obs_dict["age_days"] = (datetime.now() - obs.timestamp).days
+            # Handle timezone-aware vs timezone-naive datetime comparison
+            if obs.timestamp.tzinfo is not None:
+                now = datetime.now(timezone.utc)
+            else:
+                now = datetime.now()
+            obs_dict["age_days"] = (now - obs.timestamp).days
             obs_data.append(obs_dict)
         
         return {
@@ -2983,7 +2988,12 @@ async def get_scouting_observation(observation_id: str):
             raise HTTPException(status_code=404, detail="Observation not found")
         
         obs_data = observation.to_dict()
-        obs_data["age_days"] = (datetime.now() - observation.timestamp).days
+        # Handle timezone-aware vs timezone-naive datetime comparison
+        if observation.timestamp.tzinfo is not None:
+            now = datetime.now(timezone.utc)
+        else:
+            now = datetime.now()
+        obs_data["age_days"] = (now - observation.timestamp).days
         
         return obs_data
         
@@ -3090,6 +3100,154 @@ async def get_observation_types():
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get observation types: {str(e)}"
+        )
+
+
+# === GPX IMPORT FUNCTIONALITY ===
+
+class GPXImportRequest(BaseModel):
+    """Request model for GPX file import"""
+    gpx_content: str = Field(..., description="GPX file content as string")
+    auto_import: bool = Field(default=True, description="Automatically import valid waypoints")
+    confidence_override: Optional[int] = Field(None, ge=1, le=10, description="Override confidence for all waypoints")
+
+
+class GPXImportResponse(BaseModel):
+    """Response model for GPX import operation"""
+    status: str
+    message: str
+    total_waypoints: int
+    imported_observations: int
+    skipped_waypoints: int
+    errors: List[str] = Field(default_factory=list)
+    preview: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+@app.post("/scouting/import_gpx", response_model=GPXImportResponse)
+async def import_gpx_file(request: GPXImportRequest):
+    """
+    Import scouting observations from GPX file
+    
+    Parses a GPX file and converts waypoints to scouting observations.
+    Supports waypoints from hunting GPS devices and apps like OnX, Garmin, etc.
+    """
+    try:
+        logger.info("Starting GPX file import")
+        
+        # Import GPX parser (lazy import to avoid breaking existing functionality)
+        try:
+            from backend.gpx_parser import get_gpx_parser
+        except ImportError as e:
+            logger.error(f"GPX parser not available: {e}")
+            raise HTTPException(
+                status_code=500, 
+                detail="GPX import functionality not available"
+            )
+        
+        # Parse GPX file
+        parser = get_gpx_parser()
+        parse_result = parser.parse_gpx_file(request.gpx_content)
+        
+        if not parse_result['success']:
+            return GPXImportResponse(
+                status="error",
+                message=parse_result.get('error', 'Failed to parse GPX file'),
+                total_waypoints=0,
+                imported_observations=0,
+                skipped_waypoints=0,
+                errors=[parse_result.get('error', 'Unknown parsing error')]
+            )
+        
+        waypoints = parse_result['waypoints']
+        total_waypoints = len(waypoints)
+        
+        if total_waypoints == 0:
+            return GPXImportResponse(
+                status="warning",
+                message="No waypoints found in GPX file",
+                total_waypoints=0,
+                imported_observations=0,
+                skipped_waypoints=0
+            )
+        
+        # Convert waypoints to observations
+        observations = parser.convert_to_scouting_observations(waypoints)
+        
+        # Apply confidence override if specified
+        if request.confidence_override:
+            for obs in observations:
+                obs.confidence = request.confidence_override
+        
+        imported_count = 0
+        skipped_count = 0
+        errors = []
+        preview = []
+        
+        if request.auto_import:
+            # Import observations into database
+            data_manager = get_scouting_data_manager()
+            
+            for obs in observations:
+                try:
+                    obs_id = data_manager.add_observation(obs)
+                    imported_count += 1
+                    
+                    # Add to preview (first 5 only)
+                    if len(preview) < 5:
+                        preview.append({
+                            'id': obs_id,
+                            'type': obs.observation_type.value,
+                            'lat': obs.lat,
+                            'lon': obs.lon,
+                            'confidence': obs.confidence,
+                            'notes': obs.notes[:100] + "..." if len(obs.notes) > 100 else obs.notes
+                        })
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to import observation: {e}")
+                    errors.append(f"Failed to import {obs.observation_type.value}: {str(e)}")
+                    skipped_count += 1
+        else:
+            # Just preview, don't import
+            for obs in observations[:5]:  # Preview first 5
+                preview.append({
+                    'type': obs.observation_type.value,
+                    'lat': obs.lat,
+                    'lon': obs.lon,
+                    'confidence': obs.confidence,
+                    'notes': obs.notes[:100] + "..." if len(obs.notes) > 100 else obs.notes
+                })
+        
+        # Determine status
+        if imported_count == len(observations):
+            status = "success"
+            message = f"Successfully imported {imported_count} observations from GPX file"
+        elif imported_count > 0:
+            status = "partial_success"
+            message = f"Imported {imported_count} of {len(observations)} observations"
+        else:
+            status = "error"
+            message = "Failed to import any observations"
+        
+        logger.info(f"GPX import completed: {imported_count} imported, {skipped_count} skipped")
+        
+        return GPXImportResponse(
+            status=status,
+            message=message,
+            total_waypoints=total_waypoints,
+            imported_observations=imported_count,
+            skipped_waypoints=skipped_count,
+            errors=errors,
+            preview=preview
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GPX import failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"GPX import failed: {str(e)}"
         )
 
 

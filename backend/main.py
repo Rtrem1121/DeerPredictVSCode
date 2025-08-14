@@ -53,13 +53,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import LiDAR integration after logger is configured
-# Toggle with ENABLE_LIDAR=1 in environment (defaults to disabled)
-LIDAR_AVAILABLE = os.getenv("ENABLE_LIDAR", "0") == "1"
-if not LIDAR_AVAILABLE:
-    logger.warning("LiDAR integration disabled (set ENABLE_LIDAR=1 to enable)")
-else:
-    logger.info("LiDAR integration enabled via environment flag")
+# LiDAR integration removed - using standard terrain analysis
+# Future enhancement: Google Earth Engine integration
 
 app = FastAPI(
     title="Deer Movement Prediction API",
@@ -899,8 +894,8 @@ def calculate_access_route(start_lat: float, start_lon: float, stand_lat: float,
                           season: str, weather_data: Dict) -> Dict:
     """
     Calculate optimal low-impact access route to stand location
-    Enhanced with LiDAR data when available for sub-meter precision
-    Considers topography, wind/thermal patterns, and deer behavior zones
+    Uses terrain analysis, wind/thermal patterns, and deer behavior zones
+    for strategic approach planning
     """
     
     # Calculate route characteristics
@@ -932,19 +927,9 @@ def calculate_access_route(start_lat: float, start_lon: float, stand_lat: float,
     else:
         direct_bearing = float(direct_bearing)
     
-    # Analyze terrain between start and stand with LiDAR enhancement when available
-    if LIDAR_AVAILABLE:
-        try:
-            # LiDAR analysis disabled for testing
-            terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
-            terrain_analysis['enhanced_with_lidar'] = False
-        except Exception as e:
-            logger.warning(f"LiDAR analysis failed, using standard terrain analysis: {e}")
-            terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
-            terrain_analysis['enhanced_with_lidar'] = False
-    else:
-        terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
-        terrain_analysis['enhanced_with_lidar'] = False
+    # Analyze terrain between start and stand using standard terrain analysis
+    terrain_analysis = analyze_route_terrain(start_lat, start_lon, stand_lat, stand_lon, terrain_features)
+    terrain_analysis['enhanced_with_lidar'] = False  # LiDAR integration removed
     
     # Calculate wind/thermal considerations for access
     wind_impact = calculate_route_wind_impact(direct_bearing, wind_direction, thermal_data)
@@ -1236,12 +1221,12 @@ def generate_route_recommendations(terrain_analysis: Dict, wind_impact: Dict, de
     elif terrain_analysis['concealment_score'] > 80:
         recommendations.append(f"🌲 Excellent cover: Take advantage of dense vegetation")
     
-    # Handle both original and LiDAR-enhanced terrain analysis
+    # Handle terrain analysis for steepness detection
     is_steep = False
     if 'is_steep' in terrain_analysis:
         is_steep = terrain_analysis['is_steep']
     elif 'max_slope' in terrain_analysis:
-        # LiDAR enhanced analysis - consider steep if max slope > 15 degrees
+        # Consider steep if max slope > 15 degrees
         is_steep = terrain_analysis['max_slope'] > 15
     
     if is_steep:
@@ -2531,143 +2516,11 @@ def predict_movement(request: PredictionRequest):
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
 
 # =============================================================================
-# LiDAR-Enhanced Analysis Endpoints
+# Enhanced Analysis (Google Earth Engine will replace LiDAR integration)
 # =============================================================================
 
-class LidarPredictionRequest(BaseModel):
-    lat: float
-    lon: float
-    date_time: str
-    season: str
-    use_lidar: bool = True
-    analysis_radius: float = 500.0  # meters
-
-class LidarTerrainResponse(BaseModel):
-    terrain_analysis: Dict[str, Any]
-    deer_corridors: Dict[str, Any]
-    enhanced_features: Dict[str, Any]
-    lidar_available: bool
-
-@app.post("/predict-enhanced", summary="LiDAR-enhanced deer movement predictions", 
-          response_model=LidarTerrainResponse, tags=["predictions"])
-async def predict_movement_enhanced(request: LidarPredictionRequest):
-    """Enhanced prediction using high-resolution LiDAR data"""
-    logger.info(f"LiDAR-enhanced prediction request for lat: {request.lat}, lon: {request.lon}")
-    
-    if not LIDAR_AVAILABLE or not request.use_lidar:
-        logger.warning("LiDAR not available, falling back to standard analysis")
-        raise HTTPException(status_code=503, detail="LiDAR analysis not available")
-    
-    try:
-        # LiDAR analysis disabled for testing
-        raise HTTPException(status_code=503, detail="LiDAR endpoints temporarily disabled")
-        
-        # Enhanced terrain analysis using LiDAR
-        # terrain_analysis = await lidar_analysis.enhanced_terrain_analysis(
-        #     request.lat, request.lon, request.lat + 0.001, request.lon + 0.001
-        # )
-        
-        # Enhanced deer corridor analysis
-        # deer_corridors = await lidar_analysis.enhanced_deer_corridor_analysis(
-        #     request.lat, request.lon, request.analysis_radius
-        # )
-        
-        # Additional enhanced features
-        enhanced_features = {
-            "precision_level": "sub_meter",
-            "data_source": "vermont_lidar",
-            "analysis_radius_meters": request.analysis_radius,
-            "enhanced_capabilities": [
-                "micro_topography_analysis",
-                "canopy_structure_mapping", 
-                "precise_slope_calculation",
-                "thermal_flow_modeling",
-                "3d_concealment_analysis"
-            ]
-        }
-        
-        logger.info("LiDAR-enhanced prediction completed successfully")
-        
-        return LidarTerrainResponse(
-            terrain_analysis=terrain_analysis,
-            deer_corridors=deer_corridors,
-            enhanced_features=enhanced_features,
-            lidar_available=True
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in LiDAR-enhanced prediction: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"LiDAR prediction error: {str(e)}")
-
-@app.get("/lidar/terrain-profile/{lat}/{lng}", summary="Get detailed terrain profile", tags=["predictions"])
-async def get_terrain_profile(lat: float, lng: float, radius: float = 200.0):
-    """Get detailed terrain profile for a specific location using LiDAR data"""
-    
-    if not LIDAR_AVAILABLE:
-        raise HTTPException(status_code=503, detail="LiDAR analysis not available")
-    
-    try:
-        # LiDAR analysis disabled for testing
-        raise HTTPException(status_code=503, detail="LiDAR endpoints temporarily disabled")
-        
-        if not lidar_data:
-            raise HTTPException(status_code=404, detail="No LiDAR data available for this location")
-        
-        # Extract terrain metrics
-        terrain_metrics = {
-            "elevation_min": float(np.min(lidar_data.elevation)),
-            "elevation_max": float(np.max(lidar_data.elevation)),
-            "elevation_mean": float(np.mean(lidar_data.elevation)),
-            "slope_mean": float(np.mean(lidar_data.slope)),
-            "slope_max": float(np.max(lidar_data.slope)),
-            "roughness_mean": float(np.mean(lidar_data.roughness)),
-            "canopy_height_mean": float(np.mean(lidar_data.canopy_height)),
-            "canopy_density_mean": float(np.mean(lidar_data.canopy_density)),
-            "resolution_meters": lidar_data.resolution,
-            "bounds": lidar_data.bounds
-        }
-        
-        return {
-            "location": {"lat": lat, "lng": lng},
-            "analysis_radius": radius,
-            "terrain_metrics": terrain_metrics,
-            "data_quality": "high_resolution_lidar"
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting terrain profile: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Terrain profile error: {str(e)}")
-
-@app.get("/lidar/status", summary="Check LiDAR data availability", tags=["health"])
-async def get_lidar_status():
-    """Check LiDAR integration status and data availability"""
-    
-    status = {
-        "lidar_available": LIDAR_AVAILABLE,
-        "integration_version": "1.0.0",
-        "supported_features": []
-    }
-    
-    if LIDAR_AVAILABLE:
-        status["supported_features"] = [
-            "enhanced_terrain_analysis",
-            "deer_corridor_mapping",
-            "canopy_structure_analysis",
-            "micro_topography_modeling",
-            "thermal_flow_prediction",
-            "3d_concealment_scoring"
-        ]
-        
-        # Test data availability
-        try:
-            # LiDAR analysis disabled for testing
-            status["test_location_available"] = False
-            status["test_error"] = "LiDAR temporarily disabled"
-        except Exception as e:
-            status["test_location_available"] = False
-            status["test_error"] = str(e)
-    
-    return status
+# LiDAR endpoints removed - using standard terrain analysis
+# Future enhancement: Google Earth Engine integration for vegetation/habitat analysis
 
 # --- Configuration Management Endpoints ---
 

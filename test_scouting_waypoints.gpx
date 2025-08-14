@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Vermont Deer Prediction Test">
+  <metadata>
+    <name>Test Scouting Waypoints</name>
+    <desc>Sample deer hunting waypoints for testing GPX import</desc>
+    <time>2025-08-13T19:42:00Z</time>
+  </metadata>
+  
+  <wpt lat="44.2619" lon="-72.5806">
+    <name>Fresh Scrape</name>
+    <desc>Large fresh scrape with strong scent near oak trees</desc>
+    <type>Fresh Scrape</type>
+    <sym>Hunting</sym>
+    <time>2025-08-13T14:30:00Z</time>
+  </wpt>
+  
+  <wpt lat="44.2625" lon="-72.5815">
+    <name>Buck Rub</name>
+    <desc>4-inch maple rub, shoulder height, very fresh</desc>
+    <type>Rub Line</type>
+    <sym>Hunting</sym>
+    <time>2025-08-13T15:45:00Z</time>
+  </wpt>
+  
+  <wpt lat="44.2635" lon="-72.5820">
+    <name>Bedding Area</name>
+    <desc>Multiple deer beds in thick cover, good escape routes</desc>
+    <type>Bedding Area</type>
+    <sym>Hunting</sym>
+    <time>2025-08-13T16:15:00Z</time>
+  </wpt>
+  
+  <wpt lat="44.2640" lon="-72.5812">
+    <name>Trail Camera Setup</name>
+    <desc>Camera positioned on game trail between bedding and feeding</desc>
+    <type>Trail Camera</type>
+    <sym>Camera</sym>
+    <time>2025-08-13T17:00:00Z</time>
+  </wpt>
+  
+  <wpt lat="44.2618" lon="-72.5798">
+    <name>Deer Tracks</name>
+    <desc>Fresh tracks in mud, multiple sizes, heading to water</desc>
+    <type>Deer Tracks</type>
+    <sym>Hunting</sym>
+    <time>2025-08-13T18:20:00Z</time>
+  </wpt>
+</gpx>

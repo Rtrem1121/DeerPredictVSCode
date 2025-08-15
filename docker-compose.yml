@@ -13,11 +13,14 @@ services:
       - ./data:/app/data
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./credentials:/app/credentials:ro
       - scouting_data:/app/backend/scouting_data
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
       - PYTHONPATH=/app:/app/backend
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gee-service-account.json
+      - GEE_PROJECT_ID=deer-predict-app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

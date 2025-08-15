@@ -18,5 +18,10 @@ venv/
 # Streamlit
 .streamlit/
 
+# Google Cloud Credentials
+credentials/*.json
+gee-service-account.json
+service-account*.json
+
 # Other
 *.sqlite3

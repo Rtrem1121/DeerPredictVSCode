@@ -9,6 +9,21 @@ from typing import List, Dict, Any, Optional
 from backend import core
 from backend.mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
 
+# Set up logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Enhanced prediction system imports
+try:
+    from backend.enhanced_endpoints import enhanced_router
+    ENHANCED_PREDICTIONS_AVAILABLE = True
+    logger.info("🛰️ Enhanced prediction system with satellite data loaded successfully")
+except ImportError as e:
+    ENHANCED_PREDICTIONS_AVAILABLE = False
+    logger.warning(f"Enhanced prediction system not available: {e}")
+    logger.warning("Falling back to standard prediction functionality")
+
+
 # Import unified scoring framework
 from backend.scoring_engine import (
     get_scoring_engine, 
@@ -167,6 +182,15 @@ def _get_weather_impact_explanation(conditions: List[str]) -> str:
 @app.get("/", summary="Root endpoint", tags=["health"])
 def read_root():
     return {"message": "Welcome to the Deer Movement Prediction API v0.3.0"}
+# Integrate enhanced prediction endpoints
+if ENHANCED_PREDICTIONS_AVAILABLE:
+    try:
+        app.include_router(enhanced_router)
+        logger.info("✅ Enhanced prediction endpoints integrated successfully")
+    except Exception as e:
+        logger.error(f"Failed to integrate enhanced prediction endpoints: {e}")
+        ENHANCED_PREDICTIONS_AVAILABLE = False
+
 
 @app.get("/health", summary="Health check endpoint", tags=["health"])
 def health_check():

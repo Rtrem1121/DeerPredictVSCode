@@ -30,8 +30,8 @@ COPY ./backend /app/backend
 # Copy data
 COPY ./data /app/data
 
-# Copy LiDAR processing modules
-COPY ./lidar /app/lidar
+# Copy GEE setup script for testing
+COPY gee_docker_setup.py /app/
 
 # Set permissions and create logs directory
 RUN mkdir -p /app/logs /app/backend/scouting_data && \

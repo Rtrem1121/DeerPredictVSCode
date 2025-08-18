@@ -1,0 +1,39 @@
+{
+  "mature_buck_intelligence": {
+    "status": "WARNING",
+    "details": {
+      "movement_confidence": 0,
+      "viable_location": false,
+      "travel_corridors": 2,
+      "bedding_zones": 2
+    },
+    "warning": "Low movement confidence: 0%"
+  },
+  "stand_analysis": {
+    "status": "ERROR",
+    "error": "0"
+  },
+  "camera_placement": {
+    "status": "WARNING",
+    "details": {
+      "camera_coordinates": [
+        44.26246151838726,
+        -72.57981591713646
+      ],
+      "confidence_score": 89.10666666666667,
+      "distance_meters": 0
+    },
+    "warning": "Missing placement strategy"
+  },
+  "frontend_integration": {
+    "status": "WARNING",
+    "details": {
+      "has_mature_buck_analysis": true,
+      "has_bedding_zones": true,
+      "has_travel_corridors": true,
+      "data_consistent": true
+    },
+    "warning": "Missing frontend data: terrain_features"
+  },
+  "validation_timestamp": "2025-08-17T20:25:31.982256"
+}

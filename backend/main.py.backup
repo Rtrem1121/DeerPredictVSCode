@@ -5,24 +5,9 @@ import os
 import numpy as np
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Optional
+from typing import List, Dict, Any, Optional
 from backend import core
 from backend.mature_buck_predictor import get_mature_buck_predictor, generate_mature_buck_stand_recommendations
-
-# Set up logging first
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Enhanced prediction system imports
-try:
-    from backend.enhanced_endpoints import enhanced_router
-    ENHANCED_PREDICTIONS_AVAILABLE = True
-    logger.info("🛰️ Enhanced prediction system with satellite data loaded successfully")
-except ImportError as e:
-    ENHANCED_PREDICTIONS_AVAILABLE = False
-    logger.warning(f"Enhanced prediction system not available: {e}")
-    logger.warning("Falling back to standard prediction functionality")
-
 
 # Import unified scoring framework
 from backend.scoring_engine import (
@@ -56,9 +41,6 @@ from scouting_prediction_enhancer import get_scouting_enhancer
 
 # Import prediction caching for performance
 # Removed caching - using direct optimization instead
-
-# Import camera placement system
-from advanced_camera_placement import BuckCameraPlacement
 
 # Configure logging for containers
 logging.basicConfig(
@@ -103,7 +85,6 @@ class PredictionRequest(BaseModel):
     date_time: str # ISO format
     season: str # e.g., "rut", "early_season", "late_season"
     fast_mode: bool = False  # Skip expensive operations for speed
-    include_camera_placement: bool = False  # Include optimal camera placement in response
     # These will be loaded from configuration
     suggestion_threshold: float = None  # Show suggestions when rating is below this
     min_suggestion_rating: float = None  # Minimum rating for suggestions
@@ -123,10 +104,6 @@ class TrailCameraRequest(BaseModel):
     season: str
     target_buck_age: str = "mature"
 
-class CameraPlacementRequest(BaseModel):
-    lat: float = Field(..., description="Target latitude")
-    lon: float = Field(..., description="Target longitude")
-
 class PredictionResponse(BaseModel):
     travel_corridors: Dict[str, Any]
     bedding_zones: Dict[str, Any]
@@ -144,7 +121,6 @@ class PredictionResponse(BaseModel):
     five_best_stands: List[Dict[str, Any]] = []  # 5 best stand locations with star markers
     hunt_schedule: List[Dict[str, Any]] = []  # 48-hour hourly schedule of best stands
     mature_buck_analysis: Dict[str, Any] = None  # Detailed mature buck analysis
-    optimal_camera_placement: Optional[Dict[str, Any]] = None  # Optional camera placement recommendation
 
 # --- Utility Functions ---
 def load_rules():
@@ -191,24 +167,6 @@ def _get_weather_impact_explanation(conditions: List[str]) -> str:
 @app.get("/", summary="Root endpoint", tags=["health"])
 def read_root():
     return {"message": "Welcome to the Deer Movement Prediction API v0.3.0"}
-# Integrate enhanced prediction endpoints
-if ENHANCED_PREDICTIONS_AVAILABLE:
-    try:
-        app.include_router(enhanced_router)
-        logger.info("✅ Enhanced prediction endpoints integrated successfully")
-    except Exception as e:
-        logger.error(f"Failed to integrate enhanced prediction endpoints: {e}")
-        ENHANCED_PREDICTIONS_AVAILABLE = False
-
-# Initialize camera placement system
-try:
-    camera_placement_system = BuckCameraPlacement("http://localhost:8000")
-    CAMERA_PLACEMENT_AVAILABLE = True
-    logger.info("🎥 Camera placement system initialized successfully")
-except Exception as e:
-    CAMERA_PLACEMENT_AVAILABLE = False
-    logger.warning(f"Camera placement system not available: {e}")
-
 
 @app.get("/health", summary="Health check endpoint", tags=["health"])
 def health_check():
@@ -2530,65 +2488,6 @@ def predict_movement(request: PredictionRequest):
         if five_best_stands:
             logger.info(f"Generated {len(five_best_stands)} optimal stand locations with top confidence: {five_best_stands[0]['confidence']:.0f}%")
         
-        # 11. Calculate optimal camera placement if requested and available
-        optimal_camera_placement = None
-        if request.include_camera_placement and CAMERA_PLACEMENT_AVAILABLE:
-            try:
-                logger.info("🎥 Calculating optimal camera placement for prediction...")
-                camera_result = camera_placement_system.calculate_optimal_camera_position(request.lat, request.lon)
-                
-                # Format camera placement for integration with deer prediction
-                camera = camera_result["optimal_camera"]
-                strategy = camera_result["placement_strategy"]
-                
-                optimal_camera_placement = {
-                    "enabled": True,
-                    "camera_coordinates": {
-                        "lat": camera["lat"],
-                        "lon": camera["lon"]
-                    },
-                    "target_coordinates": {
-                        "lat": request.lat,
-                        "lon": request.lon
-                    },
-                    "confidence_score": camera["confidence_score"],
-                    "distance_meters": camera["distance_from_target_meters"],
-                    "placement_reasoning": strategy["primary_factors"][0] if strategy["primary_factors"] else "Optimal positioning",
-                    "optimal_times": strategy["optimal_times"],
-                    "detection_range": strategy["expected_detection_range"],
-                    "integration_notes": [
-                        f"Camera positioned {camera['distance_from_target_meters']:.0f}m from your target location",
-                        f"Strategic placement based on {strategy['placement_type']} principles",
-                        f"Expected to capture {strategy['optimal_times'][0]} and {strategy['optimal_times'][1]} movement",
-                        "Coordinates ready for GPS navigation to setup location"
-                    ],
-                    "data_quality": camera_result["satellite_data_quality"],
-                    "timestamp": camera_result["analysis_timestamp"]
-                }
-                
-                # Add camera placement info to notes
-                notes += f"\n\n🎥 **Optimal Camera Placement** (Advanced Analysis):\n"
-                notes += f"📍 **Camera GPS**: ({camera['lat']:.6f}, {camera['lon']:.6f})\n"
-                notes += f"📏 **Distance**: {camera['distance_from_target_meters']:.0f} meters from target\n"
-                notes += f"🎯 **Confidence**: {camera['confidence_score']:.1f}%\n"
-                notes += f"💭 **Strategy**: {strategy['primary_factors'][0] if strategy['primary_factors'] else 'Optimal positioning'}\n"
-                notes += f"⏰ **Best Times**: {', '.join(strategy['optimal_times'])}\n"
-                notes += f"📡 **Detection Range**: {strategy['expected_detection_range']}\n"
-                
-                logger.info(f"✅ Camera placement calculated: {camera['confidence_score']:.1f}% confidence")
-                
-            except Exception as e:
-                logger.warning(f"Camera placement calculation failed: {e}")
-                optimal_camera_placement = {
-                    "enabled": False,
-                    "error": f"Camera placement calculation failed: {str(e)}"
-                }
-        elif request.include_camera_placement and not CAMERA_PLACEMENT_AVAILABLE:
-            optimal_camera_placement = {
-                "enabled": False,
-                "error": "Camera placement system not available"
-            }
-        
         # Create response object
         response = PredictionResponse(
             travel_corridors=travel_corridors,
@@ -2606,8 +2505,7 @@ def predict_movement(request: PredictionRequest):
             stand_recommendations=stand_recommendations,
             five_best_stands=five_best_stands,  # Add the 5 best stand locations
             hunt_schedule=hunt_schedule,
-            mature_buck_analysis=mature_buck_data,  # Add complete mature buck analysis
-            optimal_camera_placement=optimal_camera_placement  # Add camera placement if requested
+            mature_buck_analysis=mature_buck_data  # Add complete mature buck analysis
         )
         
         return response
@@ -2807,125 +2705,6 @@ def get_trail_camera_placements(request: TrailCameraRequest):
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Trail camera prediction failed: {str(e)}")
-
-@app.post("/api/camera/optimal-placement", summary="Get optimal single camera placement", tags=["hunting"])
-def get_optimal_camera_placement(request: CameraPlacementRequest):
-    """
-    Get the single optimal trail camera placement using advanced satellite analysis
-    
-    This endpoint uses the same advanced algorithms as your deer predictions
-    to calculate the mathematically optimal camera position for mature buck photography.
-    """
-    if not CAMERA_PLACEMENT_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Camera placement system not available")
-    
-    try:
-        logger.info(f"🎥 Advanced camera placement request: lat={request.lat}, lon={request.lon}")
-        
-        # Use the advanced camera placement system
-        result = camera_placement_system.calculate_optimal_camera_position(request.lat, request.lon)
-        
-        # Format for API response
-        camera = result["optimal_camera"]
-        strategy = result["placement_strategy"]
-        quality = result["satellite_data_quality"]
-        
-        # Create GeoJSON feature for the single optimal camera
-        camera_feature = {
-            "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [camera["lon"], camera["lat"]]
-            },
-            "properties": {
-                "id": "optimal_camera",
-                "placement_type": "Optimal Buck Camera",
-                "confidence": camera["confidence_score"],
-                "distance_from_target": f"{camera['distance_from_target_meters']:.0f} meters",
-                "reasoning": strategy["primary_factors"][0] if strategy["primary_factors"] else "Optimal positioning",
-                "placement_strategy": strategy["placement_type"],
-                "optimal_times": strategy["optimal_times"],
-                "detection_range": strategy["expected_detection_range"],
-                "setup_notes": [
-                    f"Position {camera['distance_from_target_meters']:.0f}m from target location",
-                    "Use scent-free setup procedures",
-                    "Clear 20-30 yard shooting lanes",
-                    "Mount 10-12 feet high, angled 30° downward"
-                ],
-                "data_source": quality.get("data_source", "satellite_enhanced")
-            }
-        }
-        
-        # Create target marker for reference
-        target_feature = {
-            "type": "Feature", 
-            "geometry": {
-                "type": "Point",
-                "coordinates": [request.lon, request.lat]
-            },
-            "properties": {
-                "id": "target_location",
-                "type": "Target Location",
-                "description": "Your selected hunting target"
-            }
-        }
-        
-        camera_geojson = {
-            "type": "FeatureCollection",
-            "features": [target_feature, camera_feature]
-        }
-        
-        # Generate insights
-        insights = []
-        if camera["confidence_score"] >= 85:
-            insights.append(f"🔥 Excellent placement: {camera['confidence_score']:.1f}% confidence")
-        elif camera["confidence_score"] >= 75:
-            insights.append(f"⭐ Very good placement: {camera['confidence_score']:.1f}% confidence")
-        else:
-            insights.append(f"✅ Good placement: {camera['confidence_score']:.1f}% confidence")
-            
-        insights.append(f"📏 Optimal distance: {camera['distance_from_target_meters']:.0f} meters from target")
-        insights.append(f"🧠 Strategy: {strategy['primary_factors'][0] if strategy['primary_factors'] else 'Mathematically optimized'}")
-        
-        if quality.get("data_source") == "google_earth_engine":
-            insights.append("🛰️ Enhanced with real-time satellite vegetation data")
-        
-        response = {
-            "camera_placement": camera_geojson,
-            "target_location": {"lat": request.lat, "lon": request.lon},
-            "optimal_camera": {
-                "lat": camera["lat"],
-                "lon": camera["lon"], 
-                "confidence_score": camera["confidence_score"],
-                "distance_meters": camera["distance_from_target_meters"]
-            },
-            "placement_analysis": {
-                "strategy": strategy["placement_type"],
-                "primary_factors": strategy["primary_factors"],
-                "optimal_times": strategy["optimal_times"],
-                "detection_range": strategy["expected_detection_range"]
-            },
-            "data_quality": {
-                "source": quality.get("data_source", "standard"),
-                "timestamp": result["analysis_timestamp"]
-            },
-            "insights": insights,
-            "usage_instructions": {
-                "setup_height": "10-12 feet",
-                "setup_angle": "30° downward toward target",
-                "trigger_speed": "0.3 seconds or faster",
-                "detection_range": "80+ feet",
-                "camera_settings": "Burst mode, low-glow IR",
-                "best_times": strategy["optimal_times"]
-            }
-        }
-        
-        logger.info(f"✅ Advanced camera placement completed: {camera['confidence_score']:.1f}% confidence")
-        return response
-        
-    except Exception as e:
-        logger.error(f"Advanced camera placement failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Camera placement calculation failed: {str(e)}")
 
 @app.put("/config/parameter/{key_path}", summary="Update configuration parameter", tags=["configuration"])
 def update_config_parameter(key_path: str, value: Any):

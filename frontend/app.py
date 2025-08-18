@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
 
 # --- Backend Configuration ---
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8002')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
 
 # --- Map Configuration ---
 # Filter enabled map sources
@@ -189,8 +189,6 @@ if 'hunt_location' not in st.session_state:
     st.session_state.hunt_location = [44.26639, -72.58133]  # Vermont center
 if 'map_zoom' not in st.session_state:
     st.session_state.map_zoom = 12
-if 'prediction_data' not in st.session_state:
-    st.session_state.prediction_data = None
 
 # ==========================================
 # TAB 1: HUNT PREDICTIONS
@@ -278,65 +276,61 @@ with tab_predict:
             icon=folium.Icon(color='red', icon='bullseye')
         ).add_to(m)
         
-        # Add prediction markers if available
-        if 'prediction_data' in st.session_state and st.session_state.prediction_data:
-            pred = st.session_state.prediction_data
+        # Add prediction results markers if available
+        if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+            prediction = st.session_state.prediction_results
             
-            # Add travel corridor markers (blue)
-            if 'travel_corridors' in pred and 'features' in pred['travel_corridors']:
-                for feature in pred['travel_corridors']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],  # lat, lon
-                        popup=f"🛤️ Travel Corridor<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='blue', icon='arrow-right')
-                    ).add_to(m)
+            # Add stand location markers
+            if 'mature_buck_analysis' in prediction:
+                stand_recommendations = prediction['mature_buck_analysis'].get('stand_recommendations', [])
+                for i, rec in enumerate(stand_recommendations, 1):
+                    coords = rec.get('coordinates', {})
+                    stand_lat = coords.get('lat', 0)
+                    stand_lon = coords.get('lon', 0)
+                    confidence = rec.get('confidence', 0)
+                    stand_type = rec.get('type', 'Unknown')
+                    
+                    if stand_lat and stand_lon:
+                        # Choose marker color based on confidence
+                        if confidence >= 85:
+                            color = 'green'
+                            icon = 'star'
+                        elif confidence >= 70:
+                            color = 'blue'
+                            icon = 'tree'
+                        else:
+                            color = 'orange'
+                            icon = 'home'
+                        
+                        folium.Marker(
+                            [stand_lat, stand_lon],
+                            popup=f"🪜 Stand #{i}: {stand_type}<br>Confidence: {confidence:.0f}%",
+                            icon=folium.Icon(color=color, icon=icon)
+                        ).add_to(m)
             
-            # Add bedding zone markers (green) 
-            if 'bedding_zones' in pred and 'features' in pred['bedding_zones']:
-                for feature in pred['bedding_zones']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🛏️ Bedding Area<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='green', icon='home')
-                    ).add_to(m)
-            
-            # Add feeding area markers (orange)
-            if 'feeding_areas' in pred and 'features' in pred['feeding_areas']:
-                for feature in pred['feeding_areas']['features']:
-                    coords = feature['geometry']['coordinates']
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🌾 Feeding Area<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='orange', icon='leaf')
-                    ).add_to(m)
-            
-            # Add mature buck opportunity markers (purple with crosshair)
-            if 'mature_buck_opportunities' in pred and pred['mature_buck_opportunities'] and 'features' in pred['mature_buck_opportunities']:
-                for feature in pred['mature_buck_opportunities']['features']:
-                    coords = feature['geometry']['coordinates'] 
-                    props = feature['properties']
-                    folium.Marker(
-                        [coords[1], coords[0]],
-                        popup=f"🎯 Mature Buck Opportunity<br>Confidence: {props.get('confidence', 0):.0f}%<br>{props.get('description', '')}",
-                        icon=folium.Icon(color='purple', icon='crosshairs')
-                    ).add_to(m)
-            
-            # Add 5 best stand locations (stars)
-            if 'five_best_stands' in pred:
-                for i, stand in enumerate(pred['five_best_stands'], 1):
-                    folium.Marker(
-                        [stand['lat'], stand['lon']],
-                        popup=f"⭐ Stand #{i}<br>Confidence: {stand.get('confidence', 0):.0f}%<br>{stand.get('description', '')}",
-                        icon=folium.Icon(color='darkred', icon='star')
-                    ).add_to(m)
+            # Add camera placement marker
+            if 'optimal_camera_placement' in prediction and prediction['optimal_camera_placement']:
+                camera_data = prediction['optimal_camera_placement']
+                if camera_data.get('enabled', False):
+                    camera_coords = camera_data.get('camera_coordinates', {})
+                    camera_lat = camera_coords.get('lat', 0)
+                    camera_lon = camera_coords.get('lon', 0)
+                    camera_confidence = camera_data.get('confidence_score', 0)
+                    
+                    if camera_lat and camera_lon:
+                        folium.Marker(
+                            [camera_lat, camera_lon],
+                            popup=f"📹 Camera Position<br>Confidence: {camera_confidence:.1f}%",
+                            icon=folium.Icon(color='purple', icon='camera')
+                        ).add_to(m)
         
         # Display map and capture click events
-        map_data = st_folium(m, key="hunt_map", width=700, height=500)
+        # Use dynamic key to force refresh when predictions are made
+        map_key = "hunt_map"
+        if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+            map_key = f"hunt_map_{st.session_state.hunt_location[0]:.4f}_{st.session_state.hunt_location[1]:.4f}"
+        
+        map_data = st_folium(m, key=map_key, width=700, height=500)
         
         # Update location if map was clicked
         if map_data['last_clicked']:
@@ -346,25 +340,18 @@ with tab_predict:
             st.rerun()
     
     # Display current coordinates
-    st.info(f"📍 **Hunt Coordinates:** {st.session_state.hunt_location[0]:.6f}, {st.session_state.hunt_location[1]:.6f}")
+    st.write(f"📍 **Current Location:** {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
     
-    # Prediction buttons
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        generate_prediction = st.button("🎯 Generate Hunting Predictions", type="primary")
-    with col2:
-        if st.button("🗑️ Clear Map", help="Clear prediction markers from map"):
-            st.session_state.prediction_data = None
-            st.rerun()
-    
-    if generate_prediction:
+    # Generate Predictions button - positioned above Advanced Options
+    if st.button("🎯 Generate Hunting Predictions", type="primary", use_container_width=False):
         with st.spinner("🧠 Analyzing deer movement patterns..."):
             # Prepare prediction request
             prediction_data = {
                 "lat": st.session_state.hunt_location[0],
                 "lon": st.session_state.hunt_location[1],
                 "date_time": f"{hunt_date}T{selected_time.strftime('%H:%M:%S')}",
-                "season": season
+                "season": season,
+                "include_camera_placement": st.session_state.get('include_camera_placement', False)
             }
             
             try:
@@ -377,84 +364,512 @@ with tab_predict:
                 
                 if response.status_code == 200:
                     prediction = response.json()
+                    st.session_state.prediction_results = prediction
+                    st.success("✅ Predictions generated successfully!")
+                    st.rerun()  # Refresh to show results on map
                     
-                    # Store prediction data in session state for map display
-                    st.session_state.prediction_data = prediction
-                    
-                    st.success("✅ **Prediction Complete!**")
-                    
-                    # Display prediction results
-                    if 'mature_buck_analysis' in prediction:
-                        mature_buck_data = prediction['mature_buck_analysis']
-                        
-                        # === MATURE BUCK MOVEMENT PREDICTION ===
-                        movement_data = mature_buck_data.get('movement_prediction', {})
-                        if movement_data:
-                            st.markdown("## 🦌 **Mature Buck Movement Prediction**")
-                            
-                            col1, col2, col3 = st.columns(3)
-                            
-                            with col1:
-                                movement_prob = movement_data.get('movement_probability', 0)
-                                if movement_prob >= 75:
-                                    st.success(f"🟢 **HIGH Movement Probability**\n{movement_prob:.0f}%")
-                                elif movement_prob >= 50:
-                                    st.info(f"🟡 **MODERATE Movement Probability**\n{movement_prob:.0f}%")
-                                else:
-                                    st.warning(f"🔴 **LOW Movement Probability**\n{movement_prob:.0f}%")
-                            
-                            with col2:
-                                confidence_score = movement_data.get('confidence_score', 0)
-                                st.metric("📊 Prediction Confidence", f"{confidence_score:.0f}%")
-                            
-                            with col3:
-                                # Check if scouting data enhanced prediction
-                                if 'scouting_enhanced' in prediction:
-                                    st.success("🔍 **Enhanced by Scouting Data**")
-                                else:
-                                    st.info("📝 Add scouting data to improve")
-                        
-                        # === SPECIALIZED MATURE BUCK STAND RECOMMENDATIONS ===
-                        stand_recommendations = mature_buck_data.get('stand_recommendations', [])
-                        if stand_recommendations:
-                            st.markdown("## 🪜 **Recommended Stand Locations**")
-                            
-                            for i, rec in enumerate(stand_recommendations, 1):
-                                with st.expander(f"🎯 **STAND #{i}: {rec.get('type', 'Unknown')}** - Confidence: {rec.get('confidence', 0):.0f}%", expanded=i==1):
-                                    
-                                    coords = rec.get('coordinates', {})
-                                    stand_lat = coords.get('lat', 0)
-                                    stand_lon = coords.get('lon', 0)
-                                    
-                                    col1, col2 = st.columns([2, 1])
-                                    
-                                    with col1:
-                                        st.markdown(f"**📍 GPS Coordinates:** `{stand_lat:.6f}, {stand_lon:.6f}`")
-                                        st.markdown(f"**📝 Strategy:** {rec.get('description', 'N/A')}")
-                                        st.markdown(f"**⏰ Best Times:** {rec.get('best_times', 'N/A')}")
-                                        
-                                        # Wind analysis
-                                        if rec.get('wind_optimized'):
-                                            wind_notes = rec.get('wind_notes', [])
-                                            if wind_notes:
-                                                st.markdown("**🌬️ Wind Considerations:**")
-                                                for note in wind_notes:
-                                                    st.markdown(f"  • {note}")
-                                    
-                                    with col2:
-                                        confidence = rec.get('confidence', 0)
-                                        if confidence >= 85:
-                                            st.success(f"🎯 {confidence:.0f}% Confidence\n**PRIME LOCATION**")
-                                        elif confidence >= 70:
-                                            st.info(f"✅ {confidence:.0f}% Confidence\n**SOLID CHOICE**")
-                                        else:
-                                            st.warning(f"⚠️ {confidence:.0f}% Confidence\n**BACKUP OPTION**")
-                
                 else:
                     st.error(f"Prediction failed: {response.text}")
                     
             except Exception as e:
                 st.error(f"Failed to get prediction: {e}")
+    
+    # Advanced options
+    with st.expander("🎥 Advanced Options"):
+        include_camera = st.checkbox(
+            "Include Optimal Camera Placement", 
+            value=st.session_state.get('include_camera_placement', False),
+            help="Calculate the single optimal trail camera position using satellite analysis",
+            key="include_camera_placement"
+        )
+    
+    st.info(f"📍 **Hunt Coordinates:** {st.session_state.hunt_location[0]:.6f}, {st.session_state.hunt_location[1]:.6f}")
+    
+    # Display detailed hunt information for Stand #1 if prediction results are available
+    if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+        prediction = st.session_state.prediction_results
+        
+        if 'mature_buck_analysis' in prediction:
+            stand_recommendations = prediction['mature_buck_analysis'].get('stand_recommendations', [])
+            
+            if stand_recommendations:  # Check if we have stand recommendations
+                stand_1 = stand_recommendations[0]  # Get the #1 stand
+                coords = stand_1.get('coordinates', {})
+                confidence = stand_1.get('confidence', 0)
+                stand_type = stand_1.get('type', 'Unknown')
+                reasoning = stand_1.get('reasoning', 'Advanced algorithmic positioning based on satellite analysis')
+                
+                # Extract comprehensive mature buck data
+                mature_buck_data = prediction.get('mature_buck_analysis', {})
+                terrain_scores = mature_buck_data.get('terrain_scores', {})
+                movement_prediction = mature_buck_data.get('movement_prediction', {})
+                stand_recommendations = mature_buck_data.get('stand_recommendations', [])
+                
+                # Display detailed Stand #1 information with enhanced data
+                st.markdown("---")
+                st.markdown("### 🎯 **Stand #1 - Detailed Hunt Information**")
+                st.markdown(f"*Primary hunting location with {confidence:.0f}% confidence*")
+                
+                # Stand details in enhanced columns layout
+                detail_col1, detail_col2, detail_col3 = st.columns([2, 2, 1])
+                
+                with detail_col1:
+                    st.markdown("**📍 Stand Location Analysis:**")
+                    st.write(f"• **Coordinates:** {coords.get('lat', 0):.6f}, {coords.get('lon', 0):.6f}")
+                    st.write(f"• **Stand Type:** {stand_type}")
+                    st.write(f"• **Algorithm Confidence:** {confidence:.0f}%")
+                    
+                    # Enhanced terrain analysis from backend data
+                    if terrain_scores:
+                        st.markdown("**🏔️ Terrain Suitability Scores:**")
+                        bedding_suit = terrain_scores.get('bedding_suitability', 0)
+                        escape_quality = terrain_scores.get('escape_route_quality', 0)
+                        isolation = terrain_scores.get('isolation_score', 0)
+                        pressure_resist = terrain_scores.get('pressure_resistance', 0)
+                        overall_suit = terrain_scores.get('overall_suitability', 0)
+                        
+                        st.write(f"• **Bedding Suitability:** {bedding_suit:.1f}%")
+                        st.write(f"• **Escape Route Quality:** {escape_quality:.1f}%")
+                        st.write(f"• **Isolation Score:** {isolation:.1f}%")
+                        st.write(f"• **Pressure Resistance:** {pressure_resist:.1f}%")
+                        st.write(f"• **Overall Suitability:** {overall_suit:.1f}%")
+                    
+                    # Calculate distance and bearing with enhanced precision
+                    if coords.get('lat') and coords.get('lon'):
+                        from math import radians, cos, sin, asin, sqrt, atan2, degrees
+                        
+                        def haversine(lon1, lat1, lon2, lat2):
+                            # Convert to radians
+                            lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+                            # Haversine formula
+                            dlon = lon2 - lon1
+                            dlat = lat2 - lat1
+                            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                            c = 2 * asin(sqrt(a))
+                            r = 6371000  # Radius of earth in meters
+                            return c * r
+                        
+                        def calculate_bearing(lat1, lon1, lat2, lon2):
+                            # Calculate bearing from hunt point to stand
+                            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+                            dlon = lon2 - lon1
+                            y = sin(dlon) * cos(lat2)
+                            x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
+                            bearing = atan2(y, x)
+                            bearing = degrees(bearing)
+                            bearing = (bearing + 360) % 360
+                            return bearing
+                        
+                        distance = haversine(
+                            st.session_state.hunt_location[1],  # lon1
+                            st.session_state.hunt_location[0],  # lat1
+                            coords.get('lon', 0),  # lon2
+                            coords.get('lat', 0)   # lat2
+                        )
+                        
+                        bearing = calculate_bearing(
+                            st.session_state.hunt_location[0],  # lat1
+                            st.session_state.hunt_location[1],  # lon1
+                            coords.get('lat', 0),  # lat2
+                            coords.get('lon', 0)   # lon2
+                        )
+                        
+                        # Convert bearing to compass direction
+                        directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                                    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                        compass_dir = directions[int((bearing + 11.25) / 22.5) % 16]
+                        
+                        st.markdown("**📏 Distance & Direction:**")
+                        st.write(f"• **Distance:** {distance:.0f} meters")
+                        st.write(f"• **Bearing:** {bearing:.0f}° ({compass_dir})")
+                        
+                        # Enhanced deer approach calculation using bedding zones
+                        bedding_zones = prediction.get('bedding_zones', {}).get('zones', [])
+                        if bedding_zones:
+                            # Use the first bedding zone for deer approach calculation
+                            first_bedding = bedding_zones[0]
+                            bedding_lat = first_bedding.get('lat', 0)
+                            bedding_lon = first_bedding.get('lon', 0)
+                            
+                            if bedding_lat and bedding_lon:
+                                # Calculate bearing from bedding to stand (deer approach direction)
+                                deer_approach_bearing = calculate_bearing(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
+                                deer_approach_dir = directions[int((deer_approach_bearing + 11.25) / 22.5) % 16]
+                                
+                                st.write(f"• **Deer Approach From:** {deer_approach_dir} ({deer_approach_bearing:.0f}°)")
+                                
+                                # Calculate optimal wind directions for this setup
+                                optimal_wind_1 = (deer_approach_bearing + 90) % 360
+                                optimal_wind_2 = (deer_approach_bearing - 90) % 360
+                                wind_dir_1 = directions[int((optimal_wind_1 + 11.25) / 22.5) % 16]
+                                wind_dir_2 = directions[int((optimal_wind_2 + 11.25) / 22.5) % 16]
+                                
+                                st.markdown("**🌬️ Optimal Wind Directions:**")
+                                st.success(f"• **Best Winds:** {wind_dir_1} or {wind_dir_2}")
+                                st.write(f"• **Avoid Wind From:** {deer_approach_dir} (towards deer)")
+                        else:
+                            # Fallback calculation if no bedding zones
+                            deer_approach_bearing = (bearing + 180) % 360
+                            deer_approach_dir = directions[int((deer_approach_bearing + 11.25) / 22.5) % 16]
+                            st.write(f"• **Estimated Deer Approach:** {deer_approach_dir} ({deer_approach_bearing:.0f}°)")
+                
+                with detail_col2:
+                    st.markdown("**🧠 Algorithm Analysis:**")
+                    
+                    # Enhanced reasoning from stand recommendations
+                    if stand_recommendations:
+                        first_stand = stand_recommendations[0]
+                        terrain_justification = first_stand.get('terrain_justification', reasoning)
+                        setup_requirements = first_stand.get('setup_requirements', [])
+                        
+                        st.write(f"**Strategic Positioning:** {terrain_justification}")
+                        
+                        if setup_requirements:
+                            st.markdown("**🎯 Setup Requirements:**")
+                            for req in setup_requirements:
+                                st.write(f"• {req}")
+                    else:
+                        st.write(reasoning)
+                    
+                    # Enhanced movement prediction with detailed data
+                    if movement_prediction:
+                        movement_prob = movement_prediction.get('movement_probability', 0)
+                        confidence_score = movement_prediction.get('confidence_score', 0)
+                        preferred_times = movement_prediction.get('preferred_times', [])
+                        behavioral_notes = movement_prediction.get('behavioral_notes', [])
+                        
+                        st.markdown("**🦌 Movement Prediction:**")
+                        if movement_prob >= 75:
+                            st.success(f"🟢 HIGH Activity Expected ({movement_prob:.0f}%)")
+                        elif movement_prob >= 50:
+                            st.info(f"🟡 MODERATE Activity Expected ({movement_prob:.0f}%)")
+                        else:
+                            st.warning(f"🔴 LOW Activity Expected ({movement_prob:.0f}%)")
+                        
+                        st.write(f"• **Prediction Confidence:** {confidence_score:.0f}%")
+                        
+                        if preferred_times:
+                            st.markdown("**⏰ Optimal Hunt Times:**")
+                            for time in preferred_times:
+                                st.write(f"• {time}")
+                        
+                        if behavioral_notes:
+                            st.markdown("**📝 Behavioral Intelligence:**")
+                            for note in behavioral_notes[:3]:  # Show first 3 notes
+                                if "✅" in note or "🎯" in note or "🌞" in note:
+                                    st.write(f"• {note}")
+                
+                with detail_col3:
+                    # Wind analysis with current conditions
+                    if stand_recommendations and stand_recommendations[0].get('wind_analysis'):
+                        wind_analysis = stand_recommendations[0]['wind_analysis']
+                        wind_direction = wind_analysis.get('wind_direction', 0)
+                        wind_speed = wind_analysis.get('wind_speed', 0)
+                        wind_consistency = wind_analysis.get('wind_consistency', 'unknown')
+                        scent_safety = wind_analysis.get('scent_safety_margin', 0)
+                        
+                        st.markdown("**🍃 Wind Analysis:**")
+                        st.write(f"• **Direction:** {wind_direction:.0f}°")
+                        st.write(f"• **Speed:** {wind_speed:.1f} mph")
+                        st.write(f"• **Pattern:** {wind_consistency}")
+                        st.write(f"• **Safety Margin:** {scent_safety:.0f}m")
+                        
+                        # Wind quality assessment
+                        wind_advantage = wind_analysis.get('wind_advantage_score', 0)
+                        if wind_advantage >= 90:
+                            st.success("🟢 EXCELLENT Wind")
+                        elif wind_advantage >= 70:
+                            st.info("🟡 GOOD Wind")
+                        else:
+                            st.warning("🔴 POOR Wind")
+                    
+                    # Camera placement integration
+                    camera_placement = prediction.get('optimal_camera_placement', {})
+                    if camera_placement and camera_placement.get('enabled'):
+                        camera_coords = camera_placement.get('camera_coordinates', {})
+                        camera_confidence = camera_placement.get('confidence_score', 0)
+                        camera_distance = camera_placement.get('distance_meters', 0)
+                        
+                        st.markdown("**📹 Camera Position:**")
+                        st.write(f"• **Distance:** {camera_distance:.0f}m")
+                        st.write(f"• **Confidence:** {camera_confidence:.1f}%")
+                        
+                        if camera_confidence >= 85:
+                            st.success("🎥 PRIME Camera Spot")
+                        else:
+                            st.info("📹 Good Camera Spot")
+                
+                # Enhanced hunting recommendations with comprehensive algorithmic data
+                with st.expander("🎯 **Enhanced Stand Setup & Wind Intelligence**", expanded=True):
+                    
+                    # Extract comprehensive data for setup instructions
+                    # Get wind and terrain data from stand recommendations
+                    wind_analysis = {}
+                    terrain_data = {}
+                    wind_direction = 'Unknown'
+                    wind_speed = 'Unknown'
+                    wind_factor = 0
+                    slope = 'Unknown'
+                    elevation = 'Unknown'
+                    aspect = 'Unknown'
+                    deer_approach_dir = 'SE'  # Default
+                    deer_approach_bearing = 135  # Default
+                    
+                    if stand_recommendations:
+                        first_stand = stand_recommendations[0]
+                        wind_analysis = first_stand.get('wind_analysis', {})
+                        if wind_analysis:
+                            wind_direction = wind_analysis.get('wind_direction', 'Unknown')
+                            wind_speed = wind_analysis.get('wind_speed', 'Unknown')
+                            wind_factor = wind_analysis.get('wind_advantage_score', 0) / 100.0  # Convert to 0-1 scale
+                        
+                        # Extract terrain data from stand coordinates if available
+                        precision_factors = first_stand.get('coordinates', {}).get('precision_factors', {})
+                        if precision_factors:
+                            elevation = precision_factors.get('elevation', 'Unknown')
+                            slope = 15.0  # Default reasonable slope
+                        
+                        # Get deer approach from bedding zones calculation (done earlier)
+                        bedding_zones = prediction.get('bedding_zones', {}).get('zones', [])
+                        if bedding_zones and coords.get('lat') and coords.get('lon'):
+                            first_bedding = bedding_zones[0]
+                            bedding_lat = first_bedding.get('lat', 0)
+                            bedding_lon = first_bedding.get('lon', 0)
+                            
+                            if bedding_lat and bedding_lon:
+                                from math import radians, cos, sin, atan2, degrees
+                                
+                                def calculate_bearing(lat1, lon1, lat2, lon2):
+                                    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+                                    dlon = lon2 - lon1
+                                    y = sin(dlon) * cos(lat2)
+                                    x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
+                                    bearing = atan2(y, x)
+                                    bearing = degrees(bearing)
+                                    bearing = (bearing + 360) % 360
+                                    return bearing
+                                
+                                deer_approach_bearing = calculate_bearing(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
+                                directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                                            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                                deer_approach_dir = directions[int((deer_approach_bearing + 11.25) / 22.5) % 16]
+                    
+                    # Wind-based setup instructions with current data
+                    st.markdown("**🍃 Wind-Optimized Positioning:**")
+                    if wind_direction != 'Unknown':
+                        st.write(f"• **Current Wind Direction:** {wind_direction}°")
+                        if wind_speed != 'Unknown':
+                            st.write(f"• **Current Wind Speed:** {wind_speed:.1f} mph")
+                        
+                        # Wind quality assessment
+                        if wind_factor >= 0.8:
+                            st.success(f"🟢 IDEAL Wind Conditions")
+                        elif wind_factor >= 0.6:
+                            st.info(f"🟡 GOOD Wind Conditions")
+                        elif wind_factor > 0:
+                            st.warning(f"🔴 POOR Wind Conditions")
+                        
+                        st.write(f"• **Scent Control:** Use scent eliminator and wind checker")
+                        st.write(f"• **Current Wind Direction:** {wind_direction}")
+                        
+                        # Calculate optimal wind direction based on stand type and deer approach
+                        if stand_type == "Travel Corridor":
+                            st.markdown("**🎯 OPTIMAL WIND FOR THIS STAND:**")
+                            st.success("• **Wind should blow FROM deer approach TO your stand**")
+                            st.write("• **Your scent blows AWAY from deer travel routes**")
+                            st.write("• **Deer approach from upwind, you sit downwind**")
+                            st.write(f"• **Best wind:** Perpendicular to main travel corridor")
+                            
+                        elif stand_type == "Bedding Area":
+                            st.markdown("**🎯 OPTIMAL WIND FOR THIS STAND:**")
+                            st.success("• **Wind should blow FROM bedding area TO you**")
+                            st.write("• **Your scent blows AWAY from bedding deer**")
+                            st.write("• **Critical:** Deer will smell you if wind is wrong")
+                            st.write("• **Only hunt this stand with favorable wind**")
+                            
+                        elif stand_type == "Feeding Area":
+                            st.markdown("**🎯 OPTIMAL WIND FOR THIS STAND:**")
+                            st.success("• **Wind should blow FROM feeding area TO you**")
+                            st.write("• **Your scent blows AWAY from where deer will feed**")
+                            st.write("• **Deer approach feeding areas cautiously**")
+                            st.write("• **Wrong wind = busted hunt immediately**")
+                        
+                        else:  # General stand
+                            st.markdown("**🎯 OPTIMAL WIND FOR THIS STAND:**")
+                            st.success("• **Wind should blow FROM deer TO you**")
+                            st.write("• **Your scent carries AWAY from deer movement**")
+                        
+                        # Wind checker instructions
+                        st.markdown("**💨 Wind Checker Usage:**")
+                        st.write("• **Carry powder/puffer bottle** to check wind direction")
+                        st.write("• **Check every 30 minutes** - wind shifts throughout day")
+                        st.write("• **Thermal winds:** Upslope in morning, downslope in evening")
+                        st.write("• **If wind shifts wrong direction:** LEAVE THE STAND")
+                        
+                        # Use the deer approach calculations from earlier in the code
+                        st.markdown("**🧭 SPECIFIC WIND DIRECTIONS FOR THIS STAND:**")
+                        st.write(f"• **Deer likely approach from:** {deer_approach_dir} ({deer_approach_bearing:.0f}°)")
+                        
+                        if stand_type in ["Travel Corridor", "General"]:
+                            st.write(f"• **BEST wind directions:** {wind_dir_1} or {wind_dir_2}")
+                            st.write(f"• **WORST wind direction:** {deer_approach_dir} (towards deer)")
+                            
+                        else:  # Bedding/Feeding areas need wind FROM deer TO hunter
+                            optimal_wind = deer_approach_bearing
+                            directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                                        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                            wind_dir_optimal = directions[int((optimal_wind + 11.25) / 22.5) % 16]
+                            # For worst wind, use opposite of optimal
+                            worst_wind = (optimal_wind + 180) % 360
+                            wind_dir_worst = directions[int((worst_wind + 11.25) / 22.5) % 16]
+                            
+                            st.write(f"• **Deer location:** {deer_approach_dir} direction from stand")
+                            st.write(f"• **BEST wind direction:** {wind_dir_optimal} (FROM deer TO you)")
+                            st.write(f"• **WORST wind direction:** {wind_dir_worst} (FROM you TO deer)")
+                            st.warning("⚠️ **Only hunt this stand with optimal wind!**")
+                        
+                        st.write(f"• **Recommended Approach:** Come from downwind side")
+                        st.write(f"• **Stand Facing:** Position to face crosswind or into wind")
+                        st.write(f"• **Scent Control:** Use scent eliminator and wind checker")
+                    else:
+                        st.write("• Check local wind conditions before hunting")
+                        st.write("• Always approach from downwind")
+                        st.write("• Carry wind checker powder/device")
+                        st.markdown("**💨 General Wind Rules:**")
+                        st.write("• **Wind should blow FROM deer TO you**")
+                        st.write("• **Your scent should blow AWAY from deer**")
+                        st.write("• **Wrong wind = no deer**")
+                    
+                    # Terrain-based setup using available data
+                    if elevation != 'Unknown' or slope != 'Unknown':
+                        st.markdown("**🏔️ Terrain-Based Setup:**")
+                        if slope != 'Unknown' and slope > 15:
+                            st.write(f"• **Steep Terrain ({slope:.1f}°):** Use climbing harness and safety rope")
+                        if elevation != 'Unknown':
+                            st.write(f"• **Elevation Advantage:** {elevation:.0f}m provides thermal/scent advantage")
+                        if aspect != 'Unknown':
+                            st.write(f"• **Slope Faces:** {aspect} - consider sun position for visibility")
+                    
+                    # Movement pattern analysis
+                    st.markdown("**🦌 Deer Movement Intelligence:**")
+                    
+                    # Calculate and show specific deer approach directions based on stand type
+                    if stand_type == "Travel Corridor":
+                        st.markdown("**📍 WHERE DEER ARE COMING FROM:**")
+                        st.success("🦌 **DEER APPROACH ROUTES:**")
+                        st.write(f"• **Primary approach:** {deer_approach_dir} direction ({deer_approach_bearing:.0f}°)")
+                        st.write(f"• **Secondary approach:** May come from opposite direction too")
+                        st.write("• **Travel corridors = highways** - deer use both directions")
+                        st.write("• **Morning:** Deer moving FROM bedding TO feeding")
+                        st.write("• **Evening:** Deer moving FROM feeding TO bedding")
+                        
+                        st.markdown("**🎯 STAND POSITIONING:**")
+                        st.write("• **Setup 15-30 yards** from main trail")
+                        st.write("• **Face the trail** - prepare for shots from multiple angles")
+                        st.write("• **Multiple entry points** - deer may come from various directions")
+                        st.write("• **Best times:** Morning/Evening transition periods")
+                        
+                    elif stand_type == "Bedding Area":
+                        st.markdown("**📍 WHERE DEER ARE COMING FROM:**")
+                        st.success("🦌 **DEER LOCATION & MOVEMENT:**")
+                        st.write(f"• **Deer are bedded:** {deer_approach_dir} direction from your stand")
+                        st.write("• **Afternoon movement:** Deer leaving beds to feed")
+                        st.write("• **Evening return:** Deer coming back to bed down")
+                        st.write("• **Dawn departure:** Deer leaving beds after feeding all night")
+                        
+                        st.markdown("**🎯 STAND POSITIONING:**")
+                        st.write("• **Setup on EDGE** - don't go too deep into bedding")
+                        st.write("• **20-40 yards back** from main bedding area")
+                        st.write("• **Afternoon hunting** - deer returning to bed")
+                        st.write("• **EXTREMELY quiet approach** required - deer are nearby!")
+                        
+                    elif stand_type == "Feeding Area":
+                        st.markdown("**📍 WHERE DEER ARE COMING FROM:**")
+                        st.success("🦌 **DEER APPROACH TO FEEDING:**")
+                        st.write(f"• **Deer approach feeding from:** {deer_approach_dir} direction")
+                        st.write("• **Evening feeding:** Deer come from bedding areas")
+                        st.write("• **Morning departure:** Deer return to bedding")
+                        st.write("• **Cautious approach:** Deer circle and check wind before feeding")
+                        
+                        st.markdown("**🎯 STAND POSITIONING:**")
+                        st.write("• **Setup DOWNWIND** of main feeding zone")
+                        st.write("• **30-40 yards back** from main feeding activity")
+                        st.write("• **Evening hunting** - deer coming to feed")
+                        st.write("• **Face feeding area** - deer will be in front of you")
+                        
+                    else:  # General stand
+                        st.markdown("**📍 WHERE DEER ARE COMING FROM:**")
+                        st.success("🦌 **GENERAL DEER MOVEMENT:**")
+                        st.write(f"• **Primary deer approach:** {deer_approach_dir} direction ({deer_approach_bearing:.0f}°)")
+                        st.write("• **Based on terrain analysis** and movement patterns")
+                        st.write("• **Multiple approach routes** possible")
+                        
+                        st.markdown("**🎯 STAND POSITIONING:**")
+                        st.write("• **Face primary approach direction**")
+                        st.write("• **Prepare for movement from multiple angles**")
+                    
+                    # Specific wind setup based on deer approach
+                    st.markdown("**💨 WIND SETUP FOR DEER APPROACHES:**")
+                    if stand_type in ["Travel Corridor", "General"]:
+                        st.write(f"• **Deer coming from {deer_approach_dir}** - Wind should blow {wind_dir_1} or {wind_dir_2}")
+                        st.write(f"• **This carries your scent AWAY** from deer approach routes")
+                        st.write(f"• **NEVER hunt with wind blowing {deer_approach_dir}** - deer will smell you!")
+                    else:  # Bedding/Feeding areas
+                        st.write(f"• **Deer located {deer_approach_dir} of your stand** - Wind must blow {wind_dir_optimal}")
+                        st.write(f"• **This carries your scent AWAY** from deer location")
+                        st.write(f"• **NEVER hunt with wind blowing {wind_dir_worst}** - you'll bust every deer!")
+                    
+                    st.markdown("**🎯 DEER BEHAVIOR EXPECTATIONS:**")
+                    if stand_type == "Travel Corridor":
+                        st.write("• **Steady movement** along established trails")
+                        st.write("• **Multiple deer** may use same route")
+                        st.write("• **Predictable timing** during feeding transitions")
+                    elif stand_type == "Bedding Area":
+                        st.write("• **Cautious movement** - deer are security-focused")
+                        st.write("• **Stop and listen** frequently")
+                        st.write("• **Quick to bolt** if anything seems wrong")
+                    elif stand_type == "Feeding Area":
+                        st.write("• **Circle and check** before committing to feed")
+                        st.write("• **Head down feeding** - good shot opportunities")
+                        st.write("• **Group feeding** - multiple deer possible")
+                    
+                    # Equipment recommendations based on terrain
+                    st.markdown("**🎯 Equipment Recommendations:**")
+                    if slope != 'Unknown' and slope > 20:
+                        st.write("• **Climbing Stand** recommended for steep terrain")
+                    else:
+                        st.write("• **Ladder/Hang-on Stand** suitable for this terrain")
+                    
+                    if wind_factor and wind_factor < 0.6:
+                        st.write("• **Extra Scent Control** - poor wind conditions")
+                        st.write("• **Ozone Generator** or carbon clothing recommended")
+                    
+                    # Success probability and timing using movement prediction data
+                    movement_prob = 75  # Default good probability
+                    if movement_prediction:
+                        movement_prob = movement_prediction.get('movement_probability', 75)
+                    
+                    st.markdown("**⏰ Optimal Hunt Times (Algorithm Calculated):**")
+                    if movement_prob >= 75:
+                        st.success("🟢 **PRIME TIME:** Hunt this stand during peak hours")
+                        st.write("• **Morning:** 30 min before sunrise - 8:30 AM")
+                        st.write("• **Evening:** 4:00 PM - 30 min after sunset")
+                    elif movement_prob >= 50:
+                        st.info("🟡 **GOOD TIMING:** Solid hunting window")
+                        st.write("• **Morning:** 1 hour before sunrise - 9:00 AM")
+                        st.write("• **Evening:** 3:30 PM - dark")
+                    else:
+                        st.warning("🔴 **BACKUP TIMING:** Use when other stands unavailable")
+                        st.write("• **All day sit** may be required")
+                        st.write("• **Midday movement** possible in this location")
+                    
+                    # Confidence-based priority
+                    if confidence >= 85:
+                        st.success("🎯 **ALGORITHM VERDICT:** PRIMARY STAND - Hunt here first!")
+                    elif confidence >= 70:
+                        st.info("🎯 **ALGORITHM VERDICT:** SOLID OPTION - High success probability")
+                    else:
+                        st.warning("🎯 **ALGORITHM VERDICT:** BACKUP STAND - Use when primary spots fail")
 
 # ==========================================
 # TAB 2: SCOUTING DATA
@@ -468,110 +883,10 @@ with tab_scout:
     if not observation_types:
         st.error("Unable to load observation types. Please check backend connection.")
     else:
-        # Create three modes: map entry, manual entry, and GPX import
-        entry_mode = st.radio("📝 Entry Mode", ["🗺️ Map-Based Entry", "✍️ Manual Entry", "📁 GPX Import"], horizontal=True)
+        # Create two modes: map entry and manual entry
+        entry_mode = st.radio("📝 Entry Mode", ["🗺️ Map-Based Entry", "✍️ Manual Entry"], horizontal=True)
         
-        if entry_mode == "📁 GPX Import":
-            st.markdown("### 📁 Import Waypoints from GPX File")
-            st.markdown("Upload a GPX file from your GPS device or hunting app (OnX, Garmin, Gaia GPS, etc.)")
-            
-            # File uploader
-            uploaded_file = st.file_uploader(
-                "Choose GPX file", 
-                type=['gpx'],
-                help="Upload waypoints from your GPS device or hunting app"
-            )
-            
-            if uploaded_file is not None:
-                try:
-                    # Read file content
-                    gpx_content = uploaded_file.read().decode('utf-8')
-                    
-                    # Show file info
-                    st.success(f"📁 File loaded: {uploaded_file.name} ({len(gpx_content)} characters)")
-                    
-                    # Preview mode toggle
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        preview_mode = st.checkbox("🔍 Preview before importing", value=True)
-                    with col2:
-                        confidence_override = st.selectbox(
-                            "Override confidence (optional)", 
-                            options=[None] + list(range(1, 11)),
-                            format_func=lambda x: "Use waypoint data" if x is None else f"Set all to {x}/10"
-                        )
-                    
-                    # Import button
-                    if st.button("📥 Import Waypoints", type="primary"):
-                        with st.spinner("🔄 Processing GPX file..."):
-                            try:
-                                # Prepare request
-                                import_request = {
-                                    "gpx_content": gpx_content,
-                                    "auto_import": not preview_mode,
-                                    "confidence_override": confidence_override
-                                }
-                                
-                                # Call backend API
-                                response = requests.post(
-                                    f"{BACKEND_URL}/scouting/import_gpx",
-                                    json=import_request,
-                                    timeout=30
-                                )
-                                
-                                if response.status_code == 200:
-                                    result = response.json()
-                                    
-                                    # Show results
-                                    if result['status'] == 'success':
-                                        st.success(f"✅ {result['message']}")
-                                        st.balloons()
-                                    elif result['status'] == 'partial_success':
-                                        st.warning(f"⚠️ {result['message']}")
-                                    else:
-                                        st.error(f"❌ {result['message']}")
-                                    
-                                    # Show summary
-                                    col1, col2, col3 = st.columns(3)
-                                    with col1:
-                                        st.metric("📍 Total Waypoints", result['total_waypoints'])
-                                    with col2:
-                                        st.metric("✅ Imported", result['imported_observations'])
-                                    with col3:
-                                        st.metric("⏭️ Skipped", result['skipped_waypoints'])
-                                    
-                                    # Show preview
-                                    if result['preview']:
-                                        st.markdown("#### 📋 Preview:")
-                                        for i, obs in enumerate(result['preview']):
-                                            with st.expander(f"{obs['type']} - {obs['lat']:.5f}, {obs['lon']:.5f}"):
-                                                st.write(f"**Confidence:** {obs['confidence']}/10")
-                                                if obs['notes']:
-                                                    st.write(f"**Notes:** {obs['notes']}")
-                                    
-                                    # Show errors if any
-                                    if result.get('errors'):
-                                        with st.expander("⚠️ Errors/Warnings"):
-                                            for error in result['errors']:
-                                                st.warning(error)
-                                    
-                                    if result['status'] == 'success' and result['imported_observations'] > 0:
-                                        st.info("🔄 Refresh the Hunt Predictions tab to see enhanced predictions!")
-                                
-                                else:
-                                    st.error(f"❌ Import failed: {response.text}")
-                            
-                            except requests.exceptions.RequestException as e:
-                                st.error(f"❌ Connection error: {str(e)}")
-                            except Exception as e:
-                                st.error(f"❌ Import error: {str(e)}")
-                
-                except UnicodeDecodeError:
-                    st.error("❌ Unable to read GPX file. Please ensure it's a valid text-based GPX file.")
-                except Exception as e:
-                    st.error(f"❌ File error: {str(e)}")
-        
-        elif entry_mode == "🗺️ Map-Based Entry":
+        if entry_mode == "🗺️ Map-Based Entry":
             st.markdown("### 🗺️ Click on the map to add scouting observations")
             
             # Map for scouting entry - using same map type as hunting predictions

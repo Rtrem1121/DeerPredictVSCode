@@ -287,6 +287,14 @@ with tab_predict:
             st.rerun()
     
     # Display current coordinates
+    # Advanced options
+    with st.expander("🎥 Advanced Options"):
+        include_camera = st.checkbox(
+            "Include Optimal Camera Placement", 
+            value=False,
+            help="Calculate the single optimal trail camera position using satellite analysis"
+        )
+    
     st.info(f"📍 **Hunt Coordinates:** {st.session_state.hunt_location[0]:.6f}, {st.session_state.hunt_location[1]:.6f}")
     
     # Prediction button
@@ -297,7 +305,8 @@ with tab_predict:
                 "lat": st.session_state.hunt_location[0],
                 "lon": st.session_state.hunt_location[1],
                 "date_time": f"{hunt_date}T{selected_time.strftime('%H:%M:%S')}",
-                "season": season
+                "season": season,
+                "include_camera_placement": include_camera
             }
             
             try:
@@ -378,6 +387,62 @@ with tab_predict:
                                             st.info(f"✅ {confidence:.0f}% Confidence\n**SOLID CHOICE**")
                                         else:
                                             st.warning(f"⚠️ {confidence:.0f}% Confidence\n**BACKUP OPTION**")
+                    
+                    # === OPTIMAL CAMERA PLACEMENT ===
+                    if 'optimal_camera_placement' in prediction and prediction['optimal_camera_placement']:
+                        camera_data = prediction['optimal_camera_placement']
+                        
+                        if camera_data.get('enabled', False):
+                            st.markdown("## 🎥 **Optimal Camera Placement**")
+                            
+                            camera_coords = camera_data.get('camera_coordinates', {})
+                            target_coords = camera_data.get('target_coordinates', {})
+                            
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                confidence = camera_data.get('confidence_score', 0)
+                                if confidence >= 85:
+                                    st.success(f"🔥 **EXCELLENT Position**\n{confidence:.1f}% confidence")
+                                elif confidence >= 75:
+                                    st.info(f"⭐ **VERY GOOD Position**\n{confidence:.1f}% confidence")
+                                else:
+                                    st.info(f"✅ **GOOD Position**\n{confidence:.1f}% confidence")
+                            
+                            with col2:
+                                distance = camera_data.get('distance_meters', 0)
+                                st.metric("📏 Distance from Target", f"{distance:.0f} meters")
+                            
+                            with col3:
+                                detection_range = camera_data.get('detection_range', "60-120 meters")
+                                st.metric("📡 Detection Range", detection_range)
+                            
+                            # Camera placement details
+                            with st.expander("🎯 **Camera Setup Details**", expanded=True):
+                                
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    st.markdown("**📍 Camera GPS Coordinates:**")
+                                    st.code(f"{camera_coords.get('lat', 0):.6f}, {camera_coords.get('lon', 0):.6f}")
+                                    
+                                    st.markdown("**🎯 Target Location:**")
+                                    st.code(f"{target_coords.get('lat', 0):.6f}, {target_coords.get('lon', 0):.6f}")
+                                    
+                                    reasoning = camera_data.get('placement_reasoning', 'Optimal positioning')
+                                    st.markdown(f"**🧠 Strategy:** {reasoning}")
+                                
+                                with col2:
+                                    optimal_times = camera_data.get('optimal_times', ['dawn', 'dusk'])
+                                    st.markdown(f"**⏰ Best Times:** {', '.join(optimal_times)}")
+                                    
+                                    st.markdown("**🔧 Setup Instructions:**")
+                                    integration_notes = camera_data.get('integration_notes', [])
+                                    for note in integration_notes:
+                                        st.markdown(f"• {note}")
+                        
+                        elif camera_data.get('error'):
+                            st.warning(f"🎥 Camera placement calculation failed: {camera_data.get('error')}")
                 
                 else:
                     st.error(f"Prediction failed: {response.text}")

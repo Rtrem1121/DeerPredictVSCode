@@ -20,8 +20,18 @@ venv/
 
 # Google Cloud Credentials
 credentials/*.json
+!credentials/*.template
 gee-service-account.json
 service-account*.json
+*.key
+*.pem
+*.p12
+
+# Environment Files
+.env
+.env.local
+.env.production
+.env.staging
 
 # Other
 *.sqlite3

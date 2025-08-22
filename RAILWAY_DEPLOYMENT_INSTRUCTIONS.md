@@ -25,10 +25,12 @@ BACKEND_URL=https://your-app-name.railway.app
 OPENWEATHERMAP_API_KEY=your_weather_key
 PORT=8501
 
-# Optional (for enhanced features)
+# Satellite Intelligence (Recommended)
 GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gee-service-account.json
-GEE_PROJECT_ID=your-project-id
-SECRET_KEY=your-random-secret-key
+GEE_PROJECT_ID=your-google-earth-engine-project-id
+
+# Future Features (Skip for now)
+# SECRET_KEY=your-random-secret-key
 ```
 
 ### **Step 4: Get Your iPhone URL (1 minute)**

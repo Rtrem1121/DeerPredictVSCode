@@ -4,8 +4,63 @@ from streamlit_folium import st_folium
 import requests
 import json
 import os
+import hashlib
 from datetime import datetime, timedelta
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
+
+# --- Password Protection ---
+def check_password():
+    """Returns True if the user entered the correct password."""
+    
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        # Professional hunting app password
+        correct_password = "DeerHunter2025!"  # Change this to your preferred password
+        
+        # Check if password key exists before accessing it
+        if "password" in st.session_state:
+            if hashlib.sha256(st.session_state["password"].encode()).hexdigest() == hashlib.sha256(correct_password.encode()).hexdigest():
+                st.session_state["password_correct"] = True
+                del st.session_state["password"]  # Don't store password
+            else:
+                st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        # First run, show input for password
+        st.markdown("# 🦌 Professional Deer Hunting Intelligence")
+        st.markdown("### 🔐 Secure Access Required")
+        st.markdown("*89.1% confidence predictions • Vermont legal hours • Real-time scouting data*")
+        st.markdown("---")
+        st.text_input(
+            "Enter Access Password:", 
+            type="password", 
+            on_change=password_entered, 
+            key="password",
+            help="Contact the administrator for access credentials"
+        )
+        st.markdown("---")
+        st.markdown("*🏔️ Vermont Deer Movement Predictor with Enhanced Intelligence*")
+        return False
+    elif not st.session_state["password_correct"]:
+        # Password not correct, show input + error
+        st.markdown("# 🦌 Professional Deer Hunting Intelligence")
+        st.markdown("### 🔐 Secure Access Required")
+        st.markdown("*89.1% confidence predictions • Vermont legal hours • Real-time scouting data*")
+        st.markdown("---")
+        st.text_input(
+            "Enter Access Password:", 
+            type="password", 
+            on_change=password_entered, 
+            key="password",
+            help="Contact the administrator for access credentials"
+        )
+        st.error("🚫 Access denied. Please check your password and try again.")
+        st.markdown("---")
+        st.markdown("*🏔️ Vermont Deer Movement Predictor with Enhanced Intelligence*")
+        return False
+    else:
+        # Password correct
+        return True
 
 # --- Backend Configuration ---
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
@@ -178,6 +233,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Main App ---
+# Check password protection first
+if not check_password():
+    st.stop()
+
 st.title("🏔️ Vermont Deer Movement Predictor with Real-Time Scouting")
 st.markdown("*Vermont-legal hunting hours, enhanced predictions, and real-time scouting data integration*")
 

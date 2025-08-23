@@ -39,7 +39,7 @@ from backend.distance_scorer import (
 from backend.config_manager import get_config
 
 # Import scouting system components
-from scouting_models import (
+from backend.scouting_models import (
     ScoutingObservation, 
     ScoutingObservationResponse,
     ScoutingQuery,
@@ -51,14 +51,14 @@ from scouting_models import (
     TrailCameraDetails,
     TracksDetails
 )
-from scouting_data_manager import get_scouting_data_manager
-from scouting_prediction_enhancer import get_scouting_enhancer
+from backend.scouting_data_manager import get_scouting_data_manager
+from backend.scouting_prediction_enhancer import get_scouting_enhancer
 
 # Import prediction caching for performance
 # Removed caching - using direct optimization instead
 
 # Import camera placement system
-from advanced_camera_placement import BuckCameraPlacement
+from backend.advanced_camera_placement import BuckCameraPlacement
 
 # Configure logging for containers
 logging.basicConfig(
@@ -484,7 +484,7 @@ def get_five_best_stand_locations_enhanced(lat: float, lon: float, terrain_featu
     else:
         # Generate mature buck data if not provided, then use it
         logger.info("🦌 Generating mature buck data for enhanced analysis")
-        from enhanced_accuracy import MatureBuckPredictor
+        from backend.enhanced_accuracy import MatureBuckPredictor
         
         predictor = MatureBuckPredictor()
         generated_mature_data = predictor.predict_mature_buck_locations(
@@ -2176,7 +2176,7 @@ def predict_movement(request: PredictionRequest):
         
         # 4.6. Integrate ML enhancement if available  
         try:
-            from ml_enhanced_predictor import MLEnhancedMatureBuckPredictor
+            from backend.ml_enhanced_predictor import MLEnhancedMatureBuckPredictor
             buck_predictor = get_mature_buck_predictor()
             ml_predictor = MLEnhancedMatureBuckPredictor(base_model=buck_predictor)
             

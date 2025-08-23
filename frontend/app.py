@@ -63,7 +63,7 @@ def check_password():
         return True
 
 # --- Backend Configuration ---
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:8000')
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000')
 
 # --- Map Configuration ---
 # Filter enabled map sources

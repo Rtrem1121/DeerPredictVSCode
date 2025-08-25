@@ -5,8 +5,127 @@ import requests
 import json
 import os
 import hashlib
+import math
 from datetime import datetime, timedelta
 from map_config import MAP_SOURCES, OVERLAY_SOURCES
+
+# --- Deer Approach Direction Calculation Functions ---
+def calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type):
+    """Calculate deer approach direction based on terrain features when bedding zones aren't available"""
+    
+    # Get terrain characteristics
+    aspect = terrain_features.get('aspect', 0)
+    slope = terrain_features.get('slope', 0) 
+    terrain_type = terrain_features.get('terrain_type', 'mixed')
+    
+    # Default approach bearing - will be modified based on terrain
+    approach_bearing = 180.0  # Default to south approach
+    
+    # Stand type specific logic
+    if stand_type == "Travel Corridor":
+        if 'ridge' in terrain_type.lower() or 'saddle' in terrain_type.lower():
+            approach_bearing = 45.0  # NE approach from bedding areas
+        elif 'valley' in terrain_type.lower() or 'creek' in terrain_type.lower():
+            approach_bearing = 270.0 if aspect < 180 else 90.0  # W or E approach
+        else:
+            approach_bearing = 0.0 if slope > 10 else 180.0  # N or S
+            
+    elif stand_type == "Bedding Area":
+        if slope > 15:
+            approach_bearing = 180.0  # South approach from valleys
+        else:
+            approach_bearing = 135.0 if 'agricultural' in terrain_type else 225.0
+            
+    elif stand_type == "Feeding Area":
+        if terrain_features.get('forest_edge', False):
+            approach_bearing = 0.0  # North approach from forest
+        elif slope > 10:
+            approach_bearing = aspect + 180  # Opposite of slope aspect
+        else:
+            approach_bearing = 315.0  # NW approach
+    
+    else:  # General stand
+        if 'ridge' in terrain_type.lower():
+            approach_bearing = 90.0  # E approach along ridge
+        elif 'valley' in terrain_type.lower():
+            approach_bearing = 0.0   # N approach down valley
+        elif slope > 15:
+            approach_bearing = aspect  # Same direction as slope faces
+        else:
+            approach_bearing = 135.0  # Default SE approach for gentle terrain
+    
+    # Normalize bearing to 0-360 range
+    approach_bearing = approach_bearing % 360
+    
+    # Convert to compass direction
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    compass_dir = directions[int((approach_bearing + 11.25) / 22.5) % 16]
+    
+    return approach_bearing, compass_dir
+
+def enhanced_deer_approach_calculation(prediction_data):
+    """Enhanced deer approach calculation that tries multiple methods"""
+    
+    # Method 1: Try bedding zone calculation (existing logic)
+    bedding_zones = prediction_data.get('bedding_zones', {}).get('zones', [])
+    stand_coords = prediction_data.get('coordinates', {})
+    
+    if bedding_zones and stand_coords.get('lat') and stand_coords.get('lon'):
+        try:
+            first_bedding = bedding_zones[0]
+            bedding_lat = first_bedding.get('lat', 0)
+            bedding_lon = first_bedding.get('lon', 0)
+            
+            if bedding_lat and bedding_lon:
+                bearing = calculate_bearing_between_points(
+                    bedding_lat, bedding_lon, 
+                    stand_coords['lat'], stand_coords['lon']
+                )
+                directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                compass_dir = directions[int((bearing + 11.25) / 22.5) % 16]
+                return bearing, compass_dir
+        except:
+            pass  # Fall through to terrain-based calculation
+    
+    # Method 2: Travel corridor calculation
+    travel_zones = prediction_data.get('travel_zones', {}).get('zones', [])
+    if travel_zones and len(travel_zones) >= 2:
+        try:
+            zone1 = travel_zones[0]
+            zone2 = travel_zones[1] 
+            bearing = calculate_bearing_between_points(
+                zone1.get('lat', 0), zone1.get('lon', 0),
+                zone2.get('lat', 0), zone2.get('lon', 0)
+            )
+            directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+            compass_dir = directions[int((bearing + 11.25) / 22.5) % 16]
+            return bearing, compass_dir
+        except:
+            pass
+    
+    # Method 3: Terrain-based calculation (fallback)
+    terrain_features = prediction_data.get('terrain_features', {})
+    stand_type = prediction_data.get('stand_type', 'General')
+    
+    return calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type)
+
+def calculate_bearing_between_points(lat1, lon1, lat2, lon2):
+    """Calculate bearing between two points"""
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    dlon_rad = math.radians(lon2 - lon1)
+    
+    y = math.sin(dlon_rad) * math.cos(lat2_rad)
+    x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad)
+    
+    bearing = math.atan2(y, x)
+    bearing = math.degrees(bearing)
+    bearing = (bearing + 360) % 360
+    
+    return bearing
 
 # --- Password Protection ---
 def check_password():
@@ -339,8 +458,62 @@ with tab_predict:
         if 'prediction_results' in st.session_state and st.session_state.prediction_results:
             prediction = st.session_state.prediction_results
             
-            # Add stand location markers
-            if 'mature_buck_analysis' in prediction:
+            # Add travel corridor markers
+            if 'travel_corridors' in prediction and prediction['travel_corridors']:
+                travel_features = prediction['travel_corridors'].get('features', [])
+                for feature in travel_features:
+                    if feature.get('geometry') and feature['geometry'].get('coordinates'):
+                        coords = feature['geometry']['coordinates']
+                        lat, lon = coords[1], coords[0]  # GeoJSON is [lon, lat]
+                        score = feature['properties'].get('score', 0)
+                        
+                        folium.CircleMarker(
+                            [lat, lon],
+                            radius=8,
+                            popup=f"🚶 Travel Corridor<br>Score: {score:.2f}",
+                            color='blue',
+                            fillColor='lightblue',
+                            fillOpacity=0.7
+                        ).add_to(m)
+            
+            # Add bedding zone markers  
+            if 'bedding_zones' in prediction and prediction['bedding_zones']:
+                bedding_features = prediction['bedding_zones'].get('features', [])
+                for feature in bedding_features:
+                    if feature.get('geometry') and feature['geometry'].get('coordinates'):
+                        coords = feature['geometry']['coordinates']
+                        lat, lon = coords[1], coords[0]  # GeoJSON is [lon, lat]
+                        score = feature['properties'].get('score', 0)
+                        
+                        folium.CircleMarker(
+                            [lat, lon],
+                            radius=10,
+                            popup=f"🛏️ Bedding Area<br>Score: {score:.2f}",
+                            color='green',
+                            fillColor='lightgreen',
+                            fillOpacity=0.8
+                        ).add_to(m)
+            
+            # Add feeding area markers
+            if 'feeding_areas' in prediction and prediction['feeding_areas']:
+                feeding_features = prediction['feeding_areas'].get('features', [])
+                for feature in feeding_features:
+                    if feature.get('geometry') and feature['geometry'].get('coordinates'):
+                        coords = feature['geometry']['coordinates']
+                        lat, lon = coords[1], coords[0]  # GeoJSON is [lon, lat]
+                        score = feature['properties'].get('score', 0)
+                        
+                        folium.CircleMarker(
+                            [lat, lon],
+                            radius=6,
+                            popup=f"🌾 Feeding Area<br>Score: {score:.2f}",
+                            color='orange',
+                            fillColor='yellow',
+                            fillOpacity=0.6
+                        ).add_to(m)
+            
+            # Add stand location markers (if available)
+            if prediction.get('mature_buck_analysis') is not None:
                 stand_recommendations = prediction['mature_buck_analysis'].get('stand_recommendations', [])
                 for i, rec in enumerate(stand_recommendations, 1):
                     coords = rec.get('coordinates', {})
@@ -350,25 +523,46 @@ with tab_predict:
                     stand_type = rec.get('type', 'Unknown')
                     
                     if stand_lat and stand_lon:
-                        # Choose marker color based on confidence
-                        if confidence >= 85:
-                            color = 'green'
+                        # Choose marker color based on confidence and position
+                        if i == 1:  # Primary stand
+                            color = 'red'
                             icon = 'star'
-                        elif confidence >= 70:
+                            icon_name = '🏆'
+                        elif i == 2:  # Secondary stand
                             color = 'blue'
                             icon = 'tree'
-                        else:
-                            color = 'orange'
+                            icon_name = '🥈'
+                        else:  # Tertiary stand
+                            color = 'purple'
                             icon = 'home'
+                            icon_name = '🥉'
                         
                         folium.Marker(
                             [stand_lat, stand_lon],
-                            popup=f"🪜 Stand #{i}: {stand_type}<br>Confidence: {confidence:.0f}%",
-                            icon=folium.Icon(color=color, icon=icon)
+                            popup=f"{icon_name} Stand #{i}: {stand_type}<br>Confidence: {confidence:.0f}%<br>{rec.get('reasoning', '')}",
+                            icon=folium.Icon(color=color, icon=icon),
+                            tooltip=f"Stand #{i} - {confidence:.0f}%"
                         ).add_to(m)
             
             # Add camera placement marker
             if 'optimal_camera_placement' in prediction and prediction['optimal_camera_placement']:
+                camera_data = prediction['optimal_camera_placement']
+                camera_lat = camera_data.get('lat', 0)
+                camera_lon = camera_data.get('lon', 0)
+                camera_confidence = camera_data.get('confidence', 0)
+                distance = camera_data.get('distance_from_stand', 0)
+                direction = camera_data.get('setup_direction', 'N')
+                
+                if camera_lat and camera_lon:
+                    folium.Marker(
+                        [camera_lat, camera_lon],
+                        popup=f"📹 Optimal Camera Position<br>Confidence: {camera_confidence}%<br>Distance: {distance}m {direction} of primary stand<br>Setup facing trail approach",
+                        icon=folium.Icon(color='darkgreen', icon='video-camera', prefix='fa'),
+                        tooltip=f"Camera - {camera_confidence}% confidence"
+                    ).add_to(m)
+            
+            # Legacy camera placement check
+            elif 'optimal_camera_placement' in prediction and prediction['optimal_camera_placement']:
                 camera_data = prediction['optimal_camera_placement']
                 if camera_data.get('enabled', False):
                     camera_coords = camera_data.get('camera_coordinates', {})
@@ -382,6 +576,67 @@ with tab_predict:
                             popup=f"📹 Camera Position<br>Confidence: {camera_confidence:.1f}%",
                             icon=folium.Icon(color='purple', icon='camera')
                         ).add_to(m)
+            
+            # NEW: Add optimized hunting points
+            if 'optimized_points' in prediction and prediction['optimized_points']:
+                optimized_data = prediction['optimized_points']
+                
+                # Add Stand Sites (Red Stars with Numbers)
+                stand_sites = optimized_data.get('stand_sites', [])
+                for i, stand in enumerate(stand_sites, 1):
+                    folium.Marker(
+                        [stand['lat'], stand['lon']],
+                        popup=f"🎯 Stand Site {i}<br><b>{stand['strategy']}</b><br>Score: {stand['score']:.1f}/10<br>{stand['description'][:100]}...<br><b>Best Times:</b> {', '.join(stand['optimal_times'])}",
+                        icon=folium.Icon(color='red', icon='bullseye'),
+                        tooltip=f"Stand {i}: {stand['strategy']}"
+                    ).add_to(m)
+                
+                # Add Bedding Sites (Green Home Icons with Numbers)  
+                bedding_sites = optimized_data.get('bedding_sites', [])
+                for i, bed in enumerate(bedding_sites, 1):
+                    folium.Marker(
+                        [bed['lat'], bed['lon']],
+                        popup=f"🛏️ Bedding Site {i}<br><b>{bed['strategy']}</b><br>Score: {bed['score']:.1f}/10<br>{bed['description'][:100]}...<br><b>Security:</b> {bed['specific_attributes'].get('security_score', 'N/A')}%",
+                        icon=folium.Icon(color='green', icon='home'),
+                        tooltip=f"Bedding {i}: {bed['strategy']}"
+                    ).add_to(m)
+                
+                # Add Feeding Sites (Orange Leaf Icons with Numbers)
+                feeding_sites = optimized_data.get('feeding_sites', [])
+                for i, feed in enumerate(feeding_sites, 1):
+                    folium.Marker(
+                        [feed['lat'], feed['lon']],
+                        popup=f"🌾 Feeding Site {i}<br><b>{feed['strategy']}</b><br>Score: {feed['score']:.1f}/10<br>{feed['description'][:100]}...<br><b>Food Type:</b> {feed['specific_attributes'].get('food_type', 'N/A')}",
+                        icon=folium.Icon(color='orange', icon='leaf'),
+                        tooltip=f"Feeding {i}: {feed['strategy']}"
+                    ).add_to(m)
+                
+                # Add Camera Sites (Purple Camera Icons with Numbers)
+                camera_sites = optimized_data.get('camera_placements', [])
+                for i, cam in enumerate(camera_sites, 1):
+                    folium.Marker(
+                        [cam['lat'], cam['lon']],
+                        popup=f"📷 Camera {i}<br><b>{cam['strategy']}</b><br>Score: {cam['score']:.1f}/10<br>{cam['description'][:100]}...<br><b>Photo Score:</b> {cam['specific_attributes'].get('photo_score', 'N/A'):.1f}/10",
+                        icon=folium.Icon(color='purple', icon='camera'),
+                        tooltip=f"Camera {i}: {cam['strategy']}"
+                    ).add_to(m)
+            
+            # Add legend for optimized points
+            legend_html = '''
+            <div style="position: fixed; 
+                        bottom: 50px; left: 50px; width: 200px; height: 180px; 
+                        background-color: white; border:2px solid grey; z-index:9999; 
+                        font-size:12px; padding: 10px">
+            <p><b>🎯 Hunting Points Legend</b></p>
+            <p><i class="fa fa-bullseye" style="color:red"></i> Stand Sites 1-3</p>
+            <p><i class="fa fa-home" style="color:green"></i> Bedding Sites 1-3</p>
+            <p><i class="fa fa-leaf" style="color:orange"></i> Feeding Sites 1-3</p>
+            <p><i class="fa fa-camera" style="color:purple"></i> Camera Sites 1-3</p>
+            <p style="margin-top:10px;"><small>All points use real-time data:<br>
+            Wind, terrain, security, vegetation</small></p>
+            </div>
+            '''
+            m.get_root().html.add_child(folium.Element(legend_html))
         
         # Display map and capture click events
         # Use dynamic key to force refresh when predictions are made
@@ -410,6 +665,7 @@ with tab_predict:
                 "lon": st.session_state.hunt_location[1],
                 "date_time": f"{hunt_date}T{selected_time.strftime('%H:%M:%S')}",
                 "season": season,
+                "fast_mode": True,  # Enable fast mode for UI responsiveness
                 "include_camera_placement": st.session_state.get('include_camera_placement', False)
             }
             
@@ -448,7 +704,38 @@ with tab_predict:
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:
         prediction = st.session_state.prediction_results
         
-        if 'mature_buck_analysis' in prediction:
+        # Show optimized points summary if available
+        if 'optimized_points' in prediction and prediction['optimized_points']:
+            st.success("✨ **12 Optimized Hunting Points Generated Using Real-Time Data!**")
+            
+            optimized_data = prediction['optimized_points']
+            
+            # Create columns for point categories
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown("**🎯 Stand Sites**")
+                for i, stand in enumerate(optimized_data.get('stand_sites', []), 1):
+                    st.markdown(f"**{i}.** {stand['strategy']} ⭐{stand['score']:.1f}")
+            
+            with col2:
+                st.markdown("**🛏️ Bedding Sites**") 
+                for i, bed in enumerate(optimized_data.get('bedding_sites', []), 1):
+                    st.markdown(f"**{i}.** {bed['strategy']} ⭐{bed['score']:.1f}")
+            
+            with col3:
+                st.markdown("**🌾 Feeding Sites**")
+                for i, feed in enumerate(optimized_data.get('feeding_sites', []), 1):
+                    st.markdown(f"**{i}.** {feed['strategy']} ⭐{feed['score']:.1f}")
+            
+            with col4:
+                st.markdown("**📷 Camera Sites**")
+                for i, cam in enumerate(optimized_data.get('camera_placements', []), 1):
+                    st.markdown(f"**{i}.** {cam['strategy']} ⭐{cam['score']:.1f}")
+            
+            st.markdown("---")
+        
+        if prediction.get('mature_buck_analysis') is not None:
             stand_recommendations = prediction['mature_buck_analysis'].get('stand_recommendations', [])
             
             if stand_recommendations:  # Check if we have stand recommendations
@@ -671,8 +958,9 @@ with tab_predict:
                     slope = 'Unknown'
                     elevation = 'Unknown'
                     aspect = 'Unknown'
-                    deer_approach_dir = 'SE'  # Default
-                    deer_approach_bearing = 135  # Default
+                    
+                    # Dynamic deer approach calculation (FIXED - no more hardcoded SE default!)
+                    deer_approach_bearing, deer_approach_dir = enhanced_deer_approach_calculation(prediction)
                     
                     if stand_recommendations:
                         first_stand = stand_recommendations[0]
@@ -874,9 +1162,9 @@ with tab_predict:
                         st.write(f"• **This carries your scent AWAY** from deer approach routes")
                         st.write(f"• **NEVER hunt with wind blowing {deer_approach_dir}** - deer will smell you!")
                     else:  # Bedding/Feeding areas
-                        st.write(f"• **Deer located {deer_approach_dir} of your stand** - Wind must blow {wind_dir_optimal}")
-                        st.write(f"• **This carries your scent AWAY** from deer location")
-                        st.write(f"• **NEVER hunt with wind blowing {wind_dir_worst}** - you'll bust every deer!")
+                        st.write(f"• **Deer located {deer_approach_dir} of your stand** - Position downwind of deer activity")
+                        st.write(f"• **Approach from opposite direction** - Come in from the {deer_approach_dir} side")
+                        st.write(f"• **Check wind before hunting** - Never hunt if wind blows toward deer areas")
                     
                     st.markdown("**🎯 DEER BEHAVIOR EXPECTATIONS:**")
                     if stand_type == "Travel Corridor":
@@ -925,6 +1213,36 @@ with tab_predict:
                     # Confidence-based priority
                     if confidence >= 85:
                         st.success("🎯 **ALGORITHM VERDICT:** PRIMARY STAND - Hunt here first!")
+                        
+                        # Add simple approach description for #1 stand
+                        st.markdown("**🚶 APPROACH STRATEGY:**")
+                        approach_bearing = rec.get('coordinates', {}).get('bearing', deer_approach_bearing)
+                        
+                        # Calculate best approach direction (opposite of deer approach)
+                        best_approach_bearing = (approach_bearing + 180) % 360
+                        
+                        # Convert to simple cardinal direction
+                        if 337.5 <= best_approach_bearing or best_approach_bearing < 22.5:
+                            approach_dir = "from the South"
+                        elif 22.5 <= best_approach_bearing < 67.5:
+                            approach_dir = "from the Southwest" 
+                        elif 67.5 <= best_approach_bearing < 112.5:
+                            approach_dir = "from the West"
+                        elif 112.5 <= best_approach_bearing < 157.5:
+                            approach_dir = "from the Northwest"
+                        elif 157.5 <= best_approach_bearing < 202.5:
+                            approach_dir = "from the North"
+                        elif 202.5 <= best_approach_bearing < 247.5:
+                            approach_dir = "from the Northeast"
+                        elif 247.5 <= best_approach_bearing < 292.5:
+                            approach_dir = "from the East"
+                        else:
+                            approach_dir = "from the Southeast"
+                        
+                        st.write(f"• **Best approach:** Walk in {approach_dir}")
+                        st.write(f"• **Why:** Keeps you downwind and away from deer movement")
+                        st.write(f"• **Distance:** Stay 100+ yards out until final approach")
+                        st.write(f"• **Final setup:** Quietly move into position facing {deer_approach_dir}")
                     elif confidence >= 70:
                         st.info("🎯 **ALGORITHM VERDICT:** SOLID OPTION - High success probability")
                     else:

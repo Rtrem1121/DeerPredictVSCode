@@ -1,0 +1,31 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "name": "Alice",
+      "age": 30,
+      "role": "developer"
+    },
+    {
+      "id": 2,
+      "name": "Bob",
+      "age": 25,
+      "role": "designer"
+    },
+    {
+      "id": 3,
+      "name": "Charlie",
+      "age": 35,
+      "role": "manager"
+    }
+  ],
+  "metrics": {
+    "total_users": 3,
+    "avg_age": 30,
+    "roles": [
+      "developer",
+      "designer",
+      "manager"
+    ]
+  }
+}

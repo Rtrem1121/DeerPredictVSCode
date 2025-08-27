@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-08-26T21:15:26.000532",
+  "docker_rebuild": "completed_no_cache",
+  "backend_results": {
+    "docker_rebuild": "\u2705 SUCCESS",
+    "api_accessibility": "\u2705 SUCCESS (Port 8000)",
+    "response_time_simple": "\u2705 FAST (< 1 second)",
+    "response_time_complex": "\u26a0\ufe0f SLOW (20+ seconds, timeouts)",
+    "biological_logic": "\u2705 ACCURATE (83.8% confidence)",
+    "data_quality": "\u2705 HIGH QUALITY",
+    "stand_recommendations": "\u2705 WORKING (3 recommendations)",
+    "feeding_areas": "\u2705 WORKING (3 areas generated)",
+    "travel_corridors": "\u2705 WORKING (3 corridors generated)",
+    "weather_integration": "\u2705 WORKING (Wind trends, cold fronts)",
+    "gee_integration": "\u26a0\ufe0f FALLBACK MODE (Auth issues)"
+  },
+  "frontend_results": {
+    "accessibility": "\u2705 SUCCESS (Port 8501)",
+    "page_loading": "\u2705 SUCCESS (Streamlit app)",
+    "interactive_elements": "\u2705 WORKING (4 elements found)",
+    "data_display": "\u2705 WORKING (47 display elements)",
+    "biological_content": "\u2705 DETECTED (deer, hunting, movement)",
+    "map_integration": "\u26a0\ufe0f PARTIAL (Some elements found)",
+    "real_time_updates": "\u2705 DETECTED (WebSocket capability)",
+    "user_interface": "\u2705 PROFESSIONAL (Vermont Deer Predictor)"
+  },
+  "enhancement_results": {
+    "midday_logic_enhanced": "\u2705 IMPLEMENTED (100% scenarios pass)",
+    "wind_trend_analysis": "\u2705 IMPLEMENTED (Speed/direction trends)",
+    "cold_front_detection": "\u2705 IMPLEMENTED (Enhanced detection)",
+    "gee_retries": "\u26a0\ufe0f PARTIAL (Fallback working, auth issues)",
+    "osm_disturbance": "\u26a0\ufe0f PARTIAL (Available but not GEE integrated)",
+    "frontend_interactivity": "\u26a0\ufe0f PARTIAL (50% tests pass)"
+  },
+  "performance_metrics": {
+    "backend_startup_time": "< 10 seconds",
+    "frontend_startup_time": "< 10 seconds",
+    "simple_prediction": "< 1 second",
+    "complex_prediction": "20+ seconds (needs optimization)",
+    "weather_api_query": "0.5 seconds",
+    "system_confidence": "83.8%",
+    "overall_reliability": "HIGH (for simple requests)"
+  },
+  "critical_issues": [
+    "\ud83d\udd11 GEE Authentication: Needs project setup for full functionality",
+    "\u23f1\ufe0f Complex Request Timeouts: Need optimization for multi-location requests",
+    "\ud83d\uddfa\ufe0f Map Display Issues: Frontend map integration needs improvement",
+    "\ud83d\uddb1\ufe0f User Interaction: Pin tooltips not showing biological information",
+    "\ud83d\udcca Frontend Data Display: Some content detection issues"
+  ],
+  "scores": {
+    "Backend Biological Accuracy": "83.8%",
+    "Frontend Accessibility": "75.0%",
+    "Overall System Reliability": "80.0%",
+    "Enhancement Implementation": "66.7%",
+    "Production Readiness": "78.0%"
+  },
+  "overall_grade": "B+ (GOOD - READY FOR TESTING)",
+  "recommendation": "READY FOR BETA TESTING"
+}

@@ -1,0 +1,377 @@
+{
+  "timestamp": "2025-08-26T21:39:35.615216",
+  "scores": {
+    "backend": 100,
+    "frontend": 100,
+    "docker": 100,
+    "overall": 100.0
+  },
+  "grade": "A (EXCELLENT)",
+  "backend_data": {
+    "travel_corridors": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.2271,
+              43.3027
+            ]
+          },
+          "properties": {
+            "id": "travel_0",
+            "type": "travel",
+            "score": 1.55,
+            "confidence": 0,
+            "description": "Travel area #1 (Score: 1.55)",
+            "marker_index": 0,
+            "corridor_type": "general",
+            "usage_frequency": "moderate"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.2271,
+              43.30936666666667
+            ]
+          },
+          "properties": {
+            "id": "travel_1",
+            "type": "travel",
+            "score": 1.55,
+            "confidence": 0,
+            "description": "Travel area #2 (Score: 1.55)",
+            "marker_index": 1,
+            "corridor_type": "general",
+            "usage_frequency": "moderate"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.22376666666666,
+              43.3027
+            ]
+          },
+          "properties": {
+            "id": "travel_2",
+            "type": "travel",
+            "score": 0.8,
+            "confidence": 0,
+            "description": "Travel area #3 (Score: 0.80)",
+            "marker_index": 2,
+            "corridor_type": "general",
+            "usage_frequency": "moderate"
+          }
+        }
+      ],
+      "properties": {
+        "marker_type": "travel",
+        "total_features": 3,
+        "generated_at": "2025-08-27T01:39:35.693589"
+      }
+    },
+    "bedding_zones": {
+      "type": "FeatureCollection",
+      "features": [],
+      "properties": {
+        "marker_type": "bedding",
+        "total_features": 0,
+        "generated_at": "2025-08-27T01:39:35.693595"
+      }
+    },
+    "feeding_areas": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.2271,
+              43.3027
+            ]
+          },
+          "properties": {
+            "id": "feeding_0",
+            "type": "feeding",
+            "score": 0.9,
+            "confidence": 0,
+            "description": "Feeding area #1 (Score: 0.90)",
+            "marker_index": 0,
+            "food_type": "natural",
+            "season_availability": "year_round"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.2371,
+              43.31936666666667
+            ]
+          },
+          "properties": {
+            "id": "feeding_1",
+            "type": "feeding",
+            "score": 0.9,
+            "confidence": 0,
+            "description": "Feeding area #2 (Score: 0.90)",
+            "marker_index": 1,
+            "food_type": "natural",
+            "season_availability": "year_round"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -73.2271,
+              43.31936666666667
+            ]
+          },
+          "properties": {
+            "id": "feeding_2",
+            "type": "feeding",
+            "score": 0.9,
+            "confidence": 0,
+            "description": "Feeding area #3 (Score: 0.90)",
+            "marker_index": 2,
+            "food_type": "natural",
+            "season_availability": "year_round"
+          }
+        }
+      ],
+      "properties": {
+        "marker_type": "feeding",
+        "total_features": 3,
+        "generated_at": "2025-08-27T01:39:35.693600"
+      }
+    },
+    "mature_buck_opportunities": {
+      "viable_location": true,
+      "confidence_summary": {
+        "overall_suitability": 0.0,
+        "movement_confidence": 50,
+        "pressure_tolerance": 15.0
+      },
+      "opportunity_markers": [],
+      "stand_recommendations": [
+        {
+          "coordinates": {
+            "lat": 43.3082,
+            "lon": -73.2271
+          },
+          "confidence": 88.5,
+          "type": "Travel Corridor Stand",
+          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        },
+        {
+          "coordinates": {
+            "lat": 43.3102,
+            "lon": -73.22309999999999
+          },
+          "confidence": 95,
+          "type": "Pinch Point Stand",
+          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        },
+        {
+          "coordinates": {
+            "lat": 43.3032,
+            "lon": -73.2226
+          },
+          "confidence": 61.00000000000001,
+          "type": "Food Plot Stand",
+          "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        }
+      ],
+      "terrain_scores": {
+        "bedding_suitability": 45.7,
+        "escape_route_quality": 57.9,
+        "isolation_score": 95.0,
+        "pressure_resistance": 15.0,
+        "overall_suitability": 0.0
+      },
+      "movement_prediction": {
+        "movement_probability": 0.0,
+        "confidence_score": 0.0,
+        "preferred_times": [
+          "Dawn",
+          "Dusk"
+        ],
+        "behavioral_notes": [
+          "High activity near bedding areas",
+          "Travel corridors active during temperature drops"
+        ]
+      },
+      "camera_placement": {
+        "lat": 43.3092,
+        "lon": -73.22859999999999,
+        "distance_from_stand": 45,
+        "setup_direction": "NE",
+        "confidence": 92
+      }
+    },
+    "stand_rating": 0.8900000000000001,
+    "notes": "Weather: 15.5\u00b0F, Clear | Mature buck habitat suitability: 0.0% | Camera Placement Confidence: 20.9% | Analysis completed in 28.00s",
+    "terrain_heatmap": "[[0.0, 0.8, 0.8, 1.55, 0.8, 0.8], [0.8, 0.8, 0.75, 0.8, 0.8, 0.75], [0.8, 0.75, 0.8, 1.55, 0.8, 0.8], [0.8, 0.75, 0.0, 0.8, 0.8, 0.0], [0.8, 0.0, 0.8, 0.8, 0.8, 0.8], [0.8, 0.0, 0.0, 0.8, 0.0, 0.0]]",
+    "vegetation_heatmap": "[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]",
+    "travel_score_heatmap": "[[0.0, 0.8, 0.8, 1.55, 0.8, 0.8], [0.8, 0.8, 0.75, 0.8, 0.8, 0.75], [0.8, 0.75, 0.8, 1.55, 0.8, 0.8], [0.8, 0.75, 0.0, 0.8, 0.8, 0.0], [0.8, 0.0, 0.8, 0.8, 0.8, 0.8], [0.8, 0.0, 0.0, 0.8, 0.0, 0.0]]",
+    "bedding_score_heatmap": "[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]",
+    "feeding_score_heatmap": "[[0.9, 0.9, 0.9, 0.9, 0.9, 0.9], [0.9, 0.9, 0.85, 0.9, 0.9, 0.85], [0.9, 0.85, 0.9, 0.9, 0.9, 0.9], [0.9, 0.85, 0.85, 0.9, 0.9, 0.85], [0.9, 0.85, 0.9, 0.9, 0.9, 0.9], [0.9, 0.85, 0.85, 0.9, 0.9, 0.9]]",
+    "suggested_spots": [],
+    "stand_recommendations": [
+      {
+        "coordinates": {
+          "lat": 43.3082,
+          "lon": -73.2271
+        },
+        "confidence": 88.5,
+        "type": "Travel Corridor Stand",
+        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      },
+      {
+        "coordinates": {
+          "lat": 43.3102,
+          "lon": -73.22309999999999
+        },
+        "confidence": 95,
+        "type": "Pinch Point Stand",
+        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      },
+      {
+        "coordinates": {
+          "lat": 43.3032,
+          "lon": -73.2226
+        },
+        "confidence": 61.00000000000001,
+        "type": "Food Plot Stand",
+        "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      }
+    ],
+    "five_best_stands": [
+      {
+        "coordinates": {
+          "lat": 43.3082,
+          "lon": -73.2271
+        },
+        "confidence": 88.5,
+        "type": "Travel Corridor Stand",
+        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      },
+      {
+        "coordinates": {
+          "lat": 43.3102,
+          "lon": -73.22309999999999
+        },
+        "confidence": 95,
+        "type": "Pinch Point Stand",
+        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      },
+      {
+        "coordinates": {
+          "lat": 43.3032,
+          "lon": -73.2226
+        },
+        "confidence": 61.00000000000001,
+        "type": "Food Plot Stand",
+        "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      }
+    ],
+    "hunt_schedule": [],
+    "mature_buck_analysis": {
+      "viable_location": true,
+      "confidence_summary": {
+        "overall_suitability": 0.0,
+        "movement_confidence": 50,
+        "pressure_tolerance": 15.0
+      },
+      "opportunity_markers": [],
+      "stand_recommendations": [
+        {
+          "coordinates": {
+            "lat": 43.3082,
+            "lon": -73.2271
+          },
+          "confidence": 88.5,
+          "type": "Travel Corridor Stand",
+          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        },
+        {
+          "coordinates": {
+            "lat": 43.3102,
+            "lon": -73.22309999999999
+          },
+          "confidence": 95,
+          "type": "Pinch Point Stand",
+          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        },
+        {
+          "coordinates": {
+            "lat": 43.3032,
+            "lon": -73.2226
+          },
+          "confidence": 61.00000000000001,
+          "type": "Food Plot Stand",
+          "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
+          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        }
+      ],
+      "terrain_scores": {
+        "bedding_suitability": 45.7,
+        "escape_route_quality": 57.9,
+        "isolation_score": 95.0,
+        "pressure_resistance": 15.0,
+        "overall_suitability": 0.0
+      },
+      "movement_prediction": {
+        "movement_probability": 0.0,
+        "confidence_score": 0.0,
+        "preferred_times": [
+          "Dawn",
+          "Dusk"
+        ],
+        "behavioral_notes": [
+          "High activity near bedding areas",
+          "Travel corridors active during temperature drops"
+        ]
+      },
+      "camera_placement": {
+        "lat": 43.3092,
+        "lon": -73.22859999999999,
+        "distance_from_stand": 45,
+        "setup_direction": "NE",
+        "confidence": 92
+      }
+    },
+    "optimal_camera_placement": {
+      "lat": 43.3092,
+      "lon": -73.22859999999999,
+      "distance_from_stand": 45,
+      "setup_direction": "NE",
+      "confidence": 92
+    },
+    "optimized_points": null
+  },
+  "deployment_ready": true
+}

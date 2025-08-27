@@ -1,0 +1,1140 @@
+{
+  "organization_date": "2025-08-26T08:01:19.693715",
+  "total_files_moved": 187,
+  "files_by_category": {
+    "Test file": 86,
+    "Documentation": 32,
+    "Analysis report": 16,
+    "Utility script": 28,
+    "Deployment file": 12,
+    "Batch script": 5,
+    "PowerShell script": 1,
+    "Old config": 5,
+    "Cache directory": 1,
+    "Temporary file": 1
+  },
+  "movements": [
+    {
+      "source": "test_access_protection.py",
+      "destination": "archive/tests/test_access_protection.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.593471"
+    },
+    {
+      "source": "test_api_import.py",
+      "destination": "archive/tests/test_api_import.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.594472"
+    },
+    {
+      "source": "test_api_integration.py",
+      "destination": "archive/tests/test_api_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.595471"
+    },
+    {
+      "source": "test_api_ml.py",
+      "destination": "archive/tests/test_api_ml.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.595471"
+    },
+    {
+      "source": "test_camera_integration.py",
+      "destination": "archive/tests/test_camera_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.596472"
+    },
+    {
+      "source": "test_camera_placement.py",
+      "destination": "archive/tests/test_camera_placement.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.596472"
+    },
+    {
+      "source": "test_complete_integration.py",
+      "destination": "archive/tests/test_complete_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.596472"
+    },
+    {
+      "source": "test_comprehensive_integration.py",
+      "destination": "archive/tests/test_comprehensive_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.596472"
+    },
+    {
+      "source": "test_comprehensive_terrain_scores.py",
+      "destination": "archive/tests/test_comprehensive_terrain_scores.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.597472"
+    },
+    {
+      "source": "test_configuration_management.py",
+      "destination": "archive/tests/test_configuration_management.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.597472"
+    },
+    {
+      "source": "test_deer_approach_fix.py",
+      "destination": "archive/tests/test_deer_approach_fix.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.597472"
+    },
+    {
+      "source": "test_deer_approach_unit_tests.py",
+      "destination": "archive/tests/test_deer_approach_unit_tests.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.597472"
+    },
+    {
+      "source": "test_detailed_import.py",
+      "destination": "archive/tests/test_detailed_import.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.597472"
+    },
+    {
+      "source": "test_direct_mature_buck.py",
+      "destination": "archive/tests/test_direct_mature_buck.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.598976"
+    },
+    {
+      "source": "test_distance_fix.py",
+      "destination": "archive/tests/test_distance_fix.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.598976"
+    },
+    {
+      "source": "test_enhanced_mature_buck.py",
+      "destination": "archive/tests/test_enhanced_mature_buck.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.598976"
+    },
+    {
+      "source": "test_enhanced_ndvi.py",
+      "destination": "archive/tests/test_enhanced_ndvi.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.600025"
+    },
+    {
+      "source": "test_enhanced_predictions.py",
+      "destination": "archive/tests/test_enhanced_predictions.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.600025"
+    },
+    {
+      "source": "test_enhanced_scoring_path.py",
+      "destination": "archive/tests/test_enhanced_scoring_path.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.600025"
+    },
+    {
+      "source": "test_enhanced_stand_analysis.py",
+      "destination": "archive/tests/test_enhanced_stand_analysis.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.600025"
+    },
+    {
+      "source": "test_enhanced_terrain_scores.py",
+      "destination": "archive/tests/test_enhanced_terrain_scores.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.601029"
+    },
+    {
+      "source": "test_final_comprehensive.py",
+      "destination": "archive/tests/test_final_comprehensive.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.601029"
+    },
+    {
+      "source": "test_fixed_satellite.py",
+      "destination": "archive/tests/test_fixed_satellite.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.601868"
+    },
+    {
+      "source": "test_frontend_fix.py",
+      "destination": "archive/tests/test_frontend_fix.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.601868"
+    },
+    {
+      "source": "test_frontend_integration.py",
+      "destination": "archive/tests/test_frontend_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.602372"
+    },
+    {
+      "source": "test_frontend_mature_buck.py",
+      "destination": "archive/tests/test_frontend_mature_buck.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.602884"
+    },
+    {
+      "source": "test_gee_integration.py",
+      "destination": "archive/tests/test_gee_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.602884"
+    },
+    {
+      "source": "test_gee_minimal.py",
+      "destination": "archive/tests/test_gee_minimal.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.603394"
+    },
+    {
+      "source": "test_gpx_import.py",
+      "destination": "archive/tests/test_gpx_import.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.603919"
+    },
+    {
+      "source": "test_heatmap_display.py",
+      "destination": "archive/tests/test_heatmap_display.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.603919"
+    },
+    {
+      "source": "test_heatmap_scores.py",
+      "destination": "archive/tests/test_heatmap_scores.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.604442"
+    },
+    {
+      "source": "test_hunting_hours.py",
+      "destination": "archive/tests/test_hunting_hours.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.604442"
+    },
+    {
+      "source": "test_improved_ndvi.py",
+      "destination": "archive/tests/test_improved_ndvi.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.604958"
+    },
+    {
+      "source": "test_location_variations.py",
+      "destination": "archive/tests/test_location_variations.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.604958"
+    },
+    {
+      "source": "test_map_consistency.py",
+      "destination": "archive/tests/test_map_consistency.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.605470"
+    },
+    {
+      "source": "test_map_fix.py",
+      "destination": "archive/tests/test_map_fix.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.605992"
+    },
+    {
+      "source": "test_marker_positions.py",
+      "destination": "archive/tests/test_marker_positions.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.605992"
+    },
+    {
+      "source": "test_mature_buck_data.py",
+      "destination": "archive/tests/test_mature_buck_data.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.606510"
+    },
+    {
+      "source": "test_mature_buck_integration.py",
+      "destination": "archive/tests/test_mature_buck_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.606510"
+    },
+    {
+      "source": "test_mature_buck_movement.py",
+      "destination": "archive/tests/test_mature_buck_movement.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.607028"
+    },
+    {
+      "source": "test_mcp_integration.py",
+      "destination": "archive/tests/test_mcp_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.607028"
+    },
+    {
+      "source": "test_multiple_locations.py",
+      "destination": "archive/tests/test_multiple_locations.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.607546"
+    },
+    {
+      "source": "test_password_protection.py",
+      "destination": "archive/tests/test_password_protection.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.607546"
+    },
+    {
+      "source": "test_prediction_logic.py",
+      "destination": "archive/tests/test_prediction_logic.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.608055"
+    },
+    {
+      "source": "test_pressure_calculations.py",
+      "destination": "archive/tests/test_pressure_calculations.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.608055"
+    },
+    {
+      "source": "test_real_gpx.py",
+      "destination": "archive/tests/test_real_gpx.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.608573"
+    },
+    {
+      "source": "test_real_osm_integration.py",
+      "destination": "archive/tests/test_real_osm_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.609084"
+    },
+    {
+      "source": "test_remote_mature_buck.py",
+      "destination": "archive/tests/test_remote_mature_buck.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.609084"
+    },
+    {
+      "source": "test_road_calculations.py",
+      "destination": "archive/tests/test_road_calculations.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.609606"
+    },
+    {
+      "source": "test_scouting_api.py",
+      "destination": "archive/tests/test_scouting_api.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.609606"
+    },
+    {
+      "source": "test_simple_map_change.py",
+      "destination": "archive/tests/test_simple_map_change.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.610137"
+    },
+    {
+      "source": "test_simple_variations.py",
+      "destination": "archive/tests/test_simple_variations.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.610137"
+    },
+    {
+      "source": "test_single_mature_buck.py",
+      "destination": "archive/tests/test_single_mature_buck.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.610656"
+    },
+    {
+      "source": "test_terrain_scores_api.py",
+      "destination": "archive/tests/test_terrain_scores_api.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.610656"
+    },
+    {
+      "source": "test_thermal_integration.py",
+      "destination": "archive/tests/test_thermal_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.611182"
+    },
+    {
+      "source": "test_trail_cameras.py",
+      "destination": "archive/tests/test_trail_cameras.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.611182"
+    },
+    {
+      "source": "test_vermont_oak_flats.py",
+      "destination": "archive/tests/test_vermont_oak_flats.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.611710"
+    },
+    {
+      "source": "button_positioning_test.py",
+      "destination": "archive/tests/button_positioning_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.612228"
+    },
+    {
+      "source": "comprehensive_final_test.py",
+      "destination": "archive/tests/comprehensive_final_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.612228"
+    },
+    {
+      "source": "comprehensive_system_test.py",
+      "destination": "archive/tests/comprehensive_system_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.612752"
+    },
+    {
+      "source": "confidence_test.py",
+      "destination": "archive/tests/confidence_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.613273"
+    },
+    {
+      "source": "frontend_display_test.py",
+      "destination": "archive/tests/frontend_display_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.613273"
+    },
+    {
+      "source": "location_variation_test.py",
+      "destination": "archive/tests/location_variation_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.613273"
+    },
+    {
+      "source": "marker_accuracy_test.py",
+      "destination": "archive/tests/marker_accuracy_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.614277"
+    },
+    {
+      "source": "mature_buck_display_test.py",
+      "destination": "archive/tests/mature_buck_display_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.614780"
+    },
+    {
+      "source": "quick_deployment_test.py",
+      "destination": "archive/tests/quick_deployment_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.614780"
+    },
+    {
+      "source": "single_debug_test.py",
+      "destination": "archive/tests/single_debug_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.614780"
+    },
+    {
+      "source": "terrain_scores_test.py",
+      "destination": "archive/tests/terrain_scores_test.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.614780"
+    },
+    {
+      "source": "comprehensive_testing_suite.py",
+      "destination": "archive/tests/comprehensive_testing_suite.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.616295"
+    },
+    {
+      "source": "comprehensive_backend_validation.py",
+      "destination": "archive/tests/comprehensive_backend_validation.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.616295"
+    },
+    {
+      "source": "quick_backend_validation.py",
+      "destination": "archive/tests/quick_backend_validation.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.616295"
+    },
+    {
+      "source": "quick_validation_script.py",
+      "destination": "archive/tests/quick_validation_script.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.617296"
+    },
+    {
+      "source": "feature_generation_diagnostic.py",
+      "destination": "archive/tests/feature_generation_diagnostic.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.618063"
+    },
+    {
+      "source": "marker_alignment_diagnostic.py",
+      "destination": "archive/tests/marker_alignment_diagnostic.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.618063"
+    },
+    {
+      "source": "safe_gpx_diagnostic.py",
+      "destination": "archive/tests/safe_gpx_diagnostic.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.618063"
+    },
+    {
+      "source": "check_gee_activation.py",
+      "destination": "archive/tests/check_gee_activation.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.618063"
+    },
+    {
+      "source": "verify_all_algorithms.py",
+      "destination": "archive/tests/verify_all_algorithms.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.619567"
+    },
+    {
+      "source": "verify_v2_deployment.py",
+      "destination": "archive/tests/verify_v2_deployment.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.619567"
+    },
+    {
+      "source": "debug_api_endpoints.py",
+      "destination": "archive/tests/debug_api_endpoints.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.619567"
+    },
+    {
+      "source": "debug_consolidation.py",
+      "destination": "archive/tests/debug_consolidation.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.620572"
+    },
+    {
+      "source": "debug_integration.py",
+      "destination": "archive/tests/debug_integration.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.620572"
+    },
+    {
+      "source": "debug_mature_buck_direct.py",
+      "destination": "archive/tests/debug_mature_buck_direct.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.620572"
+    },
+    {
+      "source": "debug_tool.py",
+      "destination": "archive/tests/debug_tool.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.621573"
+    },
+    {
+      "source": "metadata_fix_verification.py",
+      "destination": "archive/tests/metadata_fix_verification.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.622575"
+    },
+    {
+      "source": "safe_fix_plan.py",
+      "destination": "archive/tests/safe_fix_plan.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.622575"
+    },
+    {
+      "source": "terrain_scores_fix_plan.py",
+      "destination": "archive/tests/terrain_scores_fix_plan.py",
+      "reason": "Test file",
+      "timestamp": "2025-08-26T08:01:19.622575"
+    },
+    {
+      "source": "ACTIVATION_QUICK_REF.md",
+      "destination": "archive/documentation/ACTIVATION_QUICK_REF.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.623573"
+    },
+    {
+      "source": "ADVANCED_MAP_POINTS_PLAN.md",
+      "destination": "archive/documentation/ADVANCED_MAP_POINTS_PLAN.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.623573"
+    },
+    {
+      "source": "AGENTS.md",
+      "destination": "archive/documentation/AGENTS.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.624575"
+    },
+    {
+      "source": "AGENTS_MD_IMPLEMENTATION_GUIDE.md",
+      "destination": "archive/documentation/AGENTS_MD_IMPLEMENTATION_GUIDE.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.624575"
+    },
+    {
+      "source": "ANALYTICS_README.md",
+      "destination": "archive/documentation/ANALYTICS_README.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.645952"
+    },
+    {
+      "source": "CLEANUP_SUMMARY_REPORT.md",
+      "destination": "archive/documentation/CLEANUP_SUMMARY_REPORT.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.645952"
+    },
+    {
+      "source": "CLOUDFLARE_TUNNEL_OPTION.md",
+      "destination": "archive/documentation/CLOUDFLARE_TUNNEL_OPTION.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.646961"
+    },
+    {
+      "source": "CODEBASE_IMPROVEMENT_PLAN.md",
+      "destination": "archive/documentation/CODEBASE_IMPROVEMENT_PLAN.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.646961"
+    },
+    {
+      "source": "COLLABORATIVE_AI_PROMPT_TEMPLATE.md",
+      "destination": "archive/documentation/COLLABORATIVE_AI_PROMPT_TEMPLATE.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.647963"
+    },
+    {
+      "source": "COMPREHENSIVE_TESTING_PLAN.md",
+      "destination": "archive/documentation/COMPREHENSIVE_TESTING_PLAN.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.647963"
+    },
+    {
+      "source": "CONFIGURATION_MANAGEMENT.md",
+      "destination": "archive/documentation/CONFIGURATION_MANAGEMENT.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.648962"
+    },
+    {
+      "source": "CORE_PLUS_SATELLITE_DEPLOYMENT.md",
+      "destination": "archive/documentation/CORE_PLUS_SATELLITE_DEPLOYMENT.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.648962"
+    },
+    {
+      "source": "DOCKER_DEPLOYMENT.md",
+      "destination": "archive/documentation/DOCKER_DEPLOYMENT.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.648962"
+    },
+    {
+      "source": "ENHANCED_FEATURES_EXPLAINED.md",
+      "destination": "archive/documentation/ENHANCED_FEATURES_EXPLAINED.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.648962"
+    },
+    {
+      "source": "FINAL_STEP_GEE_REGISTRATION.md",
+      "destination": "archive/documentation/FINAL_STEP_GEE_REGISTRATION.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.650467"
+    },
+    {
+      "source": "FRONTEND_BACKEND_VERIFIED.md",
+      "destination": "archive/documentation/FRONTEND_BACKEND_VERIFIED.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.650467"
+    },
+    {
+      "source": "GEE_AUTHORIZATION_GUIDE.md",
+      "destination": "archive/documentation/GEE_AUTHORIZATION_GUIDE.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.651473"
+    },
+    {
+      "source": "GEE_SETUP_CHECKLIST.md",
+      "destination": "archive/documentation/GEE_SETUP_CHECKLIST.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.652479"
+    },
+    {
+      "source": "GOOGLE_EARTH_ENGINE_ADVANTAGES.md",
+      "destination": "archive/documentation/GOOGLE_EARTH_ENGINE_ADVANTAGES.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.652479"
+    },
+    {
+      "source": "GOOGLE_EARTH_ENGINE_ANALYSIS.md",
+      "destination": "archive/documentation/GOOGLE_EARTH_ENGINE_ANALYSIS.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.652479"
+    },
+    {
+      "source": "MATURE_BUCK_FIX_PLAN.md",
+      "destination": "archive/documentation/MATURE_BUCK_FIX_PLAN.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.653473"
+    },
+    {
+      "source": "MATURE_BUCK_FRONTEND_VERIFIED.md",
+      "destination": "archive/documentation/MATURE_BUCK_FRONTEND_VERIFIED.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.653473"
+    },
+    {
+      "source": "RAILWAY_DEPLOYMENT_INSTRUCTIONS.md",
+      "destination": "archive/documentation/RAILWAY_DEPLOYMENT_INSTRUCTIONS.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.653473"
+    },
+    {
+      "source": "READY_TO_PROCEED.md",
+      "destination": "archive/documentation/READY_TO_PROCEED.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.654472"
+    },
+    {
+      "source": "REFACTORING_PLAN.md",
+      "destination": "archive/documentation/REFACTORING_PLAN.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.654472"
+    },
+    {
+      "source": "REFACTORING_PLAN_DEER_SPECIFIC.md",
+      "destination": "archive/documentation/REFACTORING_PLAN_DEER_SPECIFIC.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.654472"
+    },
+    {
+      "source": "RELEASE_NOTES_v2.0.md",
+      "destination": "archive/documentation/RELEASE_NOTES_v2.0.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.654472"
+    },
+    {
+      "source": "SATELLITE_SETUP_SIMPLIFIED.md",
+      "destination": "archive/documentation/SATELLITE_SETUP_SIMPLIFIED.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.655474"
+    },
+    {
+      "source": "SECURITY_CLEANUP_COMPLETION_REPORT.md",
+      "destination": "archive/documentation/SECURITY_CLEANUP_COMPLETION_REPORT.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.655474"
+    },
+    {
+      "source": "streamlit_deployment_guide.md",
+      "destination": "archive/documentation/streamlit_deployment_guide.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.655474"
+    },
+    {
+      "source": "SYSTEM_STATUS.md",
+      "destination": "archive/documentation/SYSTEM_STATUS.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.655474"
+    },
+    {
+      "source": "VERMONT_ENHANCEMENTS.md",
+      "destination": "archive/documentation/VERMONT_ENHANCEMENTS.md",
+      "reason": "Documentation",
+      "timestamp": "2025-08-26T08:01:19.656472"
+    },
+    {
+      "source": "codebase_analysis_report.txt",
+      "destination": "archive/reports/codebase_analysis_report.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.657474"
+    },
+    {
+      "source": "pylint_backend_report.txt",
+      "destination": "archive/reports/pylint_backend_report.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.657474"
+    },
+    {
+      "source": "pylint_frontend_report.txt",
+      "destination": "archive/reports/pylint_frontend_report.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.658248"
+    },
+    {
+      "source": "vulture_report.txt",
+      "destination": "archive/reports/vulture_report.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.658248"
+    },
+    {
+      "source": "vulture_report_new.txt",
+      "destination": "archive/reports/vulture_report_new.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.658248"
+    },
+    {
+      "source": "vulture_report_verbose.txt",
+      "destination": "archive/reports/vulture_report_verbose.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.659254"
+    },
+    {
+      "source": "cleanup_report.json",
+      "destination": "archive/reports/cleanup_report.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.659254"
+    },
+    {
+      "source": "comprehensive_test_report_20250824_193130.json",
+      "destination": "archive/reports/comprehensive_test_report_20250824_193130.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.659254"
+    },
+    {
+      "source": "comprehensive_test_report_20250824_193300.json",
+      "destination": "archive/reports/comprehensive_test_report_20250824_193300.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.659254"
+    },
+    {
+      "source": "test_report.json",
+      "destination": "archive/reports/test_report.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.659254"
+    },
+    {
+      "source": "codebase_analysis_results.json",
+      "destination": "archive/reports/codebase_analysis_results.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.660758"
+    },
+    {
+      "source": "code_analysis_results.json",
+      "destination": "archive/reports/code_analysis_results.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.661290"
+    },
+    {
+      "source": "enhanced_prediction_validation_results.json",
+      "destination": "archive/reports/enhanced_prediction_validation_results.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.661290"
+    },
+    {
+      "source": "prediction_validation_results.json",
+      "destination": "archive/reports/prediction_validation_results.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.661290"
+    },
+    {
+      "source": "quick_validation_results_20250817_202531.json",
+      "destination": "archive/reports/quick_validation_results_20250817_202531.json",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.662294"
+    },
+    {
+      "source": "documentation_analysis_results.txt",
+      "destination": "archive/reports/documentation_analysis_results.txt",
+      "reason": "Analysis report",
+      "timestamp": "2025-08-26T08:01:19.663297"
+    },
+    {
+      "source": "analyze_docs.py",
+      "destination": "archive/scripts/analyze_docs.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.664297"
+    },
+    {
+      "source": "analyze_gpx_content.py",
+      "destination": "archive/scripts/analyze_gpx_content.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.664297"
+    },
+    {
+      "source": "analyze_user_gpx.py",
+      "destination": "archive/scripts/analyze_user_gpx.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.665295"
+    },
+    {
+      "source": "camera_api_integration.py",
+      "destination": "archive/scripts/camera_api_integration.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.666296"
+    },
+    {
+      "source": "camera_demo_server.py",
+      "destination": "archive/scripts/camera_demo_server.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.668296"
+    },
+    {
+      "source": "demo_heatmap.py",
+      "destination": "archive/scripts/demo_heatmap.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.668296"
+    },
+    {
+      "source": "demo_scouting_system.py",
+      "destination": "archive/scripts/demo_scouting_system.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.668296"
+    },
+    {
+      "source": "dev.py",
+      "destination": "archive/scripts/dev.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.669296"
+    },
+    {
+      "source": "find_encoding_errors.py",
+      "destination": "archive/scripts/find_encoding_errors.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.669296"
+    },
+    {
+      "source": "fix_docker_gee_auth.py",
+      "destination": "archive/scripts/fix_docker_gee_auth.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.670800"
+    },
+    {
+      "source": "integrate_enhanced_predictions.py",
+      "destination": "archive/scripts/integrate_enhanced_predictions.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.670800"
+    },
+    {
+      "source": "inspect_backend_response.py",
+      "destination": "archive/scripts/inspect_backend_response.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.671805"
+    },
+    {
+      "source": "oregon_adaptations.py",
+      "destination": "archive/scripts/oregon_adaptations.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.672806"
+    },
+    {
+      "source": "run_backend.py",
+      "destination": "archive/scripts/run_backend.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.672806"
+    },
+    {
+      "source": "run_comprehensive_tests.py",
+      "destination": "archive/scripts/run_comprehensive_tests.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.672806"
+    },
+    {
+      "source": "run_docker_tests.py",
+      "destination": "archive/scripts/run_docker_tests.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.673805"
+    },
+    {
+      "source": "safe_cleanup_tool.py",
+      "destination": "archive/scripts/safe_cleanup_tool.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.673805"
+    },
+    {
+      "source": "safe_dead_code_removal.py",
+      "destination": "archive/scripts/safe_dead_code_removal.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.674805"
+    },
+    {
+      "source": "setup_cloudflare_access.py",
+      "destination": "archive/scripts/setup_cloudflare_access.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.674805"
+    },
+    {
+      "source": "setup_gee_interactive.py",
+      "destination": "archive/scripts/setup_gee_interactive.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.675805"
+    },
+    {
+      "source": "start_frontend.py",
+      "destination": "archive/scripts/start_frontend.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.675805"
+    },
+    {
+      "source": "status_check.py",
+      "destination": "archive/scripts/status_check.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.676806"
+    },
+    {
+      "source": "system_assessment.py",
+      "destination": "archive/scripts/system_assessment.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.677382"
+    },
+    {
+      "source": "user_management.py",
+      "destination": "archive/scripts/user_management.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.678386"
+    },
+    {
+      "source": "validate_docker_gee.py",
+      "destination": "archive/scripts/validate_docker_gee.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.678386"
+    },
+    {
+      "source": "validate_prediction_pipeline.py",
+      "destination": "archive/scripts/validate_prediction_pipeline.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.679386"
+    },
+    {
+      "source": "validate_refactoring.py",
+      "destination": "archive/scripts/validate_refactoring.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.679386"
+    },
+    {
+      "source": "comprehensive_codebase_analysis.py",
+      "destination": "archive/scripts/comprehensive_codebase_analysis.py",
+      "reason": "Utility script",
+      "timestamp": "2025-08-26T08:01:19.680893"
+    },
+    {
+      "source": "deploy.ps1",
+      "destination": "archive/deployment/deploy.ps1",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.681898"
+    },
+    {
+      "source": "deploy.sh",
+      "destination": "archive/deployment/deploy.sh",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.681898"
+    },
+    {
+      "source": "railway_deployment_setup.py",
+      "destination": "archive/deployment/railway_deployment_setup.py",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.681898"
+    },
+    {
+      "source": "gee_docker_setup.py",
+      "destination": "archive/deployment/gee_docker_setup.py",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.683253"
+    },
+    {
+      "source": "cloudflare-access-setup.sh",
+      "destination": "archive/deployment/cloudflare-access-setup.sh",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.683757"
+    },
+    {
+      "source": "cloudflare-config.yml",
+      "destination": "archive/deployment/cloudflare-config.yml",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.684273"
+    },
+    {
+      "source": "setup-cloudflare-tunnel.ps1",
+      "destination": "archive/deployment/setup-cloudflare-tunnel.ps1",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.684795"
+    },
+    {
+      "source": "Dockerfile.new",
+      "destination": "archive/deployment/Dockerfile.new",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.685315"
+    },
+    {
+      "source": "Dockerfile.railway",
+      "destination": "archive/deployment/Dockerfile.railway",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.685850"
+    },
+    {
+      "source": "docker-compose.cloudflare.yml",
+      "destination": "archive/deployment/docker-compose.cloudflare.yml",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.686380"
+    },
+    {
+      "source": "docker-compose.monitoring.yml",
+      "destination": "archive/deployment/docker-compose.monitoring.yml",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.686903"
+    },
+    {
+      "source": "railway.json",
+      "destination": "archive/deployment/railway.json",
+      "reason": "Deployment file",
+      "timestamp": "2025-08-26T08:01:19.686903"
+    },
+    {
+      "source": "manage-deer-app.bat",
+      "destination": "archive/scripts/manage-deer-app.bat",
+      "reason": "Batch script",
+      "timestamp": "2025-08-26T08:01:19.687946"
+    },
+    {
+      "source": "start-complete-app.bat",
+      "destination": "archive/scripts/start-complete-app.bat",
+      "reason": "Batch script",
+      "timestamp": "2025-08-26T08:01:19.687946"
+    },
+    {
+      "source": "start-deer-app.bat",
+      "destination": "archive/scripts/start-deer-app.bat",
+      "reason": "Batch script",
+      "timestamp": "2025-08-26T08:01:19.688481"
+    },
+    {
+      "source": "start_camera_demo.bat",
+      "destination": "archive/scripts/start_camera_demo.bat",
+      "reason": "Batch script",
+      "timestamp": "2025-08-26T08:01:19.689004"
+    },
+    {
+      "source": "stop-deer-app.bat",
+      "destination": "archive/scripts/stop-deer-app.bat",
+      "reason": "Batch script",
+      "timestamp": "2025-08-26T08:01:19.689004"
+    },
+    {
+      "source": "deer-app.ps1",
+      "destination": "archive/scripts/deer-app.ps1",
+      "reason": "PowerShell script",
+      "timestamp": "2025-08-26T08:01:19.689524"
+    },
+    {
+      "source": "pyproject.toml",
+      "destination": "archive/old_configs/pyproject.toml",
+      "reason": "Old config",
+      "timestamp": "2025-08-26T08:01:19.690048"
+    },
+    {
+      "source": "nginx.conf",
+      "destination": "archive/old_configs/nginx.conf",
+      "reason": "Old config",
+      "timestamp": "2025-08-26T08:01:19.690048"
+    },
+    {
+      "source": "requirements-test.txt",
+      "destination": "archive/old_configs/requirements-test.txt",
+      "reason": "Old config",
+      "timestamp": "2025-08-26T08:01:19.691086"
+    },
+    {
+      "source": "requirements_phase2.txt",
+      "destination": "archive/old_configs/requirements_phase2.txt",
+      "reason": "Old config",
+      "timestamp": "2025-08-26T08:01:19.691086"
+    },
+    {
+      "source": "analytics_requirements.txt",
+      "destination": "archive/old_configs/analytics_requirements.txt",
+      "reason": "Old config",
+      "timestamp": "2025-08-26T08:01:19.691609"
+    },
+    {
+      "source": "__pycache__",
+      "destination": "DELETED",
+      "reason": "Cache directory",
+      "timestamp": "2025-08-26T08:01:19.692656"
+    },
+    {
+      "source": ".coverage",
+      "destination": "DELETED",
+      "reason": "Temporary file",
+      "timestamp": "2025-08-26T08:01:19.693186"
+    }
+  ]
+}

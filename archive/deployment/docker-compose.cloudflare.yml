@@ -1,0 +1,38 @@
+# Cloudflare Tunnel Integration for Docker Compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.cloudflare.yml up
+
+version: '3.8'
+
+services:
+  # Add Cloudflare tunnel as a service
+  cloudflare-tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run deer-hunting-app
+    volumes:
+      - ./cloudflare-config.yml:/etc/cloudflared/config.yml:ro
+      - C:\Users\Rich\.cloudflared\a38703ab-7f10-4b0b-a667-32bcd0860b4c.json:/etc/cloudflared/credentials.json:ro
+    restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - deer-pred-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+  # Keep backend accessible locally for development
+  backend:
+    ports:
+      - "8000:8000"  # Keep for local API access
+
+  # Frontend no longer needs external port (tunnel handles it)
+  frontend:
+    ports: []  # Remove external port exposure - tunnel will handle routing
+
+networks:
+  deer-pred-network:

@@ -1,0 +1,31 @@
+# Development Configuration
+# Inherits from defaults.yaml with development-specific overrides
+
+deer_prediction_config:
+  version: "1.0.0-dev"
+  description: "Development environment configuration"
+  
+  # Development-specific overrides
+  api_settings:
+    suggestion_threshold: 3.0          # Lower threshold for more suggestions in dev
+    min_suggestion_rating: 6.0         # Lower minimum for testing
+    
+  # More verbose scoring for development debugging
+  scoring_factors:
+    confidence_bonuses:
+      thick_cover_bonus: 20.0          # Slightly lower for testing edge cases
+      
+  # Machine learning parameters for development
+  ml_parameters:
+    model_confidence_threshold: 0.5     # Lower threshold for development testing
+    training_data_min_samples: 50      # Fewer samples needed for dev testing
+    
+  # Development validation (more lenient)
+  validation:
+    confidence_range: [-10, 110]       # Allow out-of-range for testing
+    
+  # Enable debug features
+  debug:
+    enable_detailed_logging: true
+    enable_parameter_tracking: true
+    enable_confidence_breakdown: true

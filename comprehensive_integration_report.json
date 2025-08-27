@@ -1,0 +1,288 @@
+{
+  "start_time": "2025-08-26T20:24:02.024656",
+  "phases": {
+    "phase_1": {
+      "gee_connectivity": false,
+      "weather_api_success": true,
+      "spatial_data_processing": true,
+      "backend_api_accessible": true,
+      "success_rate": 75.0
+    },
+    "phase_2": {
+      "total_scenarios": 27,
+      "passed_scenarios": 27,
+      "accuracy_percentage": 100.0,
+      "detailed_results": [
+        {
+          "scenario": "early_season_07h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_07h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_07h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_13h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_13h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_13h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_18h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_18h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "early_season_18h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_07h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_07h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_07h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_13h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_13h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_13h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_18h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_18h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "rut_18h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_07h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_07h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_07h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_13h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_13h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_13h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_18h_low",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_18h_moderate",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        },
+        {
+          "scenario": "late_season_18h_high",
+          "passed": true,
+          "issues": [],
+          "confidence": 1.0
+        }
+      ]
+    },
+    "phase_3": {
+      "total_tests": 4,
+      "passed_tests": 3,
+      "accuracy_percentage": 75.0,
+      "test_results": [
+        {
+          "name": "Cold Front Response",
+          "passed": false,
+          "issues": [
+            "Missing weather trigger: increased movement"
+          ]
+        },
+        {
+          "name": "High Wind Bedding",
+          "passed": true,
+          "issues": []
+        },
+        {
+          "name": "Thermal Bedding (Cold)",
+          "passed": true,
+          "issues": []
+        },
+        {
+          "name": "Thermal Bedding (Hot)",
+          "passed": true,
+          "issues": []
+        }
+      ]
+    },
+    "phase_4": {
+      "total_locations": 5,
+      "successful_locations": 5,
+      "accuracy_percentage": 100.0,
+      "location_results": [
+        {
+          "name": "Tinmouth Ridge",
+          "coordinates": "43.3127, -73.2271",
+          "terrain": "ridge",
+          "passed": true,
+          "spatial_score": 0.8,
+          "weather_source": "open-meteo",
+          "confidence": 1.0,
+          "issues": []
+        },
+        {
+          "name": "Mount Tabor Valley",
+          "coordinates": "43.3306, -72.9417",
+          "terrain": "valley",
+          "passed": true,
+          "spatial_score": 0.8,
+          "weather_source": "open-meteo",
+          "confidence": 1.0,
+          "issues": []
+        },
+        {
+          "name": "Killington Agricultural",
+          "coordinates": "43.6042, -72.8092",
+          "terrain": "agricultural",
+          "passed": true,
+          "spatial_score": 0.8,
+          "weather_source": "open-meteo",
+          "confidence": 1.0,
+          "issues": []
+        },
+        {
+          "name": "Stratton Forest",
+          "coordinates": "43.1142, -72.9081",
+          "terrain": "dense_forest",
+          "passed": true,
+          "spatial_score": 0.8,
+          "weather_source": "open-meteo",
+          "confidence": 1.0,
+          "issues": []
+        },
+        {
+          "name": "Green Mountain Mixed",
+          "coordinates": "43.2917, -72.8833",
+          "terrain": "mixed",
+          "passed": true,
+          "spatial_score": 0.8,
+          "weather_source": "open-meteo",
+          "confidence": 1.0,
+          "issues": []
+        }
+      ]
+    },
+    "phase_5": {
+      "total_tests": 4,
+      "passed_tests": 1,
+      "accuracy_percentage": 25.0,
+      "integration_results": {
+        "frontend_accessible": true,
+        "api_integration": false,
+        "bedding_maps_working": false,
+        "real_time_data_flow": false
+      }
+    }
+  },
+  "overall_success": false,
+  "recommendations": [
+    "Significant fixes needed before deployment",
+    "Fix system component connectivity issues",
+    "Improve environmental integration accuracy",
+    "Fix frontend integration problems"
+  ],
+  "overall_accuracy": 60.0,
+  "end_time": "2025-08-26T20:24:52.488195",
+  "duration_minutes": 0.8410589833333333
+}

@@ -1,0 +1,6434 @@
+{
+  "analysis_date": "2025-08-25T18:57:01.920099",
+  "total_python_files": 240,
+  "dead_code": {
+    "items": [
+      "backend\\analytics\\data_collector.py:27: unused import 'asdict' (90% confidence)",
+      "backend\\config_manager.py:30: unused import 'FileSystemEventHandler' (90% confidence)",
+      "backend\\core.py:15: unused import 'mcolors' (90% confidence)",
+      "backend\\core.py:17: unused import 'convolve' (90% confidence)",
+      "backend\\core.py:20: unused import 'score_with_context' (90% confidence)",
+      "backend\\core.py:28: unused import 'get_thermal_analyzer' (90% confidence)",
+      "backend\\core.py:755: unreachable code after 'return' (100% confidence)",
+      "backend\\enhanced_food_analyzer.py:17: unused import 'calendar' (90% confidence)",
+      "backend\\enhanced_prediction_engine.py:458: unused variable 'food' (100% confidence)",
+      "backend\\enhanced_prediction_engine.py:463: unused variable 'food' (100% confidence)",
+      "backend\\enhanced_prediction_engine.py:465: unused variable 'food' (100% confidence)",
+      "backend\\enhanced_prediction_engine.py:468: unused variable 'food_factor' (100% confidence)",
+      "backend\\enhanced_prediction_engine.py:468: unused variable 'weather_factor' (100% confidence)",
+      "backend\\gpx_parser.py:405: unreachable code after 'return' (100% confidence)",
+      "backend\\main.py:33: unused import 'get_configuration_service' (90% confidence)",
+      "backend\\main_original_backup.py:28: unused import 'score_with_context' (90% confidence)",
+      "backend\\main_original_backup.py:33: unused import 'score_stand_placement' (90% confidence)",
+      "backend\\mature_buck_predictor.py:28: unused import 'score_terrain_suitability' (90% confidence)",
+      "backend\\mature_buck_predictor.py:28: unused import 'score_with_context' (90% confidence)",
+      "backend\\mature_buck_predictor.py:36: unused import 'score_terrain_suitability' (90% confidence)",
+      "backend\\mature_buck_predictor.py:36: unused import 'score_with_context' (90% confidence)",
+      "backend\\mature_buck_predictor.py:45: unused import 'score_agricultural_proximity' (90% confidence)",
+      "backend\\mature_buck_predictor.py:45: unused import 'score_escape_routes' (90% confidence)",
+      "backend\\mature_buck_predictor.py:45: unused import 'score_road_proximity' (90% confidence)",
+      "backend\\mature_buck_predictor.py:52: unused import 'score_agricultural_proximity' (90% confidence)",
+      "backend\\mature_buck_predictor.py:52: unused import 'score_escape_routes' (90% confidence)",
+      "backend\\mature_buck_predictor.py:52: unused import 'score_road_proximity' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:21: unused import 'pd' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:42: unused import 'cross_val_score' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:42: unused import 'train_test_split' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:44: unused import 'accuracy_score' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:44: unused import 'classification_report' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:44: unused import 'mean_squared_error' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:45: unused import 'joblib' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:60: unused import 'cross_val_score' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:60: unused import 'train_test_split' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:62: unused import 'accuracy_score' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:62: unused import 'classification_report' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:62: unused import 'mean_squared_error' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:63: unused import 'joblib' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:72: unused import 'BuckAgeClass' (90% confidence)",
+      "backend\\ml_enhanced_predictor.py:468: unused variable 'record_index' (100% confidence)",
+      "backend\\services\\base_service.py:13: unused import 'abstractmethod' (90% confidence)",
+      "backend\\services\\prediction_service.py:32: unused import 'score_with_context' (90% confidence)",
+      "backend\\services\\prediction_service.py:33: unused import 'score_stand_placement' (90% confidence)",
+      "backend\\services\\prediction_service.py:1453: unreachable code after 'return' (100% confidence)",
+      "backend\\services\\service_container.py:14: unused import 'abstractmethod' (90% confidence)",
+      "backend\\start_dashboard.py:26: unused import 'asynccontextmanager' (90% confidence)",
+      "backend\\start_dashboard.py:163: unused variable 'frame' (100% confidence)",
+      "backend\\start_dashboard.py:209: unused import 'fastapi' (90% confidence)",
+      "backend\\terrain_analyzer.py:21: unused import 'pd' (90% confidence)",
+      "backend\\terrain_analyzer.py:22: unused import 'gpd' (90% confidence)",
+      "backend\\terrain_analyzer.py:24: unused import 'ndimage' (90% confidence)",
+      "backend\\terrain_analyzer.py:25: unused import 'cdist' (90% confidence)",
+      "backend\\test_ml_integration.py:31: unused import 'pd' (90% confidence)",
+      "backend\\test_ml_integration.py:40: unused import 'joblib' (90% confidence)",
+      "backend\\tests\\test_framework.py:24: unused import 'tempfile' (90% confidence)",
+      "backend\\tests\\test_framework.py:26: unused import 'Generator' (90% confidence)",
+      "backend\\tests\\test_framework.py:37: unused import 'SubFactory' (90% confidence)",
+      "backend\\tests\\test_framework.py:390: unused variable 'should_warn' (100% confidence)",
+      "backend\\vegetation_analyzer.py:651: unused variable 'end' (100% confidence)",
+      "backend\\visualization_system.py:22: unused import 'mcolors' (90% confidence)",
+      "backend\\wind_analysis.py:22: unused import 'pd' (90% confidence)",
+      "camera_demo_server.py:11: unused import 'StaticFiles' (90% confidence)",
+      "camera_demo_server.py:12: unused import 'FileResponse' (90% confidence)",
+      "demo_heatmap.py:8: unused import 'mcolors' (90% confidence)",
+      "frontend\\app.py:10: unused import 'OVERLAY_SOURCES' (90% confidence)",
+      "frontend\\app_backup.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+      "frontend\\app_complex.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+      "frontend\\app_new.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+      "test_thermal_integration.py:19: unused import 'get_thermal_analyzer' (90% confidence)",
+      "validate_prediction_pipeline.py:16: unused import 'pd' (90% confidence)",
+      "validate_refactoring.py:145: unused import 'backend' (90% confidence)",
+      "validate_refactoring.py:149: unused import 'backend' (90% confidence)"
+    ],
+    "count": 74
+  },
+  "large_functions": [
+    {
+      "file": "test_deer_approach_fix.py",
+      "function": "calculate_terrain_based_deer_approach",
+      "lines": 81,
+      "start_line": 12
+    },
+    {
+      "file": "test_deer_approach_fix.py",
+      "function": "enhanced_deer_approach_calculation",
+      "lines": 55,
+      "start_line": 95
+    },
+    {
+      "file": "test_deer_approach_fix.py",
+      "function": "test_deer_approach_calculations",
+      "lines": 74,
+      "start_line": 168
+    },
+    {
+      "file": "test_api_ml.py",
+      "function": "test_ml_enhanced_prediction",
+      "lines": 61,
+      "start_line": 32
+    },
+    {
+      "file": "test_api_ml.py",
+      "function": "test_standard_prediction",
+      "lines": 51,
+      "start_line": 95
+    },
+    {
+      "file": "safe_fix_plan.py",
+      "function": "create_improved_ndvi_method",
+      "lines": 86,
+      "start_line": 13
+    },
+    {
+      "file": "test_remote_mature_buck.py",
+      "function": "test_remote_location",
+      "lines": 71,
+      "start_line": 10
+    },
+    {
+      "file": "backend\\gpx_parser.py",
+      "function": "__init__",
+      "lines": 131,
+      "start_line": 29
+    },
+    {
+      "file": "backend\\gpx_parser.py",
+      "function": "_determine_observation_type",
+      "lines": 52,
+      "start_line": 357
+    },
+    {
+      "file": "test_map_fix.py",
+      "function": "test_map_consistency_fix",
+      "lines": 69,
+      "start_line": 9
+    },
+    {
+      "file": "test_thermal_integration.py",
+      "function": "test_thermal_integration",
+      "lines": 173,
+      "start_line": 26
+    },
+    {
+      "file": "test_api_integration.py",
+      "function": "test_main_api_integration",
+      "lines": 69,
+      "start_line": 16
+    },
+    {
+      "file": "verify_all_algorithms.py",
+      "function": "verify_all_map_algorithms",
+      "lines": 122,
+      "start_line": 7
+    },
+    {
+      "file": "test_final_comprehensive.py",
+      "function": "validate_deer_activity_logic",
+      "lines": 202,
+      "start_line": 42
+    },
+    {
+      "file": "test_final_comprehensive.py",
+      "function": "main",
+      "lines": 153,
+      "start_line": 246
+    },
+    {
+      "file": "enhanced_stand_demo.py",
+      "function": "demo_enhanced_stand_analysis",
+      "lines": 155,
+      "start_line": 10
+    },
+    {
+      "file": "test_complete_integration.py",
+      "function": "test_complete_integration",
+      "lines": 151,
+      "start_line": 13
+    },
+    {
+      "file": "test_vermont_oak_flats.py",
+      "function": "test_vermont_vegetation",
+      "lines": 58,
+      "start_line": 9
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "find_high_score_locations",
+      "lines": 66,
+      "start_line": 236
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "generate_zone_based_patterns",
+      "lines": 82,
+      "start_line": 304
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "get_five_best_stand_locations_enhanced",
+      "lines": 109,
+      "start_line": 388
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "get_five_best_stand_locations",
+      "lines": 132,
+      "start_line": 499
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "calculate_stand_confidence_with_thermals",
+      "lines": 54,
+      "start_line": 675
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "find_nearest_road_access",
+      "lines": 54,
+      "start_line": 818
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "calculate_access_route",
+      "lines": 67,
+      "start_line": 934
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "analyze_route_terrain",
+      "lines": 66,
+      "start_line": 1003
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "calculate_route_wind_impact",
+      "lines": 61,
+      "start_line": 1071
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "generate_route_recommendations",
+      "lines": 55,
+      "start_line": 1244
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "calculate_thermal_wind_effect",
+      "lines": 84,
+      "start_line": 1370
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "compute_hourly_hunt_schedule",
+      "lines": 77,
+      "start_line": 1457
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "get_stand_placement_recommendations",
+      "lines": 113,
+      "start_line": 1645
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "generate_mature_buck_predictions",
+      "lines": 108,
+      "start_line": 1830
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "create_simple_geojson_features",
+      "lines": 70,
+      "start_line": 2008
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "predict_movement",
+      "lines": 537,
+      "start_line": 2081
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "get_trail_camera_placements",
+      "lines": 124,
+      "start_line": 2685
+    },
+    {
+      "file": "backend\\main_original_backup.py",
+      "function": "get_optimal_camera_placement",
+      "lines": 116,
+      "start_line": 2812
+    },
+    {
+      "file": "test_enhanced_stand_analysis.py",
+      "function": "test_enhanced_stand_analysis",
+      "lines": 115,
+      "start_line": 10
+    },
+    {
+      "file": "backend\\config_manager.py",
+      "function": "_load_config",
+      "lines": 77,
+      "start_line": 125
+    },
+    {
+      "file": "backend\\config_manager.py",
+      "function": "_apply_env_overrides",
+      "lines": 69,
+      "start_line": 236
+    },
+    {
+      "file": "backend\\config_manager.py",
+      "function": "_validate_config",
+      "lines": 168,
+      "start_line": 315
+    },
+    {
+      "file": "comprehensive_backend_validation.py",
+      "function": "test_prediction_accuracy",
+      "lines": 89,
+      "start_line": 61
+    },
+    {
+      "file": "comprehensive_backend_validation.py",
+      "function": "test_seasonal_variations",
+      "lines": 61,
+      "start_line": 152
+    },
+    {
+      "file": "comprehensive_backend_validation.py",
+      "function": "test_data_consistency",
+      "lines": 54,
+      "start_line": 343
+    },
+    {
+      "file": "comprehensive_backend_validation.py",
+      "function": "run_all_tests",
+      "lines": 51,
+      "start_line": 419
+    },
+    {
+      "file": "backend\\scoring_engine.py",
+      "function": "calculate_terrain_scores",
+      "lines": 66,
+      "start_line": 256
+    },
+    {
+      "file": "test_location_variations.py",
+      "function": "test_location_specific_predictions",
+      "lines": 120,
+      "start_line": 14
+    },
+    {
+      "file": "backend\\enhanced_accuracy.py",
+      "function": "enhanced_terrain_analysis",
+      "lines": 261,
+      "start_line": 16
+    },
+    {
+      "file": "backend\\enhanced_accuracy.py",
+      "function": "enhanced_movement_prediction",
+      "lines": 136,
+      "start_line": 279
+    },
+    {
+      "file": "location_variation_test.py",
+      "function": "test_location_variations",
+      "lines": 84,
+      "start_line": 10
+    },
+    {
+      "file": "marker_accuracy_test.py",
+      "function": "test_marker_accuracy",
+      "lines": 98,
+      "start_line": 10
+    },
+    {
+      "file": "debug_enhanced_accuracy_direct.py",
+      "function": "test_enhanced_accuracy_direct",
+      "lines": 61,
+      "start_line": 12
+    },
+    {
+      "file": "test_gpx_import.py",
+      "function": "test_gpx_import",
+      "lines": 88,
+      "start_line": 11
+    },
+    {
+      "file": "setup_gee_interactive.py",
+      "function": "main",
+      "lines": 104,
+      "start_line": 33
+    },
+    {
+      "file": "test_comprehensive_terrain_scores.py",
+      "function": "test_specific_location_calculation",
+      "lines": 69,
+      "start_line": 8
+    },
+    {
+      "file": "test_comprehensive_terrain_scores.py",
+      "function": "manual_calculation_test",
+      "lines": 135,
+      "start_line": 79
+    },
+    {
+      "file": "debug_gpx_import.py",
+      "function": "debug_gpx_import",
+      "lines": 97,
+      "start_line": 11
+    },
+    {
+      "file": "backend\\scouting_prediction_enhancer.py",
+      "function": "__init__",
+      "lines": 53,
+      "start_line": 31
+    },
+    {
+      "file": "backend\\scouting_prediction_enhancer.py",
+      "function": "_apply_observation_enhancement",
+      "lines": 83,
+      "start_line": 194
+    },
+    {
+      "file": "FINAL_VALIDATION_REPORT.py",
+      "function": "generate_final_report",
+      "lines": 116,
+      "start_line": 8
+    },
+    {
+      "file": "focused_code_analysis.py",
+      "function": "categorize_project_files",
+      "lines": 53,
+      "start_line": 160
+    },
+    {
+      "file": "focused_code_analysis.py",
+      "function": "identify_cleanup_opportunities",
+      "lines": 60,
+      "start_line": 215
+    },
+    {
+      "file": "confidence_test.py",
+      "function": "test_confidence_scores",
+      "lines": 55,
+      "start_line": 10
+    },
+    {
+      "file": "validate_docker_gee.py",
+      "function": "validate_docker_setup",
+      "lines": 129,
+      "start_line": 12
+    },
+    {
+      "file": "run_docker_tests.py",
+      "function": "_test_container_health",
+      "lines": 51,
+      "start_line": 184
+    },
+    {
+      "file": "run_docker_tests.py",
+      "function": "_test_api_functionality",
+      "lines": 63,
+      "start_line": 237
+    },
+    {
+      "file": "run_docker_tests.py",
+      "function": "_test_service_integration",
+      "lines": 54,
+      "start_line": 393
+    },
+    {
+      "file": "run_docker_tests.py",
+      "function": "_test_docker_performance",
+      "lines": 58,
+      "start_line": 449
+    },
+    {
+      "file": "backend\\test_enhanced_terrain.py",
+      "function": "test_enhanced_terrain_analysis",
+      "lines": 210,
+      "start_line": 24
+    },
+    {
+      "file": "test_terrain_scores_api.py",
+      "function": "test_terrain_scores_api",
+      "lines": 129,
+      "start_line": 8
+    },
+    {
+      "file": "test_detailed_import.py",
+      "function": "test_detailed_import",
+      "lines": 77,
+      "start_line": 11
+    },
+    {
+      "file": "demo_scouting_system.py",
+      "function": "test_scouting_workflow",
+      "lines": 181,
+      "start_line": 17
+    },
+    {
+      "file": "test_frontend_mature_buck.py",
+      "function": "test_mature_buck_frontend_data",
+      "lines": 118,
+      "start_line": 9
+    },
+    {
+      "file": "backend\\wind_analysis.py",
+      "function": "fetch_current_wind_data",
+      "lines": 80,
+      "start_line": 135
+    },
+    {
+      "file": "backend\\wind_analysis.py",
+      "function": "model_scent_dispersion",
+      "lines": 55,
+      "start_line": 253
+    },
+    {
+      "file": "backend\\wind_analysis.py",
+      "function": "calculate_optimal_downwind_position",
+      "lines": 86,
+      "start_line": 310
+    },
+    {
+      "file": "backend\\wind_analysis.py",
+      "function": "get_wind_forecast",
+      "lines": 57,
+      "start_line": 484
+    },
+    {
+      "file": "test_enhanced_terrain_scores.py",
+      "function": "test_enhanced_road_distance",
+      "lines": 78,
+      "start_line": 6
+    },
+    {
+      "file": "test_enhanced_terrain_scores.py",
+      "function": "test_enhanced_pressure_resistance",
+      "lines": 99,
+      "start_line": 86
+    },
+    {
+      "file": "debug_feeding_scores.py",
+      "function": "test_feeding_scores",
+      "lines": 69,
+      "start_line": 9
+    },
+    {
+      "file": "backend\\real_osm_security.py",
+      "function": "_summarize_real_threats",
+      "lines": 53,
+      "start_line": 343
+    },
+    {
+      "file": "backend\\real_wind_deer_analysis.py",
+      "function": "_wind_travel_analysis",
+      "lines": 52,
+      "start_line": 179
+    },
+    {
+      "file": "debug_terrain_features.py",
+      "function": "debug_terrain_features",
+      "lines": 60,
+      "start_line": 8
+    },
+    {
+      "file": "backend\\enhanced_food_analyzer.py",
+      "function": "analyze_food_landscape",
+      "lines": 56,
+      "start_line": 76
+    },
+    {
+      "file": "backend\\enhanced_food_analyzer.py",
+      "function": "_analyze_mast_sources",
+      "lines": 56,
+      "start_line": 134
+    },
+    {
+      "file": "backend\\enhanced_food_analyzer.py",
+      "function": "_analyze_crop_sources",
+      "lines": 54,
+      "start_line": 192
+    },
+    {
+      "file": "backend\\enhanced_stand_placement.py",
+      "function": "find_optimal_stand_sites",
+      "lines": 55,
+      "start_line": 57
+    },
+    {
+      "file": "backend\\enhanced_stand_placement.py",
+      "function": "_analyze_stand_site",
+      "lines": 73,
+      "start_line": 114
+    },
+    {
+      "file": "backend\\services\\camera_service.py",
+      "function": "get_trail_camera_placements",
+      "lines": 71,
+      "start_line": 46
+    },
+    {
+      "file": "backend\\services\\camera_service.py",
+      "function": "get_optimal_camera_placement",
+      "lines": 79,
+      "start_line": 119
+    },
+    {
+      "file": "demo_heatmap.py",
+      "function": "create_demo_heatmap",
+      "lines": 58,
+      "start_line": 12
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_find_optimal_stand_position_for_strategy",
+      "lines": 233,
+      "start_line": 2034
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_calculate_terrain_bonus_for_strategy",
+      "lines": 58,
+      "start_line": 2269
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "generate_mature_buck_stand_recommendations",
+      "lines": 220,
+      "start_line": 2339
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_perform_standard_terrain_analysis",
+      "lines": 59,
+      "start_line": 271
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_calculate_overall_suitability_with_security",
+      "lines": 65,
+      "start_line": 485
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "predict_with_advanced_terrain_analysis",
+      "lines": 66,
+      "start_line": 656
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_apply_pressure_adjustments",
+      "lines": 71,
+      "start_line": 815
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_identify_movement_corridors",
+      "lines": 106,
+      "start_line": 1015
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_predict_bedding_locations",
+      "lines": 136,
+      "start_line": 1123
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_enhance_corridors_with_terrain_features",
+      "lines": 67,
+      "start_line": 1261
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_enhance_bedding_with_terrain_features",
+      "lines": 79,
+      "start_line": 1330
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_generate_terrain_based_stands",
+      "lines": 136,
+      "start_line": 1411
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_generate_terrain_behavioral_insights",
+      "lines": 79,
+      "start_line": 1549
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_predict_feeding_zones",
+      "lines": 165,
+      "start_line": 1630
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "_calculate_multi_zone_distances",
+      "lines": 62,
+      "start_line": 1840
+    },
+    {
+      "file": "backend\\mature_buck_predictor.py",
+      "function": "calculate_zone_proximity_scores",
+      "lines": 83,
+      "start_line": 1904
+    },
+    {
+      "file": "backend\\analytics\\data_collector.py",
+      "function": "_init_database",
+      "lines": 68,
+      "start_line": 113
+    },
+    {
+      "file": "backend\\analytics\\data_collector.py",
+      "function": "get_prediction_analytics",
+      "lines": 81,
+      "start_line": 288
+    },
+    {
+      "file": "backend\\analytics\\data_collector.py",
+      "function": "update_daily_summary",
+      "lines": 53,
+      "start_line": 413
+    },
+    {
+      "file": "code_analysis.py",
+      "function": "generate_recommendations",
+      "lines": 54,
+      "start_line": 216
+    },
+    {
+      "file": "backend\\analytics_demo.py",
+      "function": "simulate_prediction_result",
+      "lines": 56,
+      "start_line": 84
+    },
+    {
+      "file": "backend\\vegetation_analyzer.py",
+      "function": "_analyze_ndvi_improved",
+      "lines": 78,
+      "start_line": 153
+    },
+    {
+      "file": "backend\\vegetation_analyzer.py",
+      "function": "_analyze_ndvi",
+      "lines": 60,
+      "start_line": 233
+    },
+    {
+      "file": "backend\\vegetation_analyzer.py",
+      "function": "_analyze_land_cover",
+      "lines": 64,
+      "start_line": 295
+    },
+    {
+      "file": "backend\\vegetation_analyzer.py",
+      "function": "_assess_vegetation_health",
+      "lines": 81,
+      "start_line": 389
+    },
+    {
+      "file": "quick_validation.py",
+      "function": "quick_validation_test",
+      "lines": 144,
+      "start_line": 7
+    },
+    {
+      "file": "test_comprehensive_integration.py",
+      "function": "test_end_to_end_prediction",
+      "lines": 77,
+      "start_line": 27
+    },
+    {
+      "file": "test_comprehensive_integration.py",
+      "function": "test_error_handling_integration",
+      "lines": 60,
+      "start_line": 149
+    },
+    {
+      "file": "test_single_mature_buck.py",
+      "function": "test_single_prediction",
+      "lines": 101,
+      "start_line": 10
+    },
+    {
+      "file": "debug_bedding_scores.py",
+      "function": "test_bedding_scores",
+      "lines": 96,
+      "start_line": 11
+    },
+    {
+      "file": "analyze_docs.py",
+      "function": "analyze_markdown_files",
+      "lines": 58,
+      "start_line": 25
+    },
+    {
+      "file": "analyze_docs.py",
+      "function": "main",
+      "lines": 61,
+      "start_line": 137
+    },
+    {
+      "file": "test_pressure_calculations.py",
+      "function": "calculate_pressure_resistance_score",
+      "lines": 84,
+      "start_line": 6
+    },
+    {
+      "file": "analyze_gpx_content.py",
+      "function": "analyze_gpx_file_safely",
+      "lines": 94,
+      "start_line": 12
+    },
+    {
+      "file": "backend\\trail_camera_predictor.py",
+      "function": "__init__",
+      "lines": 60,
+      "start_line": 54
+    },
+    {
+      "file": "backend\\trail_camera_predictor.py",
+      "function": "predict_camera_placements",
+      "lines": 102,
+      "start_line": 116
+    },
+    {
+      "file": "backend\\trail_camera_predictor.py",
+      "function": "_predict_escape_route_cameras",
+      "lines": 81,
+      "start_line": 416
+    },
+    {
+      "file": "backend\\test_proximity_scoring.py",
+      "function": "test_proximity_scoring",
+      "lines": 140,
+      "start_line": 13
+    },
+    {
+      "file": "quick_deployment_test.py",
+      "function": "test_deployment_readiness",
+      "lines": 132,
+      "start_line": 9
+    },
+    {
+      "file": "backend\\test_wind_integration.py",
+      "function": "test_wind_integration",
+      "lines": 113,
+      "start_line": 13
+    },
+    {
+      "file": "debug_terrain_scores.py",
+      "function": "test_terrain_scores",
+      "lines": 70,
+      "start_line": 12
+    },
+    {
+      "file": "test_direct_mature_buck.py",
+      "function": "test_mature_buck_data",
+      "lines": 122,
+      "start_line": 14
+    },
+    {
+      "file": "debug_integration.py",
+      "function": "test_current_integration",
+      "lines": 56,
+      "start_line": 6
+    },
+    {
+      "file": "test_frontend_integration.py",
+      "function": "test_frontend_integration",
+      "lines": 74,
+      "start_line": 9
+    },
+    {
+      "file": "backend\\mature_buck_points_generator.py",
+      "function": "generate_optimized_points",
+      "lines": 54,
+      "start_line": 65
+    },
+    {
+      "file": "backend\\mature_buck_points_generator.py",
+      "function": "_find_primary_stand_site",
+      "lines": 56,
+      "start_line": 161
+    },
+    {
+      "file": "backend\\mature_buck_points_generator.py",
+      "function": "_find_thermal_advantage_stand",
+      "lines": 76,
+      "start_line": 219
+    },
+    {
+      "file": "backend\\mature_buck_points_generator.py",
+      "function": "_find_security_stand",
+      "lines": 51,
+      "start_line": 297
+    },
+    {
+      "file": "backend\\mature_buck_points_generator.py",
+      "function": "_find_thermal_bedding_site",
+      "lines": 51,
+      "start_line": 415
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_terrain_analysis",
+      "lines": 77,
+      "start_line": 101
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_vegetation_calculations",
+      "lines": 54,
+      "start_line": 180
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_prediction_consistency",
+      "lines": 62,
+      "start_line": 236
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_movement_patterns",
+      "lines": 83,
+      "start_line": 317
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_seasonal_behavior",
+      "lines": 64,
+      "start_line": 402
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_environmental_triggers",
+      "lines": 65,
+      "start_line": 468
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_camera_algorithm",
+      "lines": 73,
+      "start_line": 552
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_camera_positioning",
+      "lines": 82,
+      "start_line": 627
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_camera_reasoning",
+      "lines": 77,
+      "start_line": 711
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_stand_analysis_integrity",
+      "lines": 79,
+      "start_line": 803
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_map_data_integrity",
+      "lines": 71,
+      "start_line": 884
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_end_to_end_workflow",
+      "lines": 111,
+      "start_line": 970
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_test_performance_benchmarks",
+      "lines": 83,
+      "start_line": 1083
+    },
+    {
+      "file": "comprehensive_testing_suite.py",
+      "function": "_generate_comprehensive_report",
+      "lines": 115,
+      "start_line": 1168
+    },
+    {
+      "file": "run_backend.py",
+      "function": "run_backend_server",
+      "lines": 63,
+      "start_line": 13
+    },
+    {
+      "file": "test_fixed_satellite.py",
+      "function": "test_satellite_integration",
+      "lines": 60,
+      "start_line": 8
+    },
+    {
+      "file": "backend\\test_mature_buck_accuracy.py",
+      "function": "test_terrain_analysis_accuracy",
+      "lines": 76,
+      "start_line": 21
+    },
+    {
+      "file": "backend\\test_mature_buck_accuracy.py",
+      "function": "test_movement_prediction_accuracy",
+      "lines": 67,
+      "start_line": 99
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "get_prediction_service",
+      "lines": 52,
+      "start_line": 1446
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "predict",
+      "lines": 51,
+      "start_line": 209
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "_cache_terrain_features_for_thermal",
+      "lines": 54,
+      "start_line": 305
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "_integrate_gee_vegetation",
+      "lines": 62,
+      "start_line": 394
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "predict_movement",
+      "lines": 156,
+      "start_line": 809
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "generate_simple_markers",
+      "lines": 61,
+      "start_line": 1033
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "_generate_intelligent_stand_sites",
+      "lines": 186,
+      "start_line": 1096
+    },
+    {
+      "file": "backend\\services\\prediction_service.py",
+      "function": "generate_mature_buck_predictions",
+      "lines": 63,
+      "start_line": 1323
+    },
+    {
+      "file": "frontend_display_test.py",
+      "function": "test_backend_prediction",
+      "lines": 91,
+      "start_line": 16
+    },
+    {
+      "file": "frontend_display_test.py",
+      "function": "generate_frontend_test_report",
+      "lines": 69,
+      "start_line": 125
+    },
+    {
+      "file": "terrain_scores_test.py",
+      "function": "test_real_terrain_scores",
+      "lines": 52,
+      "start_line": 10
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "get_weather_data",
+      "lines": 172,
+      "start_line": 39
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "get_vegetation_grid_from_osm",
+      "lines": 148,
+      "start_line": 307
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "analyze_terrain_and_vegetation",
+      "lines": 151,
+      "start_line": 479
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "run_grid_rule_engine",
+      "lines": 117,
+      "start_line": 632
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "generate_corridors_from_scores",
+      "lines": 91,
+      "start_line": 751
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "generate_zones_from_scores",
+      "lines": 59,
+      "start_line": 844
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "create_enhanced_score_heatmap",
+      "lines": 87,
+      "start_line": 1043
+    },
+    {
+      "file": "backend\\core.py",
+      "function": "find_better_hunting_spots",
+      "lines": 92,
+      "start_line": 1142
+    },
+    {
+      "file": "quick_backend_validation.py",
+      "function": "test_prediction_quality",
+      "lines": 84,
+      "start_line": 12
+    },
+    {
+      "file": "quick_backend_validation.py",
+      "function": "test_seasonal_differences",
+      "lines": 55,
+      "start_line": 98
+    },
+    {
+      "file": "test_mature_buck_integration.py",
+      "function": "test_mature_buck_integration",
+      "lines": 97,
+      "start_line": 10
+    },
+    {
+      "file": "test_simple_variations.py",
+      "function": "test_location_variations_simple",
+      "lines": 133,
+      "start_line": 10
+    },
+    {
+      "file": "test_camera_integration.py",
+      "function": "test_camera_integration",
+      "lines": 106,
+      "start_line": 10
+    },
+    {
+      "file": "backend\\enhanced_prediction_engine.py",
+      "function": "generate_enhanced_prediction",
+      "lines": 71,
+      "start_line": 41
+    },
+    {
+      "file": "backend\\enhanced_prediction_engine.py",
+      "function": "_generate_optimal_stands",
+      "lines": 59,
+      "start_line": 352
+    },
+    {
+      "file": "backend\\test_locations.py",
+      "function": "analyze_location",
+      "lines": 80,
+      "start_line": 38
+    },
+    {
+      "file": "backend\\enhanced_security_analyzer.py",
+      "function": "analyze_security_threats",
+      "lines": 65,
+      "start_line": 53
+    },
+    {
+      "file": "backend\\enhanced_security_analyzer.py",
+      "function": "_generate_real_security_recommendations",
+      "lines": 69,
+      "start_line": 350
+    },
+    {
+      "file": "test_improved_ndvi.py",
+      "function": "test_improved_ndvi",
+      "lines": 69,
+      "start_line": 6
+    },
+    {
+      "file": "backend\\ml_enhanced_predictor.py",
+      "function": "create_feature_vector",
+      "lines": 68,
+      "start_line": 157
+    },
+    {
+      "file": "backend\\ml_enhanced_predictor.py",
+      "function": "train_models_with_data",
+      "lines": 65,
+      "start_line": 895
+    },
+    {
+      "file": "mature_buck_display_test.py",
+      "function": "test_mature_buck_display",
+      "lines": 115,
+      "start_line": 11
+    },
+    {
+      "file": "backend\\advanced_thermal_analysis.py",
+      "function": "_analyze_slope_thermal_potential",
+      "lines": 58,
+      "start_line": 191
+    },
+    {
+      "file": "backend\\advanced_thermal_analysis.py",
+      "function": "_assess_thermal_activity",
+      "lines": 60,
+      "start_line": 343
+    },
+    {
+      "file": "integrate_enhanced_predictions.py",
+      "function": "integrate_enhanced_predictions",
+      "lines": 101,
+      "start_line": 23
+    },
+    {
+      "file": "integrate_enhanced_predictions.py",
+      "function": "create_integration_summary",
+      "lines": 65,
+      "start_line": 155
+    },
+    {
+      "file": "test_enhanced_scoring_path.py",
+      "function": "test_enhanced_scoring",
+      "lines": 57,
+      "start_line": 11
+    },
+    {
+      "file": "backend_analysis_report.py",
+      "function": "analyze_backend_performance",
+      "lines": 118,
+      "start_line": 8
+    },
+    {
+      "file": "final_satellite_verification.py",
+      "function": "test_final_satellite_integration",
+      "lines": 124,
+      "start_line": 12
+    },
+    {
+      "file": "debug_mature_buck.py",
+      "function": "debug_mature_buck_scoring",
+      "lines": 86,
+      "start_line": 10
+    },
+    {
+      "file": "debug_comprehensive_flow.py",
+      "function": "comprehensive_terrain_debugging",
+      "lines": 96,
+      "start_line": 13
+    },
+    {
+      "file": "backend\\test_analytics_integration.py",
+      "function": "test_analytics_integration",
+      "lines": 108,
+      "start_line": 64
+    },
+    {
+      "file": "safe_gpx_diagnostic.py",
+      "function": "safe_diagnostic_test",
+      "lines": 92,
+      "start_line": 14
+    },
+    {
+      "file": "test_enhanced_mature_buck.py",
+      "function": "test_enhanced_spatial_predictions",
+      "lines": 149,
+      "start_line": 16
+    },
+    {
+      "file": "test_gee_integration.py",
+      "function": "display_integration_status",
+      "lines": 53,
+      "start_line": 161
+    },
+    {
+      "file": "frontend\\app.py",
+      "function": "calculate_terrain_based_deer_approach",
+      "lines": 52,
+      "start_line": 13
+    },
+    {
+      "file": "frontend\\app.py",
+      "function": "check_password",
+      "lines": 51,
+      "start_line": 131
+    },
+    {
+      "file": "fix_docker_gee_auth.py",
+      "function": "fix_docker_gee_auth",
+      "lines": 54,
+      "start_line": 13
+    },
+    {
+      "file": "verify_v2_deployment.py",
+      "function": "verify_deployment",
+      "lines": 98,
+      "start_line": 11
+    },
+    {
+      "file": "test_scouting_api.py",
+      "function": "test_scouting_api",
+      "lines": 68,
+      "start_line": 10
+    },
+    {
+      "file": "backend\\terrain_analyzer.py",
+      "function": "analyze_terrain_features",
+      "lines": 66,
+      "start_line": 158
+    },
+    {
+      "file": "backend\\terrain_analyzer.py",
+      "function": "_get_elevation_grid",
+      "lines": 57,
+      "start_line": 226
+    },
+    {
+      "file": "backend\\terrain_analyzer.py",
+      "function": "_analyze_travel_corridors",
+      "lines": 70,
+      "start_line": 569
+    },
+    {
+      "file": "backend\\terrain_analyzer.py",
+      "function": "_identify_natural_funnels",
+      "lines": 58,
+      "start_line": 641
+    },
+    {
+      "file": "backend\\terrain_analyzer.py",
+      "function": "_analyze_mature_buck_suitability",
+      "lines": 62,
+      "start_line": 1095
+    },
+    {
+      "file": "quick_validation_script.py",
+      "function": "test_mature_buck_intelligence",
+      "lines": 55,
+      "start_line": 59
+    },
+    {
+      "file": "quick_validation_script.py",
+      "function": "test_stand_analysis",
+      "lines": 84,
+      "start_line": 116
+    },
+    {
+      "file": "quick_validation_script.py",
+      "function": "test_camera_placement",
+      "lines": 67,
+      "start_line": 202
+    },
+    {
+      "file": "quick_validation_script.py",
+      "function": "test_frontend_integration",
+      "lines": 91,
+      "start_line": 271
+    },
+    {
+      "file": "quick_validation_script.py",
+      "function": "print_validation_summary",
+      "lines": 74,
+      "start_line": 364
+    },
+    {
+      "file": "comprehensive_system_test.py",
+      "function": "test_prediction_engine",
+      "lines": 72,
+      "start_line": 118
+    },
+    {
+      "file": "test_multiple_locations.py",
+      "function": "test_multiple_locations",
+      "lines": 71,
+      "start_line": 17
+    },
+    {
+      "file": "test_prediction_logic.py",
+      "function": "validate_prediction_logic",
+      "lines": 99,
+      "start_line": 38
+    },
+    {
+      "file": "test_prediction_logic.py",
+      "function": "main",
+      "lines": 69,
+      "start_line": 139
+    },
+    {
+      "file": "check_gee_activation.py",
+      "function": "check_credentials",
+      "lines": 82,
+      "start_line": 11
+    },
+    {
+      "file": "backend\\analytics\\performance_monitor.py",
+      "function": "_check_alert_conditions",
+      "lines": 62,
+      "start_line": 295
+    },
+    {
+      "file": "test_frontend_fix.py",
+      "function": "test_streamlit_integration",
+      "lines": 129,
+      "start_line": 13
+    },
+    {
+      "file": "test_real_osm_integration.py",
+      "function": "test_real_osm_backend_integration",
+      "lines": 123,
+      "start_line": 17
+    },
+    {
+      "file": "validate_prediction_pipeline.py",
+      "function": "test_prediction_algorithm",
+      "lines": 56,
+      "start_line": 87
+    },
+    {
+      "file": "validate_prediction_pipeline.py",
+      "function": "test_historical_data_impact",
+      "lines": 53,
+      "start_line": 145
+    },
+    {
+      "file": "backend\\weather_system.py",
+      "function": "get_weather_data",
+      "lines": 87,
+      "start_line": 49
+    },
+    {
+      "file": "debug_api_endpoints.py",
+      "function": "debug_api_endpoints",
+      "lines": 55,
+      "start_line": 6
+    }
+  ],
+  "duplicate_functions": {
+    "calculate_terrain_based_deer_approach": [
+      {
+        "file": "test_deer_approach_fix.py",
+        "line": 12
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 13
+      }
+    ],
+    "enhanced_deer_approach_calculation": [
+      {
+        "file": "test_deer_approach_fix.py",
+        "line": 95
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 67
+      }
+    ],
+    "calculate_bearing": [
+      {
+        "file": "test_deer_approach_fix.py",
+        "line": 152
+      },
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1343
+      },
+      {
+        "file": "backend\\core.py",
+        "line": 950
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 807
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 998
+      }
+    ],
+    "main": [
+      {
+        "file": "test_api_ml.py",
+        "line": 167
+      },
+      {
+        "file": "test_map_fix.py",
+        "line": 113
+      },
+      {
+        "file": "test_final_comprehensive.py",
+        "line": 246
+      },
+      {
+        "file": "status_check.py",
+        "line": 55
+      },
+      {
+        "file": "setup_gee_interactive.py",
+        "line": 33
+      },
+      {
+        "file": "focused_code_analysis.py",
+        "line": 319
+      },
+      {
+        "file": "run_docker_tests.py",
+        "line": 578
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 393
+      },
+      {
+        "file": "code_analysis.py",
+        "line": 312
+      },
+      {
+        "file": "test_comprehensive_integration.py",
+        "line": 211
+      },
+      {
+        "file": "analyze_docs.py",
+        "line": 137
+      },
+      {
+        "file": "backend\\test_mature_buck_accuracy.py",
+        "line": 266
+      },
+      {
+        "file": "frontend_display_test.py",
+        "line": 196
+      },
+      {
+        "file": "quick_backend_validation.py",
+        "line": 237
+      },
+      {
+        "file": "backend\\test_locations.py",
+        "line": 120
+      },
+      {
+        "file": "integrate_enhanced_predictions.py",
+        "line": 222
+      },
+      {
+        "file": "dev.py",
+        "line": 84
+      },
+      {
+        "file": "backend\\test_analytics_integration.py",
+        "line": 211
+      },
+      {
+        "file": "backend\\test_ml_integration.py",
+        "line": 146
+      },
+      {
+        "file": "test_prediction_logic.py",
+        "line": 139
+      },
+      {
+        "file": "test_mcp_integration.py",
+        "line": 64
+      },
+      {
+        "file": "check_gee_activation.py",
+        "line": 95
+      },
+      {
+        "file": "test_map_consistency.py",
+        "line": 79
+      },
+      {
+        "file": "validate_prediction_pipeline.py",
+        "line": 332
+      }
+    ],
+    "read_root": [
+      {
+        "file": "backend\\main.py",
+        "line": 98
+      },
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 192
+      },
+      {
+        "file": "backend\\main_new.py",
+        "line": 88
+      }
+    ],
+    "health_check": [
+      {
+        "file": "backend\\main.py",
+        "line": 129
+      },
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 214
+      },
+      {
+        "file": "backend\\main_new.py",
+        "line": 119
+      }
+    ],
+    "get_rules": [
+      {
+        "file": "backend\\main.py",
+        "line": 161
+      },
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 233
+      },
+      {
+        "file": "backend\\main_new.py",
+        "line": 151
+      }
+    ],
+    "__init__": [
+      {
+        "file": "backend\\gpx_parser.py",
+        "line": 29
+      },
+      {
+        "file": "backend\\config\\settings.py",
+        "line": 302
+      },
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 111
+      },
+      {
+        "file": "backend\\config_manager.py",
+        "line": 60
+      },
+      {
+        "file": "backend\\config_manager.py",
+        "line": 73
+      },
+      {
+        "file": "backend\\distance_scorer.py",
+        "line": 37
+      },
+      {
+        "file": "backend\\distance_scorer.py",
+        "line": 54
+      },
+      {
+        "file": "comprehensive_backend_validation.py",
+        "line": 24
+      },
+      {
+        "file": "backend\\scoring_engine.py",
+        "line": 101
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 86
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 105
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 123
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 139
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 159
+      },
+      {
+        "file": "backend\\middleware\\error_handling.py",
+        "line": 184
+      },
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 19
+      },
+      {
+        "file": "backend\\services\\scouting_data_service.py",
+        "line": 55
+      },
+      {
+        "file": "test_enhanced_predictions.py",
+        "line": 32
+      },
+      {
+        "file": "backend\\services\\async_prediction_service.py",
+        "line": 76
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 19
+      },
+      {
+        "file": "backend\\scouting_prediction_enhancer.py",
+        "line": 31
+      },
+      {
+        "file": "focused_code_analysis.py",
+        "line": 15
+      },
+      {
+        "file": "backend\\scouting_data_manager.py",
+        "line": 43
+      },
+      {
+        "file": "run_docker_tests.py",
+        "line": 38
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 42
+      },
+      {
+        "file": "backend\\wind_analysis.py",
+        "line": 97
+      },
+      {
+        "file": "backend\\services\\base_service.py",
+        "line": 114
+      },
+      {
+        "file": "backend\\services\\base_service.py",
+        "line": 181
+      },
+      {
+        "file": "backend\\services\\base_service.py",
+        "line": 222
+      },
+      {
+        "file": "backend\\services\\redis_cache_service.py",
+        "line": 59
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 36
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 231
+      },
+      {
+        "file": "backend\\enhanced_prediction_api.py",
+        "line": 27
+      },
+      {
+        "file": "backend\\services\\configuration_service.py",
+        "line": 19
+      },
+      {
+        "file": "backend\\real_osm_security.py",
+        "line": 34
+      },
+      {
+        "file": "debug_gee_isolation.py",
+        "line": 34
+      },
+      {
+        "file": "backend\\real_wind_deer_analysis.py",
+        "line": 38
+      },
+      {
+        "file": "backend\\enhanced_food_analyzer.py",
+        "line": 34
+      },
+      {
+        "file": "backend\\enhanced_stand_placement.py",
+        "line": 38
+      },
+      {
+        "file": "backend\\services\\camera_service.py",
+        "line": 32
+      },
+      {
+        "file": "backend\\mature_buck_predictor.py",
+        "line": 150
+      },
+      {
+        "file": "backend\\mature_buck_predictor.py",
+        "line": 181
+      },
+      {
+        "file": "backend\\analytics\\data_collector.py",
+        "line": 95
+      },
+      {
+        "file": "code_analysis.py",
+        "line": 16
+      },
+      {
+        "file": "backend\\analytics_demo.py",
+        "line": 55
+      },
+      {
+        "file": "backend\\vegetation_analyzer.py",
+        "line": 33
+      },
+      {
+        "file": "gee_docker_setup.py",
+        "line": 16
+      },
+      {
+        "file": "backend\\services\\scouting_service.py",
+        "line": 34
+      },
+      {
+        "file": "backend\\trail_camera_predictor.py",
+        "line": 54
+      },
+      {
+        "file": "backend\\mature_buck_points_generator.py",
+        "line": 55
+      },
+      {
+        "file": "backend\\terrain_feature_mapper.py",
+        "line": 23
+      },
+      {
+        "file": "comprehensive_testing_suite.py",
+        "line": 36
+      },
+      {
+        "file": "backend\\prediction_cache.py",
+        "line": 17
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 60
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 186
+      },
+      {
+        "file": "backend\\services\\async_http_service.py",
+        "line": 52
+      },
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 36
+      },
+      {
+        "file": "backend\\enhanced_security_analyzer.py",
+        "line": 33
+      },
+      {
+        "file": "backend\\ml_enhanced_predictor.py",
+        "line": 126
+      },
+      {
+        "file": "backend\\ml_enhanced_predictor.py",
+        "line": 279
+      },
+      {
+        "file": "backend\\ml_enhanced_predictor.py",
+        "line": 527
+      },
+      {
+        "file": "backend\\ml_enhanced_predictor.py",
+        "line": 749
+      },
+      {
+        "file": "backend\\services\\terrain_service.py",
+        "line": 45
+      },
+      {
+        "file": "backend\\advanced_thermal_analysis.py",
+        "line": 49
+      },
+      {
+        "file": "backend\\start_dashboard.py",
+        "line": 38
+      },
+      {
+        "file": "backend\\start_dashboard.py",
+        "line": 57
+      },
+      {
+        "file": "backend\\utils.py",
+        "line": 26
+      },
+      {
+        "file": "backend\\utils.py",
+        "line": 37
+      },
+      {
+        "file": "backend\\terrain_analyzer.py",
+        "line": 107
+      },
+      {
+        "file": "quick_validation_script.py",
+        "line": 23
+      },
+      {
+        "file": "backend\\visualization_system.py",
+        "line": 47
+      },
+      {
+        "file": "comprehensive_system_test.py",
+        "line": 26
+      },
+      {
+        "file": "user_management.py",
+        "line": 8
+      },
+      {
+        "file": "backend\\analytics\\performance_monitor.py",
+        "line": 65
+      },
+      {
+        "file": "validate_prediction_pipeline.py",
+        "line": 25
+      },
+      {
+        "file": "backend\\services\\weather_service.py",
+        "line": 49
+      },
+      {
+        "file": "backend\\weather_system.py",
+        "line": 45
+      }
+    ],
+    "estimate_road_distance": [
+      {
+        "file": "test_road_calculations.py",
+        "line": 6
+      },
+      {
+        "file": "test_enhanced_terrain_scores.py",
+        "line": 9
+      }
+    ],
+    "calculate_road_impact_score": [
+      {
+        "file": "test_road_calculations.py",
+        "line": 12
+      },
+      {
+        "file": "backend\\distance_scorer.py",
+        "line": 70
+      },
+      {
+        "file": "test_enhanced_terrain_scores.py",
+        "line": 32
+      }
+    ],
+    "get_config": [
+      {
+        "file": "backend\\config\\settings.py",
+        "line": 421
+      },
+      {
+        "file": "backend\\config\\settings.py",
+        "line": 343
+      },
+      {
+        "file": "backend\\config_manager.py",
+        "line": 646
+      },
+      {
+        "file": "backend\\config.py",
+        "line": 27
+      }
+    ],
+    "reload_config": [
+      {
+        "file": "backend\\config\\settings.py",
+        "line": 425
+      },
+      {
+        "file": "backend\\config\\settings.py",
+        "line": 349
+      },
+      {
+        "file": "backend\\config_manager.py",
+        "line": 663
+      }
+    ],
+    "check_password": [
+      {
+        "file": "test_password_protection.py",
+        "line": 10
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 131
+      },
+      {
+        "file": "password_protection.py",
+        "line": 5
+      }
+    ],
+    "password_entered": [
+      {
+        "file": "test_password_protection.py",
+        "line": 13
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 134
+      },
+      {
+        "file": "password_protection.py",
+        "line": 8
+      }
+    ],
+    "to_dict": [
+      {
+        "file": "backend\\scouting_models.py",
+        "line": 176
+      },
+      {
+        "file": "backend\\services\\base_service.py",
+        "line": 87
+      },
+      {
+        "file": "backend\\terrain_analyzer.py",
+        "line": 88
+      }
+    ],
+    "validate_season": [
+      {
+        "file": "backend\\main_refactored.py",
+        "line": 71
+      },
+      {
+        "file": "backend\\validators.py",
+        "line": 37
+      }
+    ],
+    "validate_datetime": [
+      {
+        "file": "backend\\main_refactored.py",
+        "line": 79
+      },
+      {
+        "file": "backend\\validators.py",
+        "line": 29
+      }
+    ],
+    "load_rules": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 150
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 967
+      }
+    ],
+    "analyze_route_terrain": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1003
+      },
+      {
+        "file": "backend\\core.py",
+        "line": 982
+      }
+    ],
+    "calculate_route_wind_impact": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1071
+      },
+      {
+        "file": "backend\\core.py",
+        "line": 1013
+      }
+    ],
+    "calculate_distance": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1357
+      },
+      {
+        "file": "backend\\core.py",
+        "line": 965
+      }
+    ],
+    "calculate_wind_favorability": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1602
+      },
+      {
+        "file": "backend\\scoring_engine.py",
+        "line": 446
+      }
+    ],
+    "generate_mature_buck_predictions": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1830
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 1323
+      }
+    ],
+    "generate_simple_markers": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 1979
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 1033
+      }
+    ],
+    "predict_movement": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2081
+      },
+      {
+        "file": "backend\\routers\\prediction_router.py",
+        "line": 26
+      },
+      {
+        "file": "backend\\services\\prediction_service.py",
+        "line": 809
+      }
+    ],
+    "get_config_status": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2630
+      },
+      {
+        "file": "backend\\routers\\config_router.py",
+        "line": 20
+      }
+    ],
+    "get_config_parameters": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2652
+      },
+      {
+        "file": "backend\\routers\\config_router.py",
+        "line": 26
+      }
+    ],
+    "reload_configuration": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2668
+      },
+      {
+        "file": "backend\\routers\\config_router.py",
+        "line": 32
+      },
+      {
+        "file": "backend\\services\\configuration_service.py",
+        "line": 67
+      }
+    ],
+    "get_trail_camera_placements": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2685
+      },
+      {
+        "file": "backend\\routers\\camera_router.py",
+        "line": 20
+      },
+      {
+        "file": "backend\\services\\camera_service.py",
+        "line": 46
+      }
+    ],
+    "get_optimal_camera_placement": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2812
+      },
+      {
+        "file": "backend\\routers\\camera_router.py",
+        "line": 26
+      },
+      {
+        "file": "backend\\services\\camera_service.py",
+        "line": 119
+      }
+    ],
+    "update_config_parameter": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2931
+      },
+      {
+        "file": "backend\\routers\\config_router.py",
+        "line": 38
+      }
+    ],
+    "safe_float": [
+      {
+        "file": "backend\\main_original_backup.py",
+        "line": 2772
+      },
+      {
+        "file": "backend\\enhanced_accuracy.py",
+        "line": 45
+      },
+      {
+        "file": "backend\\enhanced_accuracy.py",
+        "line": 295
+      }
+    ],
+    "get": [
+      {
+        "file": "backend\\config_manager.py",
+        "line": 506
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 59
+      },
+      {
+        "file": "backend\\prediction_cache.py",
+        "line": 33
+      }
+    ],
+    "get_metadata": [
+      {
+        "file": "backend\\config_manager.py",
+        "line": 628
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 238
+      }
+    ],
+    "test_backend_health": [
+      {
+        "file": "comprehensive_backend_validation.py",
+        "line": 46
+      },
+      {
+        "file": "validate_prediction_pipeline.py",
+        "line": 29
+      }
+    ],
+    "test_camera_placement": [
+      {
+        "file": "comprehensive_backend_validation.py",
+        "line": 215
+      },
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 290
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 290
+      },
+      {
+        "file": "quick_backend_validation.py",
+        "line": 155
+      },
+      {
+        "file": "quick_validation_script.py",
+        "line": 202
+      }
+    ],
+    "generate_report": [
+      {
+        "file": "comprehensive_backend_validation.py",
+        "line": 399
+      },
+      {
+        "file": "comprehensive_system_test.py",
+        "line": 310
+      }
+    ],
+    "run_all_tests": [
+      {
+        "file": "comprehensive_backend_validation.py",
+        "line": 419
+      },
+      {
+        "file": "comprehensive_testing_suite.py",
+        "line": 53
+      }
+    ],
+    "create_map": [
+      {
+        "file": "frontend\\app_complex.py",
+        "line": 17
+      },
+      {
+        "file": "frontend\\app_new.py",
+        "line": 20
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 194
+      },
+      {
+        "file": "frontend\\app_backup.py",
+        "line": 17
+      }
+    ],
+    "wrapper": [
+      {
+        "file": "backend\\performance.py",
+        "line": 16
+      },
+      {
+        "file": "backend\\performance.py",
+        "line": 33
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 210
+      }
+    ],
+    "decorator": [
+      {
+        "file": "backend\\performance.py",
+        "line": 31
+      },
+      {
+        "file": "backend\\services\\service_container.py",
+        "line": 209
+      }
+    ],
+    "calculate_optimal_camera_position": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 22
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 22
+      }
+    ],
+    "_get_vegetation_analysis": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 67
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 67
+      },
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 114
+      }
+    ],
+    "_get_hunting_prediction": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 84
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 84
+      }
+    ],
+    "_analyze_movement_patterns": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 106
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 106
+      }
+    ],
+    "_calculate_position_algorithm": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 125
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 125
+      }
+    ],
+    "_calculate_edge_factor": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 176
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 176
+      }
+    ],
+    "_calculate_optimal_bearing": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 183
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 183
+      }
+    ],
+    "_offset_coordinates": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 199
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 199
+      }
+    ],
+    "_calculate_confidence_score": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 227
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 227
+      }
+    ],
+    "_generate_placement_reasoning": [
+      {
+        "file": "backend\\advanced_camera_placement.py",
+        "line": 249
+      },
+      {
+        "file": "advanced_camera_placement.py",
+        "line": 249
+      }
+    ],
+    "_calculate_distance": [
+      {
+        "file": "backend\\services\\scouting_data_service.py",
+        "line": 196
+      },
+      {
+        "file": "backend\\scouting_data_manager.py",
+        "line": 340
+      }
+    ],
+    "_validate_coordinates": [
+      {
+        "file": "backend\\services\\scouting_data_service.py",
+        "line": 317
+      },
+      {
+        "file": "backend\\services\\terrain_service.py",
+        "line": 215
+      }
+    ],
+    "test_multiple_locations": [
+      {
+        "file": "test_marker_positions.py",
+        "line": 6
+      },
+      {
+        "file": "test_camera_placement.py",
+        "line": 7
+      },
+      {
+        "file": "test_multiple_locations.py",
+        "line": 17
+      }
+    ],
+    "run_comprehensive_test": [
+      {
+        "file": "test_comprehensive_terrain_scores.py",
+        "line": 216
+      },
+      {
+        "file": "test_configuration_management.py",
+        "line": 164
+      }
+    ],
+    "save_results": [
+      {
+        "file": "focused_code_analysis.py",
+        "line": 277
+      },
+      {
+        "file": "code_analysis.py",
+        "line": 272
+      }
+    ],
+    "print_summary": [
+      {
+        "file": "focused_code_analysis.py",
+        "line": 286
+      },
+      {
+        "file": "code_analysis.py",
+        "line": 281
+      }
+    ],
+    "test_api_endpoint": [
+      {
+        "file": "camera_api_integration.py",
+        "line": 79
+      },
+      {
+        "file": "test_prediction_logic.py",
+        "line": 16
+      }
+    ],
+    "test_rules_endpoint": [
+      {
+        "file": "backend\\tests\\test_main.py",
+        "line": 17
+      },
+      {
+        "file": "backend\\tests\\test_framework.py",
+        "line": 411
+      }
+    ],
+    "run_validation": [
+      {
+        "file": "validate_refactoring.py",
+        "line": 159
+      },
+      {
+        "file": "quick_validation_script.py",
+        "line": 27
+      }
+    ],
+    "run_tests": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 44
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 48
+      },
+      {
+        "file": "dev.py",
+        "line": 12
+      }
+    ],
+    "_run_integration_tests": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 509
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 148
+      }
+    ],
+    "_run_e2e_tests": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 514
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 167
+      }
+    ],
+    "_run_performance_tests": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 521
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 186
+      }
+    ],
+    "_all_tests_passed": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 525
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 320
+      }
+    ],
+    "_print_test_summary": [
+      {
+        "file": "run_docker_tests.py",
+        "line": 529
+      },
+      {
+        "file": "run_comprehensive_tests.py",
+        "line": 324
+      }
+    ],
+    "get_status": [
+      {
+        "file": "backend\\services\\configuration_service.py",
+        "line": 23
+      },
+      {
+        "file": "gee_docker_setup.py",
+        "line": 112
+      }
+    ],
+    "_assess_food_competition": [
+      {
+        "file": "backend\\enhanced_food_analyzer.py",
+        "line": 313
+      },
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 447
+      }
+    ],
+    "get_vermont_legal_hunting_hours": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 34
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 208
+      },
+      {
+        "file": "frontend\\app_backup.py",
+        "line": 31
+      }
+    ],
+    "generate_legal_hunting_times": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 68
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 242
+      },
+      {
+        "file": "frontend\\app_backup.py",
+        "line": 65
+      }
+    ],
+    "get_observation_types": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 93
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 267
+      }
+    ],
+    "add_scouting_observation": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 103
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 277
+      }
+    ],
+    "get_scouting_observations": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 120
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 294
+      }
+    ],
+    "get_scouting_analytics": [
+      {
+        "file": "frontend\\app_new.py",
+        "line": 137
+      },
+      {
+        "file": "frontend\\app.py",
+        "line": 311
+      }
+    ],
+    "predict_mature_buck_movement": [
+      {
+        "file": "backend\\mature_buck_predictor.py",
+        "line": 563
+      },
+      {
+        "file": "backend\\ml_enhanced_predictor.py",
+        "line": 78
+      }
+    ],
+    "_identify_movement_corridors": [
+      {
+        "file": "backend\\mature_buck_predictor.py",
+        "line": 1015
+      },
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 463
+      }
+    ],
+    "initialize": [
+      {
+        "file": "backend\\vegetation_analyzer.py",
+        "line": 37
+      },
+      {
+        "file": "gee_docker_setup.py",
+        "line": 63
+      }
+    ],
+    "calculate_ndvi": [
+      {
+        "file": "backend\\vegetation_analyzer.py",
+        "line": 251
+      },
+      {
+        "file": "backend\\vegetation_analyzer.py",
+        "line": 178
+      },
+      {
+        "file": "test_improved_ndvi.py",
+        "line": 50
+      }
+    ],
+    "test_mature_buck_integration": [
+      {
+        "file": "test_configuration_management.py",
+        "line": 54
+      },
+      {
+        "file": "test_mature_buck_integration.py",
+        "line": 10
+      }
+    ],
+    "test_frontend_integration": [
+      {
+        "file": "test_frontend_integration.py",
+        "line": 9
+      },
+      {
+        "file": "quick_validation_script.py",
+        "line": 271
+      },
+      {
+        "file": "comprehensive_system_test.py",
+        "line": 243
+      }
+    ],
+    "_calculate_ridge_connectivity": [
+      {
+        "file": "backend\\terrain_feature_mapper.py",
+        "line": 362
+      },
+      {
+        "file": "backend\\terrain_analyzer.py",
+        "line": 724
+      }
+    ],
+    "_calculate_terrain_roughness": [
+      {
+        "file": "backend\\terrain_feature_mapper.py",
+        "line": 382
+      },
+      {
+        "file": "backend\\services\\terrain_service.py",
+        "line": 206
+      }
+    ],
+    "_calculate_cover_diversity": [
+      {
+        "file": "backend\\terrain_feature_mapper.py",
+        "line": 407
+      },
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 441
+      }
+    ],
+    "get_weather_data": [
+      {
+        "file": "backend\\core.py",
+        "line": 39
+      },
+      {
+        "file": "backend\\weather_system.py",
+        "line": 49
+      }
+    ],
+    "calculate_wind_hunting_windows": [
+      {
+        "file": "backend\\core.py",
+        "line": 214
+      },
+      {
+        "file": "backend\\weather_system.py",
+        "line": 169
+      }
+    ],
+    "get_moon_phase": [
+      {
+        "file": "backend\\core.py",
+        "line": 905
+      },
+      {
+        "file": "backend\\weather_system.py",
+        "line": 230
+      }
+    ],
+    "get_time_of_day": [
+      {
+        "file": "backend\\core.py",
+        "line": 938
+      },
+      {
+        "file": "backend\\weather_system.py",
+        "line": 256
+      }
+    ],
+    "_calculate_confidence_metrics": [
+      {
+        "file": "backend\\enhanced_prediction_engine.py",
+        "line": 271
+      },
+      {
+        "file": "backend\\terrain_analyzer.py",
+        "line": 1193
+      }
+    ],
+    "test_enhanced_predictions": [
+      {
+        "file": "test_gee_integration.py",
+        "line": 110
+      },
+      {
+        "file": "comprehensive_system_test.py",
+        "line": 192
+      }
+    ]
+  },
+  "test_debug_files": [
+    {
+      "file": "debug_enhanced_accuracy_direct.py",
+      "size_kb": 2.6728515625,
+      "type": "debug"
+    },
+    {
+      "file": "debug_observations.py",
+      "size_kb": 1.7001953125,
+      "type": "debug"
+    },
+    {
+      "file": "debug_gpx_import.py",
+      "size_kb": 3.5126953125,
+      "type": "debug"
+    },
+    {
+      "file": "FINAL_VALIDATION_REPORT.py",
+      "size_kb": 4.802734375,
+      "type": "validation"
+    },
+    {
+      "file": "debug_feeding_scores.py",
+      "size_kb": 3.3642578125,
+      "type": "debug"
+    },
+    {
+      "file": "debug_gee_isolation.py",
+      "size_kb": 4.40234375,
+      "type": "debug"
+    },
+    {
+      "file": "debug_terrain_features.py",
+      "size_kb": 3.267578125,
+      "type": "debug"
+    },
+    {
+      "file": "final_config_validation.py",
+      "size_kb": 1.7216796875,
+      "type": "validation"
+    },
+    {
+      "file": "debug_vermont_terrain.py",
+      "size_kb": 1.673828125,
+      "type": "debug"
+    },
+    {
+      "file": "quick_validation.py",
+      "size_kb": 6.2021484375,
+      "type": "validation"
+    },
+    {
+      "file": "debug_bedding_scores.py",
+      "size_kb": 4.0556640625,
+      "type": "debug"
+    },
+    {
+      "file": "debug_terrain_scores.py",
+      "size_kb": 3.150390625,
+      "type": "debug"
+    },
+    {
+      "file": "debug_integration.py",
+      "size_kb": 2.365234375,
+      "type": "debug"
+    },
+    {
+      "file": "debug_mature_buck.py",
+      "size_kb": 4.5869140625,
+      "type": "debug"
+    },
+    {
+      "file": "debug_comprehensive_flow.py",
+      "size_kb": 3.861328125,
+      "type": "debug"
+    },
+    {
+      "file": "quick_validation_script.py",
+      "size_kb": 19.4130859375,
+      "type": "validation"
+    },
+    {
+      "file": "debug_mature_buck_direct.py",
+      "size_kb": 1.634765625,
+      "type": "debug"
+    },
+    {
+      "file": "debug_api_endpoints.py",
+      "size_kb": 2.158203125,
+      "type": "debug"
+    }
+  ],
+  "recommendations": [],
+  "file_categories": {
+    "core_backend": [
+      "backend\\main.py",
+      "backend\\gpx_parser.py",
+      "backend\\enhanced_endpoints.py",
+      "backend\\config\\settings.py",
+      "backend\\scouting_models.py",
+      "backend\\main_refactored.py",
+      "backend\\main_original_backup.py",
+      "backend\\config_manager.py",
+      "backend\\distance_scorer.py",
+      "comprehensive_backend_validation.py",
+      "backend\\scoring_engine.py",
+      "backend\\mast_crop.py",
+      "backend\\security.py",
+      "backend\\enhanced_accuracy.py",
+      "backend\\performance.py",
+      "backend\\middleware\\error_handling.py",
+      "backend\\advanced_camera_placement.py",
+      "backend\\services\\scouting_data_service.py",
+      "backend\\lunar_enhanced.py",
+      "backend\\routers\\prediction_router.py",
+      "backend\\performance_old.py",
+      "backend\\routers\\camera_router.py",
+      "backend\\services\\async_prediction_service.py",
+      "backend\\scouting_prediction_enhancer.py",
+      "backend\\scouting_data_manager.py",
+      "backend\\weather_enhanced.py",
+      "backend\\routers\\config_router.py",
+      "inspect_backend_response.py",
+      "backend\\routers\\scouting_router.py",
+      "backend\\wind_analysis.py",
+      "backend\\services\\base_service.py",
+      "backend\\services\\redis_cache_service.py",
+      "backend\\regional_router.py",
+      "backend\\services\\service_container.py",
+      "backend\\middleware\\__init__.py",
+      "backend\\enhanced_prediction_api.py",
+      "backend\\config\\__init__.py",
+      "backend\\services\\configuration_service.py",
+      "backend\\real_osm_security.py",
+      "backend\\real_wind_deer_analysis.py",
+      "backend\\enhanced_food_analyzer.py",
+      "backend\\enhanced_stand_placement.py",
+      "backend\\services\\camera_service.py",
+      "backend\\services\\__init__.py",
+      "backend\\validators.py",
+      "backend\\mature_buck_predictor.py",
+      "backend\\analytics\\data_collector.py",
+      "backend\\analytics_demo.py",
+      "backend\\vegetation_analyzer.py",
+      "backend\\analytics\\dashboard_api.py",
+      "backend\\services\\scouting_service.py",
+      "backend\\trail_camera_predictor.py",
+      "backend\\mature_buck_points_generator.py",
+      "backend\\performance_new.py",
+      "backend\\terrain_feature_mapper.py",
+      "backend\\config.py",
+      "run_backend.py",
+      "backend\\prediction_cache.py",
+      "backend\\vermont_config.py",
+      "backend\\services\\prediction_service.py",
+      "backend\\core.py",
+      "quick_backend_validation.py",
+      "backend\\services\\async_http_service.py",
+      "backend\\enhanced_prediction_engine.py",
+      "backend\\enhanced_security_analyzer.py",
+      "backend\\ml_enhanced_predictor.py",
+      "backend\\services\\terrain_service.py",
+      "backend\\main_new.py",
+      "backend\\advanced_thermal_analysis.py",
+      "backend\\__init__.py",
+      "backend_analysis_report.py",
+      "backend\\start_dashboard.py",
+      "backend\\analytics\\__init__.py",
+      "backend\\multiscale_terrain.py",
+      "backend\\hunting_pressure.py",
+      "backend\\utils.py",
+      "backend\\weight_adaptation.py",
+      "backend\\settings.py",
+      "backend\\terrain_analyzer.py",
+      "backend\\visualization_system.py",
+      "backend\\ml_enhancement.py",
+      "backend\\gee_docker_setup.py",
+      "backend\\analytics\\performance_monitor.py",
+      "backend\\simple_trail_camera.py",
+      "backend\\services\\weather_service.py",
+      "backend\\routers\\__init__.py",
+      "backend\\weather_system.py"
+    ],
+    "frontend": [
+      "frontend\\app_complex.py",
+      "start_frontend.py",
+      "frontend\\utils.py",
+      "frontend\\map_config.py",
+      "test_frontend_mature_buck.py",
+      "frontend\\app_new.py",
+      "frontend\\config.py",
+      "test_frontend_integration.py",
+      "frontend_display_test.py",
+      "frontend\\app_simple.py",
+      "frontend\\app.py",
+      "test_frontend_fix.py",
+      "frontend\\app_backup.py"
+    ],
+    "api_routers": [],
+    "services": [],
+    "tests": [
+      "test_hunting_hours.py",
+      "test_deer_approach_fix.py",
+      "test_api_ml.py",
+      "test_remote_mature_buck.py",
+      "test_road_calculations.py",
+      "test_map_fix.py",
+      "test_thermal_integration.py",
+      "test_api_integration.py",
+      "test_password_protection.py",
+      "test_final_comprehensive.py",
+      "test_complete_integration.py",
+      "test_vermont_oak_flats.py",
+      "test_deer_approach_unit_tests.py",
+      "backend\\test_simple.py",
+      "test_enhanced_stand_analysis.py",
+      "test_mature_buck_movement.py",
+      "test_location_variations.py",
+      "location_variation_test.py",
+      "test_api_import.py",
+      "test_marker_positions.py",
+      "test_enhanced_predictions.py",
+      "marker_accuracy_test.py",
+      "test_gpx_import.py",
+      "backend\\tests\\test_scouting_prediction_enhancer.py",
+      "test_comprehensive_terrain_scores.py",
+      "confidence_test.py",
+      "backend\\tests\\test_main.py",
+      "test_mature_buck_data.py",
+      "backend\\tests\\test_framework.py",
+      "backend\\tests\\test_config_manager.py",
+      "backend\\test_enhanced_terrain.py",
+      "test_terrain_scores_api.py",
+      "test_detailed_import.py",
+      "test_enhanced_terrain_scores.py",
+      "test_camera_placement.py",
+      "button_positioning_test.py",
+      "backend\\tests\\test_core.py",
+      "test_enhanced_ndvi.py",
+      "test_comprehensive_integration.py",
+      "test_single_mature_buck.py",
+      "backend\\test_api_timeouts.py",
+      "test_pressure_calculations.py",
+      "test_configuration_management.py",
+      "test_gee_minimal.py",
+      "backend\\test_proximity_scoring.py",
+      "quick_deployment_test.py",
+      "backend\\test_wind_integration.py",
+      "test_direct_mature_buck.py",
+      "test_fixed_satellite.py",
+      "backend\\test_mature_buck_accuracy.py",
+      "terrain_scores_test.py",
+      "test_mature_buck_integration.py",
+      "test_simple_variations.py",
+      "test_camera_integration.py",
+      "comprehensive_final_test.py",
+      "backend\\test_locations.py",
+      "backend\\tests\\test_scouting_data_manager.py",
+      "test_heatmap_scores.py",
+      "test_improved_ndvi.py",
+      "mature_buck_display_test.py",
+      "test_enhanced_scoring_path.py",
+      "single_debug_test.py",
+      "backend\\tests\\test_distance_scorer.py",
+      "backend\\test_analytics_integration.py",
+      "test_enhanced_mature_buck.py",
+      "test_gee_integration.py",
+      "backend\\test_ml_integration.py",
+      "test_distance_fix.py",
+      "gee_test_setup.py",
+      "test_scouting_api.py",
+      "test_trail_cameras.py",
+      "comprehensive_system_test.py",
+      "test_multiple_locations.py",
+      "test_prediction_logic.py",
+      "test_mcp_integration.py",
+      "test_access_protection.py",
+      "test_heatmap_display.py",
+      "test_map_consistency.py",
+      "test_real_osm_integration.py",
+      "test_simple_map_change.py",
+      "test_real_gpx.py"
+    ],
+    "debug_scripts": [
+      "debug_enhanced_accuracy_direct.py",
+      "debug_observations.py",
+      "debug_gpx_import.py",
+      "FINAL_VALIDATION_REPORT.py",
+      "debug_feeding_scores.py",
+      "debug_gee_isolation.py",
+      "debug_terrain_features.py",
+      "final_config_validation.py",
+      "debug_vermont_terrain.py",
+      "quick_validation.py",
+      "debug_bedding_scores.py",
+      "debug_terrain_scores.py",
+      "debug_integration.py",
+      "debug_mature_buck.py",
+      "debug_comprehensive_flow.py",
+      "quick_validation_script.py",
+      "debug_mature_buck_direct.py",
+      "debug_api_endpoints.py"
+    ],
+    "configuration": [
+      "setup_gee_interactive.py",
+      "gee_docker_setup.py",
+      "railway_deployment_setup.py",
+      "setup_cloudflare_access.py"
+    ],
+    "utilities": [
+      "safe_fix_plan.py",
+      "verify_all_algorithms.py",
+      "enhanced_stand_demo.py",
+      "status_check.py",
+      "feature_generation_diagnostic.py",
+      "marker_alignment_diagnostic.py",
+      "metadata_fix_verification.py",
+      "advanced_camera_placement.py",
+      "focused_code_analysis.py",
+      "camera_api_integration.py",
+      "validate_refactoring.py",
+      "validate_docker_gee.py",
+      "run_docker_tests.py",
+      "demo_scouting_system.py",
+      "analyze_user_gpx.py",
+      "run_comprehensive_tests.py",
+      "demo_heatmap.py",
+      "temp_ending.py",
+      "code_analysis.py",
+      "camera_demo_server.py",
+      "analyze_docs.py",
+      "final_testing_report.py",
+      "analyze_gpx_content.py",
+      "comprehensive_testing_suite.py",
+      "oregon_adaptations.py",
+      "integrate_enhanced_predictions.py",
+      "dev.py",
+      "final_satellite_verification.py",
+      "safe_gpx_diagnostic.py",
+      "fix_docker_gee_auth.py",
+      "verify_v2_deployment.py",
+      "system_assessment.py",
+      "user_management.py",
+      "check_gee_activation.py",
+      "validate_prediction_pipeline.py",
+      "terrain_scores_fix_plan.py",
+      "password_protection.py"
+    ]
+  },
+  "cleanup_opportunities": [
+    {
+      "type": "REFACTORING",
+      "priority": "MEDIUM",
+      "description": "Refactor 230 large functions in 114 files",
+      "details": {
+        "test_deer_approach_fix.py": [
+          {
+            "file": "test_deer_approach_fix.py",
+            "function": "calculate_terrain_based_deer_approach",
+            "lines": 81,
+            "start_line": 12
+          },
+          {
+            "file": "test_deer_approach_fix.py",
+            "function": "enhanced_deer_approach_calculation",
+            "lines": 55,
+            "start_line": 95
+          },
+          {
+            "file": "test_deer_approach_fix.py",
+            "function": "test_deer_approach_calculations",
+            "lines": 74,
+            "start_line": 168
+          }
+        ],
+        "test_api_ml.py": [
+          {
+            "file": "test_api_ml.py",
+            "function": "test_ml_enhanced_prediction",
+            "lines": 61,
+            "start_line": 32
+          },
+          {
+            "file": "test_api_ml.py",
+            "function": "test_standard_prediction",
+            "lines": 51,
+            "start_line": 95
+          }
+        ],
+        "safe_fix_plan.py": [
+          {
+            "file": "safe_fix_plan.py",
+            "function": "create_improved_ndvi_method",
+            "lines": 86,
+            "start_line": 13
+          }
+        ],
+        "test_remote_mature_buck.py": [
+          {
+            "file": "test_remote_mature_buck.py",
+            "function": "test_remote_location",
+            "lines": 71,
+            "start_line": 10
+          }
+        ],
+        "backend\\gpx_parser.py": [
+          {
+            "file": "backend\\gpx_parser.py",
+            "function": "__init__",
+            "lines": 131,
+            "start_line": 29
+          },
+          {
+            "file": "backend\\gpx_parser.py",
+            "function": "_determine_observation_type",
+            "lines": 52,
+            "start_line": 357
+          }
+        ],
+        "test_map_fix.py": [
+          {
+            "file": "test_map_fix.py",
+            "function": "test_map_consistency_fix",
+            "lines": 69,
+            "start_line": 9
+          }
+        ],
+        "test_thermal_integration.py": [
+          {
+            "file": "test_thermal_integration.py",
+            "function": "test_thermal_integration",
+            "lines": 173,
+            "start_line": 26
+          }
+        ],
+        "test_api_integration.py": [
+          {
+            "file": "test_api_integration.py",
+            "function": "test_main_api_integration",
+            "lines": 69,
+            "start_line": 16
+          }
+        ],
+        "verify_all_algorithms.py": [
+          {
+            "file": "verify_all_algorithms.py",
+            "function": "verify_all_map_algorithms",
+            "lines": 122,
+            "start_line": 7
+          }
+        ],
+        "test_final_comprehensive.py": [
+          {
+            "file": "test_final_comprehensive.py",
+            "function": "validate_deer_activity_logic",
+            "lines": 202,
+            "start_line": 42
+          },
+          {
+            "file": "test_final_comprehensive.py",
+            "function": "main",
+            "lines": 153,
+            "start_line": 246
+          }
+        ],
+        "enhanced_stand_demo.py": [
+          {
+            "file": "enhanced_stand_demo.py",
+            "function": "demo_enhanced_stand_analysis",
+            "lines": 155,
+            "start_line": 10
+          }
+        ],
+        "test_complete_integration.py": [
+          {
+            "file": "test_complete_integration.py",
+            "function": "test_complete_integration",
+            "lines": 151,
+            "start_line": 13
+          }
+        ],
+        "test_vermont_oak_flats.py": [
+          {
+            "file": "test_vermont_oak_flats.py",
+            "function": "test_vermont_vegetation",
+            "lines": 58,
+            "start_line": 9
+          }
+        ],
+        "backend\\main_original_backup.py": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "find_high_score_locations",
+            "lines": 66,
+            "start_line": 236
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "generate_zone_based_patterns",
+            "lines": 82,
+            "start_line": 304
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "get_five_best_stand_locations_enhanced",
+            "lines": 109,
+            "start_line": 388
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "get_five_best_stand_locations",
+            "lines": 132,
+            "start_line": 499
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "calculate_stand_confidence_with_thermals",
+            "lines": 54,
+            "start_line": 675
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "find_nearest_road_access",
+            "lines": 54,
+            "start_line": 818
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "calculate_access_route",
+            "lines": 67,
+            "start_line": 934
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "analyze_route_terrain",
+            "lines": 66,
+            "start_line": 1003
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "calculate_route_wind_impact",
+            "lines": 61,
+            "start_line": 1071
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "generate_route_recommendations",
+            "lines": 55,
+            "start_line": 1244
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "calculate_thermal_wind_effect",
+            "lines": 84,
+            "start_line": 1370
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "compute_hourly_hunt_schedule",
+            "lines": 77,
+            "start_line": 1457
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "get_stand_placement_recommendations",
+            "lines": 113,
+            "start_line": 1645
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "generate_mature_buck_predictions",
+            "lines": 108,
+            "start_line": 1830
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "create_simple_geojson_features",
+            "lines": 70,
+            "start_line": 2008
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "predict_movement",
+            "lines": 537,
+            "start_line": 2081
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "get_trail_camera_placements",
+            "lines": 124,
+            "start_line": 2685
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "function": "get_optimal_camera_placement",
+            "lines": 116,
+            "start_line": 2812
+          }
+        ],
+        "test_enhanced_stand_analysis.py": [
+          {
+            "file": "test_enhanced_stand_analysis.py",
+            "function": "test_enhanced_stand_analysis",
+            "lines": 115,
+            "start_line": 10
+          }
+        ],
+        "backend\\config_manager.py": [
+          {
+            "file": "backend\\config_manager.py",
+            "function": "_load_config",
+            "lines": 77,
+            "start_line": 125
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "function": "_apply_env_overrides",
+            "lines": 69,
+            "start_line": 236
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "function": "_validate_config",
+            "lines": 168,
+            "start_line": 315
+          }
+        ],
+        "comprehensive_backend_validation.py": [
+          {
+            "file": "comprehensive_backend_validation.py",
+            "function": "test_prediction_accuracy",
+            "lines": 89,
+            "start_line": 61
+          },
+          {
+            "file": "comprehensive_backend_validation.py",
+            "function": "test_seasonal_variations",
+            "lines": 61,
+            "start_line": 152
+          },
+          {
+            "file": "comprehensive_backend_validation.py",
+            "function": "test_data_consistency",
+            "lines": 54,
+            "start_line": 343
+          },
+          {
+            "file": "comprehensive_backend_validation.py",
+            "function": "run_all_tests",
+            "lines": 51,
+            "start_line": 419
+          }
+        ],
+        "backend\\scoring_engine.py": [
+          {
+            "file": "backend\\scoring_engine.py",
+            "function": "calculate_terrain_scores",
+            "lines": 66,
+            "start_line": 256
+          }
+        ],
+        "test_location_variations.py": [
+          {
+            "file": "test_location_variations.py",
+            "function": "test_location_specific_predictions",
+            "lines": 120,
+            "start_line": 14
+          }
+        ],
+        "backend\\enhanced_accuracy.py": [
+          {
+            "file": "backend\\enhanced_accuracy.py",
+            "function": "enhanced_terrain_analysis",
+            "lines": 261,
+            "start_line": 16
+          },
+          {
+            "file": "backend\\enhanced_accuracy.py",
+            "function": "enhanced_movement_prediction",
+            "lines": 136,
+            "start_line": 279
+          }
+        ],
+        "location_variation_test.py": [
+          {
+            "file": "location_variation_test.py",
+            "function": "test_location_variations",
+            "lines": 84,
+            "start_line": 10
+          }
+        ],
+        "marker_accuracy_test.py": [
+          {
+            "file": "marker_accuracy_test.py",
+            "function": "test_marker_accuracy",
+            "lines": 98,
+            "start_line": 10
+          }
+        ],
+        "debug_enhanced_accuracy_direct.py": [
+          {
+            "file": "debug_enhanced_accuracy_direct.py",
+            "function": "test_enhanced_accuracy_direct",
+            "lines": 61,
+            "start_line": 12
+          }
+        ],
+        "test_gpx_import.py": [
+          {
+            "file": "test_gpx_import.py",
+            "function": "test_gpx_import",
+            "lines": 88,
+            "start_line": 11
+          }
+        ],
+        "setup_gee_interactive.py": [
+          {
+            "file": "setup_gee_interactive.py",
+            "function": "main",
+            "lines": 104,
+            "start_line": 33
+          }
+        ],
+        "test_comprehensive_terrain_scores.py": [
+          {
+            "file": "test_comprehensive_terrain_scores.py",
+            "function": "test_specific_location_calculation",
+            "lines": 69,
+            "start_line": 8
+          },
+          {
+            "file": "test_comprehensive_terrain_scores.py",
+            "function": "manual_calculation_test",
+            "lines": 135,
+            "start_line": 79
+          }
+        ],
+        "debug_gpx_import.py": [
+          {
+            "file": "debug_gpx_import.py",
+            "function": "debug_gpx_import",
+            "lines": 97,
+            "start_line": 11
+          }
+        ],
+        "backend\\scouting_prediction_enhancer.py": [
+          {
+            "file": "backend\\scouting_prediction_enhancer.py",
+            "function": "__init__",
+            "lines": 53,
+            "start_line": 31
+          },
+          {
+            "file": "backend\\scouting_prediction_enhancer.py",
+            "function": "_apply_observation_enhancement",
+            "lines": 83,
+            "start_line": 194
+          }
+        ],
+        "FINAL_VALIDATION_REPORT.py": [
+          {
+            "file": "FINAL_VALIDATION_REPORT.py",
+            "function": "generate_final_report",
+            "lines": 116,
+            "start_line": 8
+          }
+        ],
+        "focused_code_analysis.py": [
+          {
+            "file": "focused_code_analysis.py",
+            "function": "categorize_project_files",
+            "lines": 53,
+            "start_line": 160
+          },
+          {
+            "file": "focused_code_analysis.py",
+            "function": "identify_cleanup_opportunities",
+            "lines": 60,
+            "start_line": 215
+          }
+        ],
+        "confidence_test.py": [
+          {
+            "file": "confidence_test.py",
+            "function": "test_confidence_scores",
+            "lines": 55,
+            "start_line": 10
+          }
+        ],
+        "validate_docker_gee.py": [
+          {
+            "file": "validate_docker_gee.py",
+            "function": "validate_docker_setup",
+            "lines": 129,
+            "start_line": 12
+          }
+        ],
+        "run_docker_tests.py": [
+          {
+            "file": "run_docker_tests.py",
+            "function": "_test_container_health",
+            "lines": 51,
+            "start_line": 184
+          },
+          {
+            "file": "run_docker_tests.py",
+            "function": "_test_api_functionality",
+            "lines": 63,
+            "start_line": 237
+          },
+          {
+            "file": "run_docker_tests.py",
+            "function": "_test_service_integration",
+            "lines": 54,
+            "start_line": 393
+          },
+          {
+            "file": "run_docker_tests.py",
+            "function": "_test_docker_performance",
+            "lines": 58,
+            "start_line": 449
+          }
+        ],
+        "backend\\test_enhanced_terrain.py": [
+          {
+            "file": "backend\\test_enhanced_terrain.py",
+            "function": "test_enhanced_terrain_analysis",
+            "lines": 210,
+            "start_line": 24
+          }
+        ],
+        "test_terrain_scores_api.py": [
+          {
+            "file": "test_terrain_scores_api.py",
+            "function": "test_terrain_scores_api",
+            "lines": 129,
+            "start_line": 8
+          }
+        ],
+        "test_detailed_import.py": [
+          {
+            "file": "test_detailed_import.py",
+            "function": "test_detailed_import",
+            "lines": 77,
+            "start_line": 11
+          }
+        ],
+        "demo_scouting_system.py": [
+          {
+            "file": "demo_scouting_system.py",
+            "function": "test_scouting_workflow",
+            "lines": 181,
+            "start_line": 17
+          }
+        ],
+        "test_frontend_mature_buck.py": [
+          {
+            "file": "test_frontend_mature_buck.py",
+            "function": "test_mature_buck_frontend_data",
+            "lines": 118,
+            "start_line": 9
+          }
+        ],
+        "backend\\wind_analysis.py": [
+          {
+            "file": "backend\\wind_analysis.py",
+            "function": "fetch_current_wind_data",
+            "lines": 80,
+            "start_line": 135
+          },
+          {
+            "file": "backend\\wind_analysis.py",
+            "function": "model_scent_dispersion",
+            "lines": 55,
+            "start_line": 253
+          },
+          {
+            "file": "backend\\wind_analysis.py",
+            "function": "calculate_optimal_downwind_position",
+            "lines": 86,
+            "start_line": 310
+          },
+          {
+            "file": "backend\\wind_analysis.py",
+            "function": "get_wind_forecast",
+            "lines": 57,
+            "start_line": 484
+          }
+        ],
+        "test_enhanced_terrain_scores.py": [
+          {
+            "file": "test_enhanced_terrain_scores.py",
+            "function": "test_enhanced_road_distance",
+            "lines": 78,
+            "start_line": 6
+          },
+          {
+            "file": "test_enhanced_terrain_scores.py",
+            "function": "test_enhanced_pressure_resistance",
+            "lines": 99,
+            "start_line": 86
+          }
+        ],
+        "debug_feeding_scores.py": [
+          {
+            "file": "debug_feeding_scores.py",
+            "function": "test_feeding_scores",
+            "lines": 69,
+            "start_line": 9
+          }
+        ],
+        "backend\\real_osm_security.py": [
+          {
+            "file": "backend\\real_osm_security.py",
+            "function": "_summarize_real_threats",
+            "lines": 53,
+            "start_line": 343
+          }
+        ],
+        "backend\\real_wind_deer_analysis.py": [
+          {
+            "file": "backend\\real_wind_deer_analysis.py",
+            "function": "_wind_travel_analysis",
+            "lines": 52,
+            "start_line": 179
+          }
+        ],
+        "debug_terrain_features.py": [
+          {
+            "file": "debug_terrain_features.py",
+            "function": "debug_terrain_features",
+            "lines": 60,
+            "start_line": 8
+          }
+        ],
+        "backend\\enhanced_food_analyzer.py": [
+          {
+            "file": "backend\\enhanced_food_analyzer.py",
+            "function": "analyze_food_landscape",
+            "lines": 56,
+            "start_line": 76
+          },
+          {
+            "file": "backend\\enhanced_food_analyzer.py",
+            "function": "_analyze_mast_sources",
+            "lines": 56,
+            "start_line": 134
+          },
+          {
+            "file": "backend\\enhanced_food_analyzer.py",
+            "function": "_analyze_crop_sources",
+            "lines": 54,
+            "start_line": 192
+          }
+        ],
+        "backend\\enhanced_stand_placement.py": [
+          {
+            "file": "backend\\enhanced_stand_placement.py",
+            "function": "find_optimal_stand_sites",
+            "lines": 55,
+            "start_line": 57
+          },
+          {
+            "file": "backend\\enhanced_stand_placement.py",
+            "function": "_analyze_stand_site",
+            "lines": 73,
+            "start_line": 114
+          }
+        ],
+        "backend\\services\\camera_service.py": [
+          {
+            "file": "backend\\services\\camera_service.py",
+            "function": "get_trail_camera_placements",
+            "lines": 71,
+            "start_line": 46
+          },
+          {
+            "file": "backend\\services\\camera_service.py",
+            "function": "get_optimal_camera_placement",
+            "lines": 79,
+            "start_line": 119
+          }
+        ],
+        "demo_heatmap.py": [
+          {
+            "file": "demo_heatmap.py",
+            "function": "create_demo_heatmap",
+            "lines": 58,
+            "start_line": 12
+          }
+        ],
+        "backend\\mature_buck_predictor.py": [
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_find_optimal_stand_position_for_strategy",
+            "lines": 233,
+            "start_line": 2034
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_calculate_terrain_bonus_for_strategy",
+            "lines": 58,
+            "start_line": 2269
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "generate_mature_buck_stand_recommendations",
+            "lines": 220,
+            "start_line": 2339
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_perform_standard_terrain_analysis",
+            "lines": 59,
+            "start_line": 271
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_calculate_overall_suitability_with_security",
+            "lines": 65,
+            "start_line": 485
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "predict_with_advanced_terrain_analysis",
+            "lines": 66,
+            "start_line": 656
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_apply_pressure_adjustments",
+            "lines": 71,
+            "start_line": 815
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_identify_movement_corridors",
+            "lines": 106,
+            "start_line": 1015
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_predict_bedding_locations",
+            "lines": 136,
+            "start_line": 1123
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_enhance_corridors_with_terrain_features",
+            "lines": 67,
+            "start_line": 1261
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_enhance_bedding_with_terrain_features",
+            "lines": 79,
+            "start_line": 1330
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_generate_terrain_based_stands",
+            "lines": 136,
+            "start_line": 1411
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_generate_terrain_behavioral_insights",
+            "lines": 79,
+            "start_line": 1549
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_predict_feeding_zones",
+            "lines": 165,
+            "start_line": 1630
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "_calculate_multi_zone_distances",
+            "lines": 62,
+            "start_line": 1840
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "function": "calculate_zone_proximity_scores",
+            "lines": 83,
+            "start_line": 1904
+          }
+        ],
+        "backend\\analytics\\data_collector.py": [
+          {
+            "file": "backend\\analytics\\data_collector.py",
+            "function": "_init_database",
+            "lines": 68,
+            "start_line": 113
+          },
+          {
+            "file": "backend\\analytics\\data_collector.py",
+            "function": "get_prediction_analytics",
+            "lines": 81,
+            "start_line": 288
+          },
+          {
+            "file": "backend\\analytics\\data_collector.py",
+            "function": "update_daily_summary",
+            "lines": 53,
+            "start_line": 413
+          }
+        ],
+        "code_analysis.py": [
+          {
+            "file": "code_analysis.py",
+            "function": "generate_recommendations",
+            "lines": 54,
+            "start_line": 216
+          }
+        ],
+        "backend\\analytics_demo.py": [
+          {
+            "file": "backend\\analytics_demo.py",
+            "function": "simulate_prediction_result",
+            "lines": 56,
+            "start_line": 84
+          }
+        ],
+        "backend\\vegetation_analyzer.py": [
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "function": "_analyze_ndvi_improved",
+            "lines": 78,
+            "start_line": 153
+          },
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "function": "_analyze_ndvi",
+            "lines": 60,
+            "start_line": 233
+          },
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "function": "_analyze_land_cover",
+            "lines": 64,
+            "start_line": 295
+          },
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "function": "_assess_vegetation_health",
+            "lines": 81,
+            "start_line": 389
+          }
+        ],
+        "quick_validation.py": [
+          {
+            "file": "quick_validation.py",
+            "function": "quick_validation_test",
+            "lines": 144,
+            "start_line": 7
+          }
+        ],
+        "test_comprehensive_integration.py": [
+          {
+            "file": "test_comprehensive_integration.py",
+            "function": "test_end_to_end_prediction",
+            "lines": 77,
+            "start_line": 27
+          },
+          {
+            "file": "test_comprehensive_integration.py",
+            "function": "test_error_handling_integration",
+            "lines": 60,
+            "start_line": 149
+          }
+        ],
+        "test_single_mature_buck.py": [
+          {
+            "file": "test_single_mature_buck.py",
+            "function": "test_single_prediction",
+            "lines": 101,
+            "start_line": 10
+          }
+        ],
+        "debug_bedding_scores.py": [
+          {
+            "file": "debug_bedding_scores.py",
+            "function": "test_bedding_scores",
+            "lines": 96,
+            "start_line": 11
+          }
+        ],
+        "analyze_docs.py": [
+          {
+            "file": "analyze_docs.py",
+            "function": "analyze_markdown_files",
+            "lines": 58,
+            "start_line": 25
+          },
+          {
+            "file": "analyze_docs.py",
+            "function": "main",
+            "lines": 61,
+            "start_line": 137
+          }
+        ],
+        "test_pressure_calculations.py": [
+          {
+            "file": "test_pressure_calculations.py",
+            "function": "calculate_pressure_resistance_score",
+            "lines": 84,
+            "start_line": 6
+          }
+        ],
+        "analyze_gpx_content.py": [
+          {
+            "file": "analyze_gpx_content.py",
+            "function": "analyze_gpx_file_safely",
+            "lines": 94,
+            "start_line": 12
+          }
+        ],
+        "backend\\trail_camera_predictor.py": [
+          {
+            "file": "backend\\trail_camera_predictor.py",
+            "function": "__init__",
+            "lines": 60,
+            "start_line": 54
+          },
+          {
+            "file": "backend\\trail_camera_predictor.py",
+            "function": "predict_camera_placements",
+            "lines": 102,
+            "start_line": 116
+          },
+          {
+            "file": "backend\\trail_camera_predictor.py",
+            "function": "_predict_escape_route_cameras",
+            "lines": 81,
+            "start_line": 416
+          }
+        ],
+        "backend\\test_proximity_scoring.py": [
+          {
+            "file": "backend\\test_proximity_scoring.py",
+            "function": "test_proximity_scoring",
+            "lines": 140,
+            "start_line": 13
+          }
+        ],
+        "quick_deployment_test.py": [
+          {
+            "file": "quick_deployment_test.py",
+            "function": "test_deployment_readiness",
+            "lines": 132,
+            "start_line": 9
+          }
+        ],
+        "backend\\test_wind_integration.py": [
+          {
+            "file": "backend\\test_wind_integration.py",
+            "function": "test_wind_integration",
+            "lines": 113,
+            "start_line": 13
+          }
+        ],
+        "debug_terrain_scores.py": [
+          {
+            "file": "debug_terrain_scores.py",
+            "function": "test_terrain_scores",
+            "lines": 70,
+            "start_line": 12
+          }
+        ],
+        "test_direct_mature_buck.py": [
+          {
+            "file": "test_direct_mature_buck.py",
+            "function": "test_mature_buck_data",
+            "lines": 122,
+            "start_line": 14
+          }
+        ],
+        "debug_integration.py": [
+          {
+            "file": "debug_integration.py",
+            "function": "test_current_integration",
+            "lines": 56,
+            "start_line": 6
+          }
+        ],
+        "test_frontend_integration.py": [
+          {
+            "file": "test_frontend_integration.py",
+            "function": "test_frontend_integration",
+            "lines": 74,
+            "start_line": 9
+          }
+        ],
+        "backend\\mature_buck_points_generator.py": [
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "function": "generate_optimized_points",
+            "lines": 54,
+            "start_line": 65
+          },
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "function": "_find_primary_stand_site",
+            "lines": 56,
+            "start_line": 161
+          },
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "function": "_find_thermal_advantage_stand",
+            "lines": 76,
+            "start_line": 219
+          },
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "function": "_find_security_stand",
+            "lines": 51,
+            "start_line": 297
+          },
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "function": "_find_thermal_bedding_site",
+            "lines": 51,
+            "start_line": 415
+          }
+        ],
+        "comprehensive_testing_suite.py": [
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_terrain_analysis",
+            "lines": 77,
+            "start_line": 101
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_vegetation_calculations",
+            "lines": 54,
+            "start_line": 180
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_prediction_consistency",
+            "lines": 62,
+            "start_line": 236
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_movement_patterns",
+            "lines": 83,
+            "start_line": 317
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_seasonal_behavior",
+            "lines": 64,
+            "start_line": 402
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_environmental_triggers",
+            "lines": 65,
+            "start_line": 468
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_camera_algorithm",
+            "lines": 73,
+            "start_line": 552
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_camera_positioning",
+            "lines": 82,
+            "start_line": 627
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_camera_reasoning",
+            "lines": 77,
+            "start_line": 711
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_stand_analysis_integrity",
+            "lines": 79,
+            "start_line": 803
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_map_data_integrity",
+            "lines": 71,
+            "start_line": 884
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_end_to_end_workflow",
+            "lines": 111,
+            "start_line": 970
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_test_performance_benchmarks",
+            "lines": 83,
+            "start_line": 1083
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "function": "_generate_comprehensive_report",
+            "lines": 115,
+            "start_line": 1168
+          }
+        ],
+        "run_backend.py": [
+          {
+            "file": "run_backend.py",
+            "function": "run_backend_server",
+            "lines": 63,
+            "start_line": 13
+          }
+        ],
+        "test_fixed_satellite.py": [
+          {
+            "file": "test_fixed_satellite.py",
+            "function": "test_satellite_integration",
+            "lines": 60,
+            "start_line": 8
+          }
+        ],
+        "backend\\test_mature_buck_accuracy.py": [
+          {
+            "file": "backend\\test_mature_buck_accuracy.py",
+            "function": "test_terrain_analysis_accuracy",
+            "lines": 76,
+            "start_line": 21
+          },
+          {
+            "file": "backend\\test_mature_buck_accuracy.py",
+            "function": "test_movement_prediction_accuracy",
+            "lines": 67,
+            "start_line": 99
+          }
+        ],
+        "backend\\services\\prediction_service.py": [
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "get_prediction_service",
+            "lines": 52,
+            "start_line": 1446
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "predict",
+            "lines": 51,
+            "start_line": 209
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "_cache_terrain_features_for_thermal",
+            "lines": 54,
+            "start_line": 305
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "_integrate_gee_vegetation",
+            "lines": 62,
+            "start_line": 394
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "predict_movement",
+            "lines": 156,
+            "start_line": 809
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "generate_simple_markers",
+            "lines": 61,
+            "start_line": 1033
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "_generate_intelligent_stand_sites",
+            "lines": 186,
+            "start_line": 1096
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "function": "generate_mature_buck_predictions",
+            "lines": 63,
+            "start_line": 1323
+          }
+        ],
+        "frontend_display_test.py": [
+          {
+            "file": "frontend_display_test.py",
+            "function": "test_backend_prediction",
+            "lines": 91,
+            "start_line": 16
+          },
+          {
+            "file": "frontend_display_test.py",
+            "function": "generate_frontend_test_report",
+            "lines": 69,
+            "start_line": 125
+          }
+        ],
+        "terrain_scores_test.py": [
+          {
+            "file": "terrain_scores_test.py",
+            "function": "test_real_terrain_scores",
+            "lines": 52,
+            "start_line": 10
+          }
+        ],
+        "backend\\core.py": [
+          {
+            "file": "backend\\core.py",
+            "function": "get_weather_data",
+            "lines": 172,
+            "start_line": 39
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "get_vegetation_grid_from_osm",
+            "lines": 148,
+            "start_line": 307
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "analyze_terrain_and_vegetation",
+            "lines": 151,
+            "start_line": 479
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "run_grid_rule_engine",
+            "lines": 117,
+            "start_line": 632
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "generate_corridors_from_scores",
+            "lines": 91,
+            "start_line": 751
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "generate_zones_from_scores",
+            "lines": 59,
+            "start_line": 844
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "create_enhanced_score_heatmap",
+            "lines": 87,
+            "start_line": 1043
+          },
+          {
+            "file": "backend\\core.py",
+            "function": "find_better_hunting_spots",
+            "lines": 92,
+            "start_line": 1142
+          }
+        ],
+        "quick_backend_validation.py": [
+          {
+            "file": "quick_backend_validation.py",
+            "function": "test_prediction_quality",
+            "lines": 84,
+            "start_line": 12
+          },
+          {
+            "file": "quick_backend_validation.py",
+            "function": "test_seasonal_differences",
+            "lines": 55,
+            "start_line": 98
+          }
+        ],
+        "test_mature_buck_integration.py": [
+          {
+            "file": "test_mature_buck_integration.py",
+            "function": "test_mature_buck_integration",
+            "lines": 97,
+            "start_line": 10
+          }
+        ],
+        "test_simple_variations.py": [
+          {
+            "file": "test_simple_variations.py",
+            "function": "test_location_variations_simple",
+            "lines": 133,
+            "start_line": 10
+          }
+        ],
+        "test_camera_integration.py": [
+          {
+            "file": "test_camera_integration.py",
+            "function": "test_camera_integration",
+            "lines": 106,
+            "start_line": 10
+          }
+        ],
+        "backend\\enhanced_prediction_engine.py": [
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "function": "generate_enhanced_prediction",
+            "lines": 71,
+            "start_line": 41
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "function": "_generate_optimal_stands",
+            "lines": 59,
+            "start_line": 352
+          }
+        ],
+        "backend\\test_locations.py": [
+          {
+            "file": "backend\\test_locations.py",
+            "function": "analyze_location",
+            "lines": 80,
+            "start_line": 38
+          }
+        ],
+        "backend\\enhanced_security_analyzer.py": [
+          {
+            "file": "backend\\enhanced_security_analyzer.py",
+            "function": "analyze_security_threats",
+            "lines": 65,
+            "start_line": 53
+          },
+          {
+            "file": "backend\\enhanced_security_analyzer.py",
+            "function": "_generate_real_security_recommendations",
+            "lines": 69,
+            "start_line": 350
+          }
+        ],
+        "test_improved_ndvi.py": [
+          {
+            "file": "test_improved_ndvi.py",
+            "function": "test_improved_ndvi",
+            "lines": 69,
+            "start_line": 6
+          }
+        ],
+        "backend\\ml_enhanced_predictor.py": [
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "function": "create_feature_vector",
+            "lines": 68,
+            "start_line": 157
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "function": "train_models_with_data",
+            "lines": 65,
+            "start_line": 895
+          }
+        ],
+        "mature_buck_display_test.py": [
+          {
+            "file": "mature_buck_display_test.py",
+            "function": "test_mature_buck_display",
+            "lines": 115,
+            "start_line": 11
+          }
+        ],
+        "backend\\advanced_thermal_analysis.py": [
+          {
+            "file": "backend\\advanced_thermal_analysis.py",
+            "function": "_analyze_slope_thermal_potential",
+            "lines": 58,
+            "start_line": 191
+          },
+          {
+            "file": "backend\\advanced_thermal_analysis.py",
+            "function": "_assess_thermal_activity",
+            "lines": 60,
+            "start_line": 343
+          }
+        ],
+        "integrate_enhanced_predictions.py": [
+          {
+            "file": "integrate_enhanced_predictions.py",
+            "function": "integrate_enhanced_predictions",
+            "lines": 101,
+            "start_line": 23
+          },
+          {
+            "file": "integrate_enhanced_predictions.py",
+            "function": "create_integration_summary",
+            "lines": 65,
+            "start_line": 155
+          }
+        ],
+        "test_enhanced_scoring_path.py": [
+          {
+            "file": "test_enhanced_scoring_path.py",
+            "function": "test_enhanced_scoring",
+            "lines": 57,
+            "start_line": 11
+          }
+        ],
+        "backend_analysis_report.py": [
+          {
+            "file": "backend_analysis_report.py",
+            "function": "analyze_backend_performance",
+            "lines": 118,
+            "start_line": 8
+          }
+        ],
+        "final_satellite_verification.py": [
+          {
+            "file": "final_satellite_verification.py",
+            "function": "test_final_satellite_integration",
+            "lines": 124,
+            "start_line": 12
+          }
+        ],
+        "debug_mature_buck.py": [
+          {
+            "file": "debug_mature_buck.py",
+            "function": "debug_mature_buck_scoring",
+            "lines": 86,
+            "start_line": 10
+          }
+        ],
+        "debug_comprehensive_flow.py": [
+          {
+            "file": "debug_comprehensive_flow.py",
+            "function": "comprehensive_terrain_debugging",
+            "lines": 96,
+            "start_line": 13
+          }
+        ],
+        "backend\\test_analytics_integration.py": [
+          {
+            "file": "backend\\test_analytics_integration.py",
+            "function": "test_analytics_integration",
+            "lines": 108,
+            "start_line": 64
+          }
+        ],
+        "safe_gpx_diagnostic.py": [
+          {
+            "file": "safe_gpx_diagnostic.py",
+            "function": "safe_diagnostic_test",
+            "lines": 92,
+            "start_line": 14
+          }
+        ],
+        "test_enhanced_mature_buck.py": [
+          {
+            "file": "test_enhanced_mature_buck.py",
+            "function": "test_enhanced_spatial_predictions",
+            "lines": 149,
+            "start_line": 16
+          }
+        ],
+        "test_gee_integration.py": [
+          {
+            "file": "test_gee_integration.py",
+            "function": "display_integration_status",
+            "lines": 53,
+            "start_line": 161
+          }
+        ],
+        "frontend\\app.py": [
+          {
+            "file": "frontend\\app.py",
+            "function": "calculate_terrain_based_deer_approach",
+            "lines": 52,
+            "start_line": 13
+          },
+          {
+            "file": "frontend\\app.py",
+            "function": "check_password",
+            "lines": 51,
+            "start_line": 131
+          }
+        ],
+        "fix_docker_gee_auth.py": [
+          {
+            "file": "fix_docker_gee_auth.py",
+            "function": "fix_docker_gee_auth",
+            "lines": 54,
+            "start_line": 13
+          }
+        ],
+        "verify_v2_deployment.py": [
+          {
+            "file": "verify_v2_deployment.py",
+            "function": "verify_deployment",
+            "lines": 98,
+            "start_line": 11
+          }
+        ],
+        "test_scouting_api.py": [
+          {
+            "file": "test_scouting_api.py",
+            "function": "test_scouting_api",
+            "lines": 68,
+            "start_line": 10
+          }
+        ],
+        "backend\\terrain_analyzer.py": [
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "function": "analyze_terrain_features",
+            "lines": 66,
+            "start_line": 158
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "function": "_get_elevation_grid",
+            "lines": 57,
+            "start_line": 226
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "function": "_analyze_travel_corridors",
+            "lines": 70,
+            "start_line": 569
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "function": "_identify_natural_funnels",
+            "lines": 58,
+            "start_line": 641
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "function": "_analyze_mature_buck_suitability",
+            "lines": 62,
+            "start_line": 1095
+          }
+        ],
+        "quick_validation_script.py": [
+          {
+            "file": "quick_validation_script.py",
+            "function": "test_mature_buck_intelligence",
+            "lines": 55,
+            "start_line": 59
+          },
+          {
+            "file": "quick_validation_script.py",
+            "function": "test_stand_analysis",
+            "lines": 84,
+            "start_line": 116
+          },
+          {
+            "file": "quick_validation_script.py",
+            "function": "test_camera_placement",
+            "lines": 67,
+            "start_line": 202
+          },
+          {
+            "file": "quick_validation_script.py",
+            "function": "test_frontend_integration",
+            "lines": 91,
+            "start_line": 271
+          },
+          {
+            "file": "quick_validation_script.py",
+            "function": "print_validation_summary",
+            "lines": 74,
+            "start_line": 364
+          }
+        ],
+        "comprehensive_system_test.py": [
+          {
+            "file": "comprehensive_system_test.py",
+            "function": "test_prediction_engine",
+            "lines": 72,
+            "start_line": 118
+          }
+        ],
+        "test_multiple_locations.py": [
+          {
+            "file": "test_multiple_locations.py",
+            "function": "test_multiple_locations",
+            "lines": 71,
+            "start_line": 17
+          }
+        ],
+        "test_prediction_logic.py": [
+          {
+            "file": "test_prediction_logic.py",
+            "function": "validate_prediction_logic",
+            "lines": 99,
+            "start_line": 38
+          },
+          {
+            "file": "test_prediction_logic.py",
+            "function": "main",
+            "lines": 69,
+            "start_line": 139
+          }
+        ],
+        "check_gee_activation.py": [
+          {
+            "file": "check_gee_activation.py",
+            "function": "check_credentials",
+            "lines": 82,
+            "start_line": 11
+          }
+        ],
+        "backend\\analytics\\performance_monitor.py": [
+          {
+            "file": "backend\\analytics\\performance_monitor.py",
+            "function": "_check_alert_conditions",
+            "lines": 62,
+            "start_line": 295
+          }
+        ],
+        "test_frontend_fix.py": [
+          {
+            "file": "test_frontend_fix.py",
+            "function": "test_streamlit_integration",
+            "lines": 129,
+            "start_line": 13
+          }
+        ],
+        "test_real_osm_integration.py": [
+          {
+            "file": "test_real_osm_integration.py",
+            "function": "test_real_osm_backend_integration",
+            "lines": 123,
+            "start_line": 17
+          }
+        ],
+        "validate_prediction_pipeline.py": [
+          {
+            "file": "validate_prediction_pipeline.py",
+            "function": "test_prediction_algorithm",
+            "lines": 56,
+            "start_line": 87
+          },
+          {
+            "file": "validate_prediction_pipeline.py",
+            "function": "test_historical_data_impact",
+            "lines": 53,
+            "start_line": 145
+          }
+        ],
+        "backend\\weather_system.py": [
+          {
+            "file": "backend\\weather_system.py",
+            "function": "get_weather_data",
+            "lines": 87,
+            "start_line": 49
+          }
+        ],
+        "debug_api_endpoints.py": [
+          {
+            "file": "debug_api_endpoints.py",
+            "function": "debug_api_endpoints",
+            "lines": 55,
+            "start_line": 6
+          }
+        ]
+      },
+      "action": "Break down functions into smaller, focused functions"
+    },
+    {
+      "type": "FILE_CLEANUP",
+      "priority": "LOW",
+      "description": "Consolidate 18 debug scripts (74.5 KB total)",
+      "details": [
+        {
+          "file": "debug_enhanced_accuracy_direct.py",
+          "size_kb": 2.6728515625,
+          "type": "debug"
+        },
+        {
+          "file": "debug_observations.py",
+          "size_kb": 1.7001953125,
+          "type": "debug"
+        },
+        {
+          "file": "debug_gpx_import.py",
+          "size_kb": 3.5126953125,
+          "type": "debug"
+        },
+        {
+          "file": "FINAL_VALIDATION_REPORT.py",
+          "size_kb": 4.802734375,
+          "type": "validation"
+        },
+        {
+          "file": "debug_feeding_scores.py",
+          "size_kb": 3.3642578125,
+          "type": "debug"
+        },
+        {
+          "file": "debug_gee_isolation.py",
+          "size_kb": 4.40234375,
+          "type": "debug"
+        },
+        {
+          "file": "debug_terrain_features.py",
+          "size_kb": 3.267578125,
+          "type": "debug"
+        },
+        {
+          "file": "final_config_validation.py",
+          "size_kb": 1.7216796875,
+          "type": "validation"
+        },
+        {
+          "file": "debug_vermont_terrain.py",
+          "size_kb": 1.673828125,
+          "type": "debug"
+        },
+        {
+          "file": "quick_validation.py",
+          "size_kb": 6.2021484375,
+          "type": "validation"
+        },
+        {
+          "file": "debug_bedding_scores.py",
+          "size_kb": 4.0556640625,
+          "type": "debug"
+        },
+        {
+          "file": "debug_terrain_scores.py",
+          "size_kb": 3.150390625,
+          "type": "debug"
+        },
+        {
+          "file": "debug_integration.py",
+          "size_kb": 2.365234375,
+          "type": "debug"
+        },
+        {
+          "file": "debug_mature_buck.py",
+          "size_kb": 4.5869140625,
+          "type": "debug"
+        },
+        {
+          "file": "debug_comprehensive_flow.py",
+          "size_kb": 3.861328125,
+          "type": "debug"
+        },
+        {
+          "file": "quick_validation_script.py",
+          "size_kb": 19.4130859375,
+          "type": "validation"
+        },
+        {
+          "file": "debug_mature_buck_direct.py",
+          "size_kb": 1.634765625,
+          "type": "debug"
+        },
+        {
+          "file": "debug_api_endpoints.py",
+          "size_kb": 2.158203125,
+          "type": "debug"
+        }
+      ],
+      "action": "Archive old debug scripts, keep only essential ones"
+    },
+    {
+      "type": "DEAD_CODE",
+      "priority": "HIGH",
+      "description": "Remove 74 unused code items",
+      "details": [
+        "backend\\analytics\\data_collector.py:27: unused import 'asdict' (90% confidence)",
+        "backend\\config_manager.py:30: unused import 'FileSystemEventHandler' (90% confidence)",
+        "backend\\core.py:15: unused import 'mcolors' (90% confidence)",
+        "backend\\core.py:17: unused import 'convolve' (90% confidence)",
+        "backend\\core.py:20: unused import 'score_with_context' (90% confidence)",
+        "backend\\core.py:28: unused import 'get_thermal_analyzer' (90% confidence)",
+        "backend\\core.py:755: unreachable code after 'return' (100% confidence)",
+        "backend\\enhanced_food_analyzer.py:17: unused import 'calendar' (90% confidence)",
+        "backend\\enhanced_prediction_engine.py:458: unused variable 'food' (100% confidence)",
+        "backend\\enhanced_prediction_engine.py:463: unused variable 'food' (100% confidence)",
+        "backend\\enhanced_prediction_engine.py:465: unused variable 'food' (100% confidence)",
+        "backend\\enhanced_prediction_engine.py:468: unused variable 'food_factor' (100% confidence)",
+        "backend\\enhanced_prediction_engine.py:468: unused variable 'weather_factor' (100% confidence)",
+        "backend\\gpx_parser.py:405: unreachable code after 'return' (100% confidence)",
+        "backend\\main.py:33: unused import 'get_configuration_service' (90% confidence)",
+        "backend\\main_original_backup.py:28: unused import 'score_with_context' (90% confidence)",
+        "backend\\main_original_backup.py:33: unused import 'score_stand_placement' (90% confidence)",
+        "backend\\mature_buck_predictor.py:28: unused import 'score_terrain_suitability' (90% confidence)",
+        "backend\\mature_buck_predictor.py:28: unused import 'score_with_context' (90% confidence)",
+        "backend\\mature_buck_predictor.py:36: unused import 'score_terrain_suitability' (90% confidence)",
+        "backend\\mature_buck_predictor.py:36: unused import 'score_with_context' (90% confidence)",
+        "backend\\mature_buck_predictor.py:45: unused import 'score_agricultural_proximity' (90% confidence)",
+        "backend\\mature_buck_predictor.py:45: unused import 'score_escape_routes' (90% confidence)",
+        "backend\\mature_buck_predictor.py:45: unused import 'score_road_proximity' (90% confidence)",
+        "backend\\mature_buck_predictor.py:52: unused import 'score_agricultural_proximity' (90% confidence)",
+        "backend\\mature_buck_predictor.py:52: unused import 'score_escape_routes' (90% confidence)",
+        "backend\\mature_buck_predictor.py:52: unused import 'score_road_proximity' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:21: unused import 'pd' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:42: unused import 'cross_val_score' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:42: unused import 'train_test_split' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:44: unused import 'accuracy_score' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:44: unused import 'classification_report' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:44: unused import 'mean_squared_error' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:45: unused import 'joblib' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:60: unused import 'cross_val_score' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:60: unused import 'train_test_split' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:62: unused import 'accuracy_score' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:62: unused import 'classification_report' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:62: unused import 'mean_squared_error' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:63: unused import 'joblib' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:72: unused import 'BuckAgeClass' (90% confidence)",
+        "backend\\ml_enhanced_predictor.py:468: unused variable 'record_index' (100% confidence)",
+        "backend\\services\\base_service.py:13: unused import 'abstractmethod' (90% confidence)",
+        "backend\\services\\prediction_service.py:32: unused import 'score_with_context' (90% confidence)",
+        "backend\\services\\prediction_service.py:33: unused import 'score_stand_placement' (90% confidence)",
+        "backend\\services\\prediction_service.py:1453: unreachable code after 'return' (100% confidence)",
+        "backend\\services\\service_container.py:14: unused import 'abstractmethod' (90% confidence)",
+        "backend\\start_dashboard.py:26: unused import 'asynccontextmanager' (90% confidence)",
+        "backend\\start_dashboard.py:163: unused variable 'frame' (100% confidence)",
+        "backend\\start_dashboard.py:209: unused import 'fastapi' (90% confidence)",
+        "backend\\terrain_analyzer.py:21: unused import 'pd' (90% confidence)",
+        "backend\\terrain_analyzer.py:22: unused import 'gpd' (90% confidence)",
+        "backend\\terrain_analyzer.py:24: unused import 'ndimage' (90% confidence)",
+        "backend\\terrain_analyzer.py:25: unused import 'cdist' (90% confidence)",
+        "backend\\test_ml_integration.py:31: unused import 'pd' (90% confidence)",
+        "backend\\test_ml_integration.py:40: unused import 'joblib' (90% confidence)",
+        "backend\\tests\\test_framework.py:24: unused import 'tempfile' (90% confidence)",
+        "backend\\tests\\test_framework.py:26: unused import 'Generator' (90% confidence)",
+        "backend\\tests\\test_framework.py:37: unused import 'SubFactory' (90% confidence)",
+        "backend\\tests\\test_framework.py:390: unused variable 'should_warn' (100% confidence)",
+        "backend\\vegetation_analyzer.py:651: unused variable 'end' (100% confidence)",
+        "backend\\visualization_system.py:22: unused import 'mcolors' (90% confidence)",
+        "backend\\wind_analysis.py:22: unused import 'pd' (90% confidence)",
+        "camera_demo_server.py:11: unused import 'StaticFiles' (90% confidence)",
+        "camera_demo_server.py:12: unused import 'FileResponse' (90% confidence)",
+        "demo_heatmap.py:8: unused import 'mcolors' (90% confidence)",
+        "frontend\\app.py:10: unused import 'OVERLAY_SOURCES' (90% confidence)",
+        "frontend\\app_backup.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+        "frontend\\app_complex.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+        "frontend\\app_new.py:8: unused import 'OVERLAY_SOURCES' (90% confidence)",
+        "test_thermal_integration.py:19: unused import 'get_thermal_analyzer' (90% confidence)",
+        "validate_prediction_pipeline.py:16: unused import 'pd' (90% confidence)",
+        "validate_refactoring.py:145: unused import 'backend' (90% confidence)",
+        "validate_refactoring.py:149: unused import 'backend' (90% confidence)"
+      ],
+      "action": "Safely remove unused functions and variables"
+    },
+    {
+      "type": "DEDUPLICATION",
+      "priority": "MEDIUM",
+      "description": "Review 89 duplicate function names",
+      "details": {
+        "calculate_terrain_based_deer_approach": [
+          {
+            "file": "test_deer_approach_fix.py",
+            "line": 12
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 13
+          }
+        ],
+        "enhanced_deer_approach_calculation": [
+          {
+            "file": "test_deer_approach_fix.py",
+            "line": 95
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 67
+          }
+        ],
+        "calculate_bearing": [
+          {
+            "file": "test_deer_approach_fix.py",
+            "line": 152
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1343
+          },
+          {
+            "file": "backend\\core.py",
+            "line": 950
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 807
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 998
+          }
+        ],
+        "main": [
+          {
+            "file": "test_api_ml.py",
+            "line": 167
+          },
+          {
+            "file": "test_map_fix.py",
+            "line": 113
+          },
+          {
+            "file": "test_final_comprehensive.py",
+            "line": 246
+          },
+          {
+            "file": "status_check.py",
+            "line": 55
+          },
+          {
+            "file": "setup_gee_interactive.py",
+            "line": 33
+          },
+          {
+            "file": "focused_code_analysis.py",
+            "line": 319
+          },
+          {
+            "file": "run_docker_tests.py",
+            "line": 578
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 393
+          },
+          {
+            "file": "code_analysis.py",
+            "line": 312
+          },
+          {
+            "file": "test_comprehensive_integration.py",
+            "line": 211
+          },
+          {
+            "file": "analyze_docs.py",
+            "line": 137
+          },
+          {
+            "file": "backend\\test_mature_buck_accuracy.py",
+            "line": 266
+          },
+          {
+            "file": "frontend_display_test.py",
+            "line": 196
+          },
+          {
+            "file": "quick_backend_validation.py",
+            "line": 237
+          },
+          {
+            "file": "backend\\test_locations.py",
+            "line": 120
+          },
+          {
+            "file": "integrate_enhanced_predictions.py",
+            "line": 222
+          },
+          {
+            "file": "dev.py",
+            "line": 84
+          },
+          {
+            "file": "backend\\test_analytics_integration.py",
+            "line": 211
+          },
+          {
+            "file": "backend\\test_ml_integration.py",
+            "line": 146
+          },
+          {
+            "file": "test_prediction_logic.py",
+            "line": 139
+          },
+          {
+            "file": "test_mcp_integration.py",
+            "line": 64
+          },
+          {
+            "file": "check_gee_activation.py",
+            "line": 95
+          },
+          {
+            "file": "test_map_consistency.py",
+            "line": 79
+          },
+          {
+            "file": "validate_prediction_pipeline.py",
+            "line": 332
+          }
+        ],
+        "read_root": [
+          {
+            "file": "backend\\main.py",
+            "line": 98
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 192
+          },
+          {
+            "file": "backend\\main_new.py",
+            "line": 88
+          }
+        ],
+        "health_check": [
+          {
+            "file": "backend\\main.py",
+            "line": 129
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 214
+          },
+          {
+            "file": "backend\\main_new.py",
+            "line": 119
+          }
+        ],
+        "get_rules": [
+          {
+            "file": "backend\\main.py",
+            "line": 161
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 233
+          },
+          {
+            "file": "backend\\main_new.py",
+            "line": 151
+          }
+        ],
+        "__init__": [
+          {
+            "file": "backend\\gpx_parser.py",
+            "line": 29
+          },
+          {
+            "file": "backend\\config\\settings.py",
+            "line": 302
+          },
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 111
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "line": 60
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "line": 73
+          },
+          {
+            "file": "backend\\distance_scorer.py",
+            "line": 37
+          },
+          {
+            "file": "backend\\distance_scorer.py",
+            "line": 54
+          },
+          {
+            "file": "comprehensive_backend_validation.py",
+            "line": 24
+          },
+          {
+            "file": "backend\\scoring_engine.py",
+            "line": 101
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 86
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 105
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 123
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 139
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 159
+          },
+          {
+            "file": "backend\\middleware\\error_handling.py",
+            "line": 184
+          },
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 19
+          },
+          {
+            "file": "backend\\services\\scouting_data_service.py",
+            "line": 55
+          },
+          {
+            "file": "test_enhanced_predictions.py",
+            "line": 32
+          },
+          {
+            "file": "backend\\services\\async_prediction_service.py",
+            "line": 76
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 19
+          },
+          {
+            "file": "backend\\scouting_prediction_enhancer.py",
+            "line": 31
+          },
+          {
+            "file": "focused_code_analysis.py",
+            "line": 15
+          },
+          {
+            "file": "backend\\scouting_data_manager.py",
+            "line": 43
+          },
+          {
+            "file": "run_docker_tests.py",
+            "line": 38
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 42
+          },
+          {
+            "file": "backend\\wind_analysis.py",
+            "line": 97
+          },
+          {
+            "file": "backend\\services\\base_service.py",
+            "line": 114
+          },
+          {
+            "file": "backend\\services\\base_service.py",
+            "line": 181
+          },
+          {
+            "file": "backend\\services\\base_service.py",
+            "line": 222
+          },
+          {
+            "file": "backend\\services\\redis_cache_service.py",
+            "line": 59
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 36
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 231
+          },
+          {
+            "file": "backend\\enhanced_prediction_api.py",
+            "line": 27
+          },
+          {
+            "file": "backend\\services\\configuration_service.py",
+            "line": 19
+          },
+          {
+            "file": "backend\\real_osm_security.py",
+            "line": 34
+          },
+          {
+            "file": "debug_gee_isolation.py",
+            "line": 34
+          },
+          {
+            "file": "backend\\real_wind_deer_analysis.py",
+            "line": 38
+          },
+          {
+            "file": "backend\\enhanced_food_analyzer.py",
+            "line": 34
+          },
+          {
+            "file": "backend\\enhanced_stand_placement.py",
+            "line": 38
+          },
+          {
+            "file": "backend\\services\\camera_service.py",
+            "line": 32
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "line": 150
+          },
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "line": 181
+          },
+          {
+            "file": "backend\\analytics\\data_collector.py",
+            "line": 95
+          },
+          {
+            "file": "code_analysis.py",
+            "line": 16
+          },
+          {
+            "file": "backend\\analytics_demo.py",
+            "line": 55
+          },
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "line": 33
+          },
+          {
+            "file": "gee_docker_setup.py",
+            "line": 16
+          },
+          {
+            "file": "backend\\services\\scouting_service.py",
+            "line": 34
+          },
+          {
+            "file": "backend\\trail_camera_predictor.py",
+            "line": 54
+          },
+          {
+            "file": "backend\\mature_buck_points_generator.py",
+            "line": 55
+          },
+          {
+            "file": "backend\\terrain_feature_mapper.py",
+            "line": 23
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "line": 36
+          },
+          {
+            "file": "backend\\prediction_cache.py",
+            "line": 17
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 60
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 186
+          },
+          {
+            "file": "backend\\services\\async_http_service.py",
+            "line": 52
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 36
+          },
+          {
+            "file": "backend\\enhanced_security_analyzer.py",
+            "line": 33
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "line": 126
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "line": 279
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "line": 527
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "line": 749
+          },
+          {
+            "file": "backend\\services\\terrain_service.py",
+            "line": 45
+          },
+          {
+            "file": "backend\\advanced_thermal_analysis.py",
+            "line": 49
+          },
+          {
+            "file": "backend\\start_dashboard.py",
+            "line": 38
+          },
+          {
+            "file": "backend\\start_dashboard.py",
+            "line": 57
+          },
+          {
+            "file": "backend\\utils.py",
+            "line": 26
+          },
+          {
+            "file": "backend\\utils.py",
+            "line": 37
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "line": 107
+          },
+          {
+            "file": "quick_validation_script.py",
+            "line": 23
+          },
+          {
+            "file": "backend\\visualization_system.py",
+            "line": 47
+          },
+          {
+            "file": "comprehensive_system_test.py",
+            "line": 26
+          },
+          {
+            "file": "user_management.py",
+            "line": 8
+          },
+          {
+            "file": "backend\\analytics\\performance_monitor.py",
+            "line": 65
+          },
+          {
+            "file": "validate_prediction_pipeline.py",
+            "line": 25
+          },
+          {
+            "file": "backend\\services\\weather_service.py",
+            "line": 49
+          },
+          {
+            "file": "backend\\weather_system.py",
+            "line": 45
+          }
+        ],
+        "estimate_road_distance": [
+          {
+            "file": "test_road_calculations.py",
+            "line": 6
+          },
+          {
+            "file": "test_enhanced_terrain_scores.py",
+            "line": 9
+          }
+        ],
+        "calculate_road_impact_score": [
+          {
+            "file": "test_road_calculations.py",
+            "line": 12
+          },
+          {
+            "file": "backend\\distance_scorer.py",
+            "line": 70
+          },
+          {
+            "file": "test_enhanced_terrain_scores.py",
+            "line": 32
+          }
+        ],
+        "get_config": [
+          {
+            "file": "backend\\config\\settings.py",
+            "line": 421
+          },
+          {
+            "file": "backend\\config\\settings.py",
+            "line": 343
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "line": 646
+          },
+          {
+            "file": "backend\\config.py",
+            "line": 27
+          }
+        ],
+        "reload_config": [
+          {
+            "file": "backend\\config\\settings.py",
+            "line": 425
+          },
+          {
+            "file": "backend\\config\\settings.py",
+            "line": 349
+          },
+          {
+            "file": "backend\\config_manager.py",
+            "line": 663
+          }
+        ],
+        "check_password": [
+          {
+            "file": "test_password_protection.py",
+            "line": 10
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 131
+          },
+          {
+            "file": "password_protection.py",
+            "line": 5
+          }
+        ],
+        "password_entered": [
+          {
+            "file": "test_password_protection.py",
+            "line": 13
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 134
+          },
+          {
+            "file": "password_protection.py",
+            "line": 8
+          }
+        ],
+        "to_dict": [
+          {
+            "file": "backend\\scouting_models.py",
+            "line": 176
+          },
+          {
+            "file": "backend\\services\\base_service.py",
+            "line": 87
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "line": 88
+          }
+        ],
+        "validate_season": [
+          {
+            "file": "backend\\main_refactored.py",
+            "line": 71
+          },
+          {
+            "file": "backend\\validators.py",
+            "line": 37
+          }
+        ],
+        "validate_datetime": [
+          {
+            "file": "backend\\main_refactored.py",
+            "line": 79
+          },
+          {
+            "file": "backend\\validators.py",
+            "line": 29
+          }
+        ],
+        "load_rules": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 150
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 967
+          }
+        ],
+        "analyze_route_terrain": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1003
+          },
+          {
+            "file": "backend\\core.py",
+            "line": 982
+          }
+        ],
+        "calculate_route_wind_impact": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1071
+          },
+          {
+            "file": "backend\\core.py",
+            "line": 1013
+          }
+        ],
+        "calculate_distance": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1357
+          },
+          {
+            "file": "backend\\core.py",
+            "line": 965
+          }
+        ],
+        "calculate_wind_favorability": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1602
+          },
+          {
+            "file": "backend\\scoring_engine.py",
+            "line": 446
+          }
+        ],
+        "generate_mature_buck_predictions": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1830
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 1323
+          }
+        ],
+        "generate_simple_markers": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 1979
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 1033
+          }
+        ],
+        "predict_movement": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2081
+          },
+          {
+            "file": "backend\\routers\\prediction_router.py",
+            "line": 26
+          },
+          {
+            "file": "backend\\services\\prediction_service.py",
+            "line": 809
+          }
+        ],
+        "get_config_status": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2630
+          },
+          {
+            "file": "backend\\routers\\config_router.py",
+            "line": 20
+          }
+        ],
+        "get_config_parameters": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2652
+          },
+          {
+            "file": "backend\\routers\\config_router.py",
+            "line": 26
+          }
+        ],
+        "reload_configuration": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2668
+          },
+          {
+            "file": "backend\\routers\\config_router.py",
+            "line": 32
+          },
+          {
+            "file": "backend\\services\\configuration_service.py",
+            "line": 67
+          }
+        ],
+        "get_trail_camera_placements": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2685
+          },
+          {
+            "file": "backend\\routers\\camera_router.py",
+            "line": 20
+          },
+          {
+            "file": "backend\\services\\camera_service.py",
+            "line": 46
+          }
+        ],
+        "get_optimal_camera_placement": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2812
+          },
+          {
+            "file": "backend\\routers\\camera_router.py",
+            "line": 26
+          },
+          {
+            "file": "backend\\services\\camera_service.py",
+            "line": 119
+          }
+        ],
+        "update_config_parameter": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2931
+          },
+          {
+            "file": "backend\\routers\\config_router.py",
+            "line": 38
+          }
+        ],
+        "safe_float": [
+          {
+            "file": "backend\\main_original_backup.py",
+            "line": 2772
+          },
+          {
+            "file": "backend\\enhanced_accuracy.py",
+            "line": 45
+          },
+          {
+            "file": "backend\\enhanced_accuracy.py",
+            "line": 295
+          }
+        ],
+        "get": [
+          {
+            "file": "backend\\config_manager.py",
+            "line": 506
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 59
+          },
+          {
+            "file": "backend\\prediction_cache.py",
+            "line": 33
+          }
+        ],
+        "get_metadata": [
+          {
+            "file": "backend\\config_manager.py",
+            "line": 628
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 238
+          }
+        ],
+        "test_backend_health": [
+          {
+            "file": "comprehensive_backend_validation.py",
+            "line": 46
+          },
+          {
+            "file": "validate_prediction_pipeline.py",
+            "line": 29
+          }
+        ],
+        "test_camera_placement": [
+          {
+            "file": "comprehensive_backend_validation.py",
+            "line": 215
+          },
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 290
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 290
+          },
+          {
+            "file": "quick_backend_validation.py",
+            "line": 155
+          },
+          {
+            "file": "quick_validation_script.py",
+            "line": 202
+          }
+        ],
+        "generate_report": [
+          {
+            "file": "comprehensive_backend_validation.py",
+            "line": 399
+          },
+          {
+            "file": "comprehensive_system_test.py",
+            "line": 310
+          }
+        ],
+        "run_all_tests": [
+          {
+            "file": "comprehensive_backend_validation.py",
+            "line": 419
+          },
+          {
+            "file": "comprehensive_testing_suite.py",
+            "line": 53
+          }
+        ],
+        "create_map": [
+          {
+            "file": "frontend\\app_complex.py",
+            "line": 17
+          },
+          {
+            "file": "frontend\\app_new.py",
+            "line": 20
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 194
+          },
+          {
+            "file": "frontend\\app_backup.py",
+            "line": 17
+          }
+        ],
+        "wrapper": [
+          {
+            "file": "backend\\performance.py",
+            "line": 16
+          },
+          {
+            "file": "backend\\performance.py",
+            "line": 33
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 210
+          }
+        ],
+        "decorator": [
+          {
+            "file": "backend\\performance.py",
+            "line": 31
+          },
+          {
+            "file": "backend\\services\\service_container.py",
+            "line": 209
+          }
+        ],
+        "calculate_optimal_camera_position": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 22
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 22
+          }
+        ],
+        "_get_vegetation_analysis": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 67
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 67
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 114
+          }
+        ],
+        "_get_hunting_prediction": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 84
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 84
+          }
+        ],
+        "_analyze_movement_patterns": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 106
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 106
+          }
+        ],
+        "_calculate_position_algorithm": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 125
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 125
+          }
+        ],
+        "_calculate_edge_factor": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 176
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 176
+          }
+        ],
+        "_calculate_optimal_bearing": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 183
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 183
+          }
+        ],
+        "_offset_coordinates": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 199
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 199
+          }
+        ],
+        "_calculate_confidence_score": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 227
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 227
+          }
+        ],
+        "_generate_placement_reasoning": [
+          {
+            "file": "backend\\advanced_camera_placement.py",
+            "line": 249
+          },
+          {
+            "file": "advanced_camera_placement.py",
+            "line": 249
+          }
+        ],
+        "_calculate_distance": [
+          {
+            "file": "backend\\services\\scouting_data_service.py",
+            "line": 196
+          },
+          {
+            "file": "backend\\scouting_data_manager.py",
+            "line": 340
+          }
+        ],
+        "_validate_coordinates": [
+          {
+            "file": "backend\\services\\scouting_data_service.py",
+            "line": 317
+          },
+          {
+            "file": "backend\\services\\terrain_service.py",
+            "line": 215
+          }
+        ],
+        "test_multiple_locations": [
+          {
+            "file": "test_marker_positions.py",
+            "line": 6
+          },
+          {
+            "file": "test_camera_placement.py",
+            "line": 7
+          },
+          {
+            "file": "test_multiple_locations.py",
+            "line": 17
+          }
+        ],
+        "run_comprehensive_test": [
+          {
+            "file": "test_comprehensive_terrain_scores.py",
+            "line": 216
+          },
+          {
+            "file": "test_configuration_management.py",
+            "line": 164
+          }
+        ],
+        "save_results": [
+          {
+            "file": "focused_code_analysis.py",
+            "line": 277
+          },
+          {
+            "file": "code_analysis.py",
+            "line": 272
+          }
+        ],
+        "print_summary": [
+          {
+            "file": "focused_code_analysis.py",
+            "line": 286
+          },
+          {
+            "file": "code_analysis.py",
+            "line": 281
+          }
+        ],
+        "test_api_endpoint": [
+          {
+            "file": "camera_api_integration.py",
+            "line": 79
+          },
+          {
+            "file": "test_prediction_logic.py",
+            "line": 16
+          }
+        ],
+        "test_rules_endpoint": [
+          {
+            "file": "backend\\tests\\test_main.py",
+            "line": 17
+          },
+          {
+            "file": "backend\\tests\\test_framework.py",
+            "line": 411
+          }
+        ],
+        "run_validation": [
+          {
+            "file": "validate_refactoring.py",
+            "line": 159
+          },
+          {
+            "file": "quick_validation_script.py",
+            "line": 27
+          }
+        ],
+        "run_tests": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 44
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 48
+          },
+          {
+            "file": "dev.py",
+            "line": 12
+          }
+        ],
+        "_run_integration_tests": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 509
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 148
+          }
+        ],
+        "_run_e2e_tests": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 514
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 167
+          }
+        ],
+        "_run_performance_tests": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 521
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 186
+          }
+        ],
+        "_all_tests_passed": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 525
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 320
+          }
+        ],
+        "_print_test_summary": [
+          {
+            "file": "run_docker_tests.py",
+            "line": 529
+          },
+          {
+            "file": "run_comprehensive_tests.py",
+            "line": 324
+          }
+        ],
+        "get_status": [
+          {
+            "file": "backend\\services\\configuration_service.py",
+            "line": 23
+          },
+          {
+            "file": "gee_docker_setup.py",
+            "line": 112
+          }
+        ],
+        "_assess_food_competition": [
+          {
+            "file": "backend\\enhanced_food_analyzer.py",
+            "line": 313
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 447
+          }
+        ],
+        "get_vermont_legal_hunting_hours": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 34
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 208
+          },
+          {
+            "file": "frontend\\app_backup.py",
+            "line": 31
+          }
+        ],
+        "generate_legal_hunting_times": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 68
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 242
+          },
+          {
+            "file": "frontend\\app_backup.py",
+            "line": 65
+          }
+        ],
+        "get_observation_types": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 93
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 267
+          }
+        ],
+        "add_scouting_observation": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 103
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 277
+          }
+        ],
+        "get_scouting_observations": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 120
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 294
+          }
+        ],
+        "get_scouting_analytics": [
+          {
+            "file": "frontend\\app_new.py",
+            "line": 137
+          },
+          {
+            "file": "frontend\\app.py",
+            "line": 311
+          }
+        ],
+        "predict_mature_buck_movement": [
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "line": 563
+          },
+          {
+            "file": "backend\\ml_enhanced_predictor.py",
+            "line": 78
+          }
+        ],
+        "_identify_movement_corridors": [
+          {
+            "file": "backend\\mature_buck_predictor.py",
+            "line": 1015
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 463
+          }
+        ],
+        "initialize": [
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "line": 37
+          },
+          {
+            "file": "gee_docker_setup.py",
+            "line": 63
+          }
+        ],
+        "calculate_ndvi": [
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "line": 251
+          },
+          {
+            "file": "backend\\vegetation_analyzer.py",
+            "line": 178
+          },
+          {
+            "file": "test_improved_ndvi.py",
+            "line": 50
+          }
+        ],
+        "test_mature_buck_integration": [
+          {
+            "file": "test_configuration_management.py",
+            "line": 54
+          },
+          {
+            "file": "test_mature_buck_integration.py",
+            "line": 10
+          }
+        ],
+        "test_frontend_integration": [
+          {
+            "file": "test_frontend_integration.py",
+            "line": 9
+          },
+          {
+            "file": "quick_validation_script.py",
+            "line": 271
+          },
+          {
+            "file": "comprehensive_system_test.py",
+            "line": 243
+          }
+        ],
+        "_calculate_ridge_connectivity": [
+          {
+            "file": "backend\\terrain_feature_mapper.py",
+            "line": 362
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "line": 724
+          }
+        ],
+        "_calculate_terrain_roughness": [
+          {
+            "file": "backend\\terrain_feature_mapper.py",
+            "line": 382
+          },
+          {
+            "file": "backend\\services\\terrain_service.py",
+            "line": 206
+          }
+        ],
+        "_calculate_cover_diversity": [
+          {
+            "file": "backend\\terrain_feature_mapper.py",
+            "line": 407
+          },
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 441
+          }
+        ],
+        "get_weather_data": [
+          {
+            "file": "backend\\core.py",
+            "line": 39
+          },
+          {
+            "file": "backend\\weather_system.py",
+            "line": 49
+          }
+        ],
+        "calculate_wind_hunting_windows": [
+          {
+            "file": "backend\\core.py",
+            "line": 214
+          },
+          {
+            "file": "backend\\weather_system.py",
+            "line": 169
+          }
+        ],
+        "get_moon_phase": [
+          {
+            "file": "backend\\core.py",
+            "line": 905
+          },
+          {
+            "file": "backend\\weather_system.py",
+            "line": 230
+          }
+        ],
+        "get_time_of_day": [
+          {
+            "file": "backend\\core.py",
+            "line": 938
+          },
+          {
+            "file": "backend\\weather_system.py",
+            "line": 256
+          }
+        ],
+        "_calculate_confidence_metrics": [
+          {
+            "file": "backend\\enhanced_prediction_engine.py",
+            "line": 271
+          },
+          {
+            "file": "backend\\terrain_analyzer.py",
+            "line": 1193
+          }
+        ],
+        "test_enhanced_predictions": [
+          {
+            "file": "test_gee_integration.py",
+            "line": 110
+          },
+          {
+            "file": "comprehensive_system_test.py",
+            "line": 192
+          }
+        ]
+      },
+      "action": "Check if functions are truly duplicated or just same names"
+    }
+  ]
+}

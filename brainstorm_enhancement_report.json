@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-08-26T21:40:24.298167",
+  "enhancement_score": 0.8,
+  "validation_results": {
+    "gee_enhanced": true,
+    "midday_logic_enhanced": true,
+    "wind_trend_enhanced": true,
+    "overall_confidence": 0.9874999999999999,
+    "frontend_interactivity": 0.5,
+    "bedding_zones_enhanced": true
+  },
+  "performance_metrics": {
+    "gee_query_time": 0.9905791282653809,
+    "weather_query_time": 0.4972536563873291,
+    "total_integration_time": 1.7209851741790771
+  },
+  "recommendation_status": "PARTIAL"
+}

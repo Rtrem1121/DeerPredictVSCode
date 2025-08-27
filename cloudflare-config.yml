@@ -1,0 +1,8 @@
+# Cloudflare Tunnel Configuration for Professional Deer Hunting App
+tunnel: deer-hunting-app
+credentials-file: C:\Users\Rich\.cloudflared\a38703ab-7f10-4b0b-a667-32bcd0860b4c.json
+
+ingress:
+  - hostname: app.deerpredictapp.org
+    service: http://localhost:8501
+  - service: http_status:404

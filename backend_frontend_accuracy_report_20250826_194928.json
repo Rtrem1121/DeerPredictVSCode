@@ -1,0 +1,105 @@
+{
+  "overall_accuracy": 6.666666666666667,
+  "status": "\u274c POOR",
+  "passed_tests": 1,
+  "critical_errors": 2,
+  "warnings": 12,
+  "total_tests": 15,
+  "detailed_results": {
+    "passed": [
+      {
+        "test": "Time-Based Behavior",
+        "period": "night",
+        "status": "\u2705 CORRECT",
+        "details": "Activity level correctly moderate at night"
+      }
+    ],
+    "errors": [
+      {
+        "test": "Weather Trigger Logic",
+        "scenario": "Cold Front",
+        "status": "\u274c ERROR",
+        "details": "Cold front should trigger increased deer movement"
+      },
+      {
+        "test": "Pressure Response Logic",
+        "status": "\u274c ERROR",
+        "details": "High pressure should reduce daytime deer activity"
+      }
+    ],
+    "warnings": [
+      {
+        "test": "AM Movement Direction",
+        "time": "05:30",
+        "status": "\u26a0\ufe0f UNCLEAR",
+        "details": "Movement direction unclear at 05:30"
+      },
+      {
+        "test": "AM Movement Direction",
+        "time": "07:08",
+        "status": "\u26a0\ufe0f UNCLEAR",
+        "details": "Movement direction unclear at 07:08"
+      },
+      {
+        "test": "AM Movement Direction",
+        "time": "08:30",
+        "status": "\u26a0\ufe0f UNCLEAR",
+        "details": "Movement direction unclear at 08:30"
+      },
+      {
+        "test": "Seasonal Food Logic",
+        "season": "early_season",
+        "status": "\u26a0\ufe0f POOR",
+        "accuracy": "0.0%",
+        "details": "Food sources may not match early_season biology"
+      },
+      {
+        "test": "Seasonal Food Logic",
+        "season": "rut",
+        "status": "\u26a0\ufe0f POOR",
+        "accuracy": "0.0%",
+        "details": "Food sources may not match rut biology"
+      },
+      {
+        "test": "Seasonal Food Logic",
+        "season": "late_season",
+        "status": "\u26a0\ufe0f POOR",
+        "accuracy": "0.0%",
+        "details": "Food sources may not match late_season biology"
+      },
+      {
+        "test": "Thermal Bedding Logic",
+        "status": "\u26a0\ufe0f SUBOPTIMAL",
+        "details": "Should prefer south-facing slopes for thermal advantage"
+      },
+      {
+        "test": "Time-Based Behavior",
+        "period": "dawn",
+        "status": "\u26a0\ufe0f MISMATCH",
+        "details": "Expected high activity, got moderate"
+      },
+      {
+        "test": "Time-Based Behavior",
+        "period": "midday",
+        "status": "\u26a0\ufe0f MISMATCH",
+        "details": "Expected low activity, got moderate"
+      },
+      {
+        "test": "Time-Based Behavior",
+        "period": "dusk",
+        "status": "\u26a0\ufe0f MISMATCH",
+        "details": "Expected high activity, got moderate"
+      },
+      {
+        "test": "Mature Buck Specificity",
+        "status": "\u26a0\ufe0f GENERIC",
+        "details": "Mature buck predictions should differ from general deer"
+      },
+      {
+        "test": "Backend Data Integration",
+        "status": "\u26a0\ufe0f LIMITED",
+        "details": "Only 1 data sources detected"
+      }
+    ]
+  }
+}

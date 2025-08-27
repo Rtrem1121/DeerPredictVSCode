@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-08-24T17:32:47.175974",
+  "performance_metrics": {},
+  "api_responses": {
+    "Golden Test Location": {
+      "success": false,
+      "error": "HTTP 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"lat\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.262462,\"longitude\":-72.579816,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"lon\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.262462,\"longitude\":-72.579816,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.262462,\"longitude\":-72.579816,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.262462,\"longitude\":-72.579816,\"include_camera_placement\":true}}]}",
+      "response_time": 0.02605295181274414
+    },
+    "Alternative Vermont Location": {
+      "success": false,
+      "error": "HTTP 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"lat\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.3,\"longitude\":-72.6,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"lon\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.3,\"longitude\":-72.6,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.3,\"longitude\":-72.6,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.3,\"longitude\":-72.6,\"include_camera_placement\":true}}]}",
+      "response_time": 0.014230728149414062
+    },
+    "Edge Case Location": {
+      "success": false,
+      "error": "HTTP 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"body\",\"lat\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.1,\"longitude\":-72.4,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"lon\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.1,\"longitude\":-72.4,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"date_time\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.1,\"longitude\":-72.4,\"include_camera_placement\":true}},{\"type\":\"missing\",\"loc\":[\"body\",\"season\"],\"msg\":\"Field required\",\"input\":{\"latitude\":44.1,\"longitude\":-72.4,\"include_camera_placement\":true}}]}",
+      "response_time": 0.01581096649169922
+    }
+  },
+  "validation_errors": [],
+  "success_metrics": {}
+}

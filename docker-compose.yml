@@ -1,0 +1,90 @@
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      target: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./credentials:/app/credentials:ro
+      - scouting_data:/app/backend/scouting_data
+    environment:
+      - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
+      - PYTHONPATH=/app:/app/backend
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gee-service-account.json
+      - GEE_PROJECT_ID=deer-predict-app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - deer-pred-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app/frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - APP_PASSWORD=DeerHunter2025!
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - deer-pred-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+
+  # Optional: Redis for caching in production
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - deer-pred-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+networks:
+  deer-pred-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  scouting_data:

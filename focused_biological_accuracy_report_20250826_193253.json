@@ -1,0 +1,45 @@
+{
+  "overall_accuracy": 0.0,
+  "status": "\u274c CRITICAL ISSUES FOUND",
+  "passed_tests": 0,
+  "critical_errors": 1,
+  "warnings": 5,
+  "total_tests": 6,
+  "detailed_results": {
+    "passed": [],
+    "errors": [
+      {
+        "test": "Critical AM Movement Direction",
+        "status": "\u274c CRITICAL BUG",
+        "details": "Could not determine movement direction"
+      }
+    ],
+    "warnings": [
+      {
+        "test": "Basic Prediction Structure",
+        "status": "\u26a0\ufe0f INCOMPLETE",
+        "details": "Missing components: ['behavioral_analysis']"
+      },
+      {
+        "test": "Biological Reasoning",
+        "status": "\u26a0\ufe0f MISSING",
+        "details": "No behavioral reasoning provided"
+      },
+      {
+        "test": "Wind Integration",
+        "status": "\u26a0\ufe0f MISSING",
+        "details": "No wind direction analysis found in response"
+      },
+      {
+        "test": "Seasonal Behavior Differences",
+        "status": "\u26a0\ufe0f STATIC",
+        "details": "Predictions appear identical across seasons"
+      },
+      {
+        "test": "Time-Based Activity Patterns",
+        "status": "\u26a0\ufe0f STATIC",
+        "details": "Predictions don't vary significantly by time"
+      }
+    ]
+  }
+}

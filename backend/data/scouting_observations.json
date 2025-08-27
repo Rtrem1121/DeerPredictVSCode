@@ -1,0 +1,95 @@
+{
+  "version": "1.0.0",
+  "created": "2025-08-11T18:21:22.344385",
+  "observations": [
+    {
+      "id": "obs_1754950882_19cb1f01",
+      "lat": 44.26639,
+      "lon": -72.58133,
+      "observation_type": "Fresh Scrape",
+      "scrape_details": {
+        "size": "Large",
+        "freshness": "Very Fresh",
+        "licking_branch": true,
+        "multiple_scrapes": false
+      },
+      "rub_details": null,
+      "bedding_details": null,
+      "camera_details": null,
+      "tracks_details": null,
+      "notes": "Test scrape observation",
+      "confidence": 8,
+      "timestamp": "2025-08-11T18:21:22.345384",
+      "photo_urls": [],
+      "weather_conditions": null
+    },
+    {
+      "id": "obs_1754951102_d0f51b9a",
+      "lat": 44.5588,
+      "lon": -72.5778,
+      "observation_type": "Fresh Scrape",
+      "scrape_details": {
+        "size": "Large",
+        "freshness": "Very Fresh",
+        "licking_branch": true,
+        "multiple_scrapes": false
+      },
+      "rub_details": null,
+      "bedding_details": null,
+      "camera_details": null,
+      "tracks_details": null,
+      "notes": "Large fresh scrape with strong scent and active licking branch",
+      "confidence": 8,
+      "timestamp": "2025-08-11T18:25:02.948409",
+      "photo_urls": [],
+      "weather_conditions": null
+    },
+    {
+      "id": "obs_1754951377_404a40c2",
+      "lat": 44.5588,
+      "lon": -72.5778,
+      "observation_type": "Rub Line",
+      "scrape_details": null,
+      "rub_details": {
+        "tree_diameter_inches": 8,
+        "rub_height_inches": 36,
+        "direction": "North",
+        "tree_species": "maple",
+        "multiple_rubs": true
+      },
+      "bedding_details": null,
+      "camera_details": null,
+      "tracks_details": null,
+      "notes": "Fresh rub line on mature maple - very promising spot",
+      "confidence": 9,
+      "timestamp": "2025-08-11T22:29:37.251227",
+      "photo_urls": [],
+      "weather_conditions": null
+    },
+    {
+      "id": "obs_1754952137_16cc569e",
+      "lat": 44.5588,
+      "lon": -72.5778,
+      "observation_type": "Fresh Scrape",
+      "scrape_details": {
+        "size": "Large",
+        "freshness": "Very Fresh",
+        "licking_branch": true,
+        "multiple_scrapes": false
+      },
+      "rub_details": null,
+      "bedding_details": null,
+      "camera_details": null,
+      "tracks_details": null,
+      "notes": "Large fresh scrape found during frontend testing",
+      "confidence": 8,
+      "timestamp": "2025-08-11T18:42:17.903656",
+      "photo_urls": [],
+      "weather_conditions": null
+    }
+  ],
+  "metadata": {
+    "total_observations": 4,
+    "last_updated": "2025-08-11T18:42:17.904654"
+  }
+}

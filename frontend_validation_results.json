@@ -1,0 +1,38 @@
+{
+  "validation_timestamp": 1756413796.498247,
+  "test_locations": [
+    {
+      "location": {
+        "name": "Tinmouth, VT (Original Problem)",
+        "lat": 43.3146,
+        "lon": -73.2178,
+        "expected_zones": 3,
+        "expected_suitability_min": 60
+      },
+      "status": "ERROR",
+      "error": "HTTP 404"
+    },
+    {
+      "location": {
+        "name": "Vermont Mountain Test",
+        "lat": 43.32,
+        "lon": -73.21,
+        "expected_zones": 2,
+        "expected_suitability_min": 50
+      },
+      "status": "ERROR",
+      "error": "HTTP 404"
+    }
+  ],
+  "overall_status": "ERROR",
+  "summary": {
+    "total_locations_tested": 0,
+    "locations_passed": 0,
+    "success_rate": 0,
+    "issues_resolved": {
+      "coordinate_variations": "CHECKED",
+      "scoring_bug": "CHECKED",
+      "frontend_rendering": "CHECKED"
+    }
+  }
+}

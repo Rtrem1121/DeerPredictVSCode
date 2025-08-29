@@ -17,6 +17,8 @@ networkx
 pytest
 pytest-asyncio
 httpx
+aiohttp
+selenium
 
 # Configuration Management Dependencies
 PyYAML>=6.0

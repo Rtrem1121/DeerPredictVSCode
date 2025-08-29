@@ -1,0 +1,61 @@
+{
+  "test_info": {
+    "location": {
+      "lat": 43.3146,
+      "lon": -73.2178
+    },
+    "timestamp": "2025-08-28T07:54:05.917586",
+    "app_reported_score": 43.1
+  },
+  "environmental_data": {
+    "canopy_cover": 0.65,
+    "road_distance_m": 567.8560209440719,
+    "slope_degrees": 25.877468555776872,
+    "aspect_degrees": 23.070412249824642,
+    "elevation_m": 376.0,
+    "temperature_f": 53.3,
+    "wind_speed_mph": 10.0,
+    "wind_direction_degrees": 165
+  },
+  "suitability_analysis": {
+    "overall_score": 64.5587971663347,
+    "component_scores": {
+      "canopy": 87.5,
+      "isolation": 100,
+      "slope": 51.22531444223128,
+      "aspect": 0,
+      "wind_protection": 100,
+      "thermal": 0.0
+    },
+    "weights": {
+      "canopy": 0.25,
+      "isolation": 0.25,
+      "slope": 0.15,
+      "aspect": 0.15,
+      "wind_protection": 0.1,
+      "thermal": 0.1
+    },
+    "raw_data": {
+      "canopy": 0.65,
+      "road_distance": 567.8560209440719,
+      "slope": 25.877468555776872,
+      "aspect": 23.070412249824642,
+      "wind_direction": 165,
+      "temperature": 53.3
+    }
+  },
+  "comparison": {
+    "app_score": 43.1,
+    "independent_score": 64.5587971663347,
+    "difference": 21.458797166334698,
+    "diagnosis": "algorithm_issue"
+  },
+  "limiting_factors": [
+    "Suboptimal slope (25.9\u00b0 outside 5-20\u00b0 range)",
+    "Poor aspect (23\u00b0 not south-facing)"
+  ],
+  "recommendations": [
+    "Target moderate slopes (5-20\u00b0) for optimal visibility",
+    "Focus on south-facing slopes for thermal advantage"
+  ]
+}

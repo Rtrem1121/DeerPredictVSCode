@@ -11,6 +11,7 @@ import numpy as np
 import logging
 from typing import Dict, List, Tuple
 
+# Initialize logger at module level to prevent assignment issues
 logger = logging.getLogger(__name__)
 
 def enhanced_terrain_analysis(terrain_features: Dict, lat: float, lon: float) -> Dict[str, float]:
@@ -188,8 +189,6 @@ def enhanced_terrain_analysis(terrain_features: Dict, lat: float, lon: float) ->
     scores['pressure_resistance'] = min(pressure_score, 100)
     
     # DEBUG: Log the calculated pressure resistance for debugging
-    import logging
-    logger = logging.getLogger(__name__)
     logger.info(f"🔍 Enhanced accuracy pressure resistance calculation: {pressure_score:.1f} for coordinates {lat:.6f}, {lon:.6f}")
     logger.info(f"🔍 Enhanced accuracy final scores: isolation={scores.get('isolation_score', 0):.1f}, pressure={scores.get('pressure_resistance', 0):.1f}")
     

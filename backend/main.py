@@ -23,18 +23,33 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
+# Set up logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import services for health checks
+from backend.services.prediction_service import get_prediction_service
+
+# ENHANCED BEDDING PREDICTOR: Use direct enhanced bedding integration
+# Removed conflicting clean_prediction_patch that was overriding EnhancedBeddingZonePredictor
+logger.info("🎯 ENHANCED BEDDING: Using EnhancedBeddingZonePredictor directly (no patches)")
+logger.info("✅ ENHANCED BEDDING: Clean patch system disabled to prevent conflicts")
+
 # Import the new routers
 from backend.routers.config_router import config_router
 from backend.routers.camera_router import camera_router
 from backend.routers.scouting_router import scouting_router
 from backend.routers.prediction_router import prediction_router
 
-# Import services for health checks
-from backend.services.prediction_service import get_prediction_service
-
-# Set up logging first
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Import bedding validation router after logger setup
+try:
+    from backend.routers.bedding_validation_router import bedding_validation_router
+    BEDDING_VALIDATION_AVAILABLE = True
+    logger.info("🛏️ Bedding validation router loaded successfully")
+except ImportError as e:
+    BEDDING_VALIDATION_AVAILABLE = False
+    logger.warning(f"Bedding validation router not available: {e}")
+    logger.warning("Bedding validation endpoints will not be available")
 
 # Configure logging for containers
 logging.basicConfig(
@@ -78,6 +93,10 @@ app.include_router(config_router)
 app.include_router(camera_router)
 app.include_router(scouting_router)
 app.include_router(prediction_router)
+
+# Include bedding validation router if available
+if BEDDING_VALIDATION_AVAILABLE:
+    app.include_router(bedding_validation_router, prefix="/api/bedding")
 
 # Enhanced prediction system inclusion (preserving existing logic)
 try:

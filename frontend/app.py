@@ -760,9 +760,17 @@ with tab_predict:
                 )
                 
                 if response.status_code == 200:
-                    prediction = response.json()
+                    response_data = response.json()
+                    # Handle both old and new API response formats
+                    if 'success' in response_data and response_data.get('success'):
+                        # New enhanced API format with wrapper
+                        prediction = response_data.get('data', response_data)
+                    else:
+                        # Direct prediction data format
+                        prediction = response_data
+                    
                     st.session_state.prediction_results = prediction
-                    st.success("✅ Predictions generated successfully!")
+                    st.success("✅ Enhanced bedding predictions generated successfully!")
                     st.rerun()  # Refresh to show results on map
                     
                 else:
@@ -780,7 +788,29 @@ with tab_predict:
             key="include_camera_placement"
         )
     
-    st.info(f"📍 **Hunt Coordinates:** {st.session_state.hunt_location[0]:.6f}, {st.session_state.hunt_location[1]:.6f}")
+    # Display Hunt Coordinates - show #1 stand location if available, otherwise current location
+    hunt_coords_lat = st.session_state.hunt_location[0]
+    hunt_coords_lon = st.session_state.hunt_location[1]
+    coord_source = "Current Location"
+    
+    # Check for prediction results and extract #1 stand coordinates
+    if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+        prediction = st.session_state.prediction_results
+        mature_buck = prediction.get('mature_buck_analysis', {})
+        stand_recs = mature_buck.get('stand_recommendations', [])
+        
+        if len(stand_recs) > 0:
+            stand_1 = stand_recs[0]
+            coords = stand_1.get('coordinates', {})
+            
+            # Ensure we have valid coordinates
+            if isinstance(coords, dict) and 'lat' in coords and 'lon' in coords:
+                if coords['lat'] is not None and coords['lon'] is not None:
+                    hunt_coords_lat = float(coords['lat'])
+                    hunt_coords_lon = float(coords['lon'])
+                    coord_source = "#1 Predicted Stand"
+    
+    st.info(f"📍 **Hunt Coordinates ({coord_source}):** {hunt_coords_lat:.6f}, {hunt_coords_lon:.6f}")
     
     # Display detailed hunt information for Stand #1 if prediction results are available
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:

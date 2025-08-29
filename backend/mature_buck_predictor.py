@@ -23,6 +23,9 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 
+# Initialize logger at module level to prevent assignment issues
+logger = logging.getLogger(__name__)
+
 # Import unified scoring framework
 try:
     from .scoring_engine import (
@@ -94,8 +97,6 @@ try:
     from .config_manager import get_config
 except ImportError:
     from config_manager import get_config
-
-logger = logging.getLogger(__name__)
 
 # Proximity scoring configuration
 PROXIMITY_THRESHOLDS = {

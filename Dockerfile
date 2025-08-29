@@ -27,6 +27,13 @@ FROM base as backend
 # Copy backend code
 COPY ./backend /app/backend
 
+# Copy root-level Python modules needed by backend
+COPY enhanced_bedding_zone_predictor.py /app/
+COPY prediction_service_bedding_fix.py /app/
+COPY production_bedding_fix.py /app/
+COPY optimized_biological_integration.py /app/
+COPY enhanced_biological_integration.py /app/
+
 # Copy data
 COPY ./data /app/data
 

@@ -1,0 +1,44 @@
+2025-08-28 07:53:57,594 - INFO - ============================================================
+2025-08-28 07:53:57,594 - INFO - TINMOUTH VERMONT BEDDING SUITABILITY DIAGNOSTIC
+2025-08-28 07:53:57,594 - INFO - Location: 43.3146, -73.2178
+2025-08-28 07:53:57,594 - INFO - Date/Time: 2025-08-28 07:53:57
+2025-08-28 07:53:57,594 - INFO - ============================================================
+2025-08-28 07:53:57,594 - INFO - 
+1. Fetching environmental data...
+2025-08-28 07:53:59,365 - WARNING - Encountered 403 Forbidden with reason "PERMISSION_DENIED"
+2025-08-28 07:53:59,366 - ERROR - GEE canopy fetch failed: ee.Initialize: no project found. Call with project= or see http://goo.gle/ee-auth.
+2025-08-28 07:53:59,372 - INFO - Querying OSM for road proximity...
+2025-08-28 07:54:04,569 - INFO - Found 2 roads in area
+2025-08-28 07:54:04,570 - INFO - Nearest road distance: 567.9m
+2025-08-28 07:54:04,572 - INFO - Querying Open-Elevation for terrain data...
+2025-08-28 07:54:05,328 - INFO - Elevation: 376.0m, Slope: 25.9°, Aspect: 23.1°
+2025-08-28 07:54:05,330 - INFO - Querying Open-Meteo for weather data...
+2025-08-28 07:54:05,892 - INFO - Weather: 53.3°F, Wind: 10.0mph from 165°
+2025-08-28 07:54:05,894 - INFO - 
+2. Calculating bedding suitability...
+2025-08-28 07:54:05,894 - INFO - === BEDDING SUITABILITY BREAKDOWN ===
+2025-08-28 07:54:05,894 - INFO -          CANOPY:   87.5 × 0.25 =  21.9
+2025-08-28 07:54:05,894 - INFO -       ISOLATION:  100.0 × 0.25 =  25.0
+2025-08-28 07:54:05,894 - INFO -           SLOPE:   51.2 × 0.15 =   7.7
+2025-08-28 07:54:05,894 - INFO -          ASPECT:    0.0 × 0.15 =   0.0
+2025-08-28 07:54:05,894 - INFO - WIND_PROTECTION:  100.0 × 0.10 =  10.0
+2025-08-28 07:54:05,895 - INFO -         THERMAL:    0.0 × 0.10 =   0.0
+2025-08-28 07:54:05,895 - INFO -     TOTAL SCORE:   64.6%
+2025-08-28 07:54:05,895 - INFO - ==========================================
+2025-08-28 07:54:05,895 - INFO - 
+3. DIAGNOSTIC RESULTS
+2025-08-28 07:54:05,895 - INFO - App Score:           43.1%
+2025-08-28 07:54:05,895 - INFO - Independent Score:   64.6%
+2025-08-28 07:54:05,895 - INFO - Difference:         +21.5%
+2025-08-28 07:54:05,917 - WARNING -     Possible causes: Scoring bug, data integration failure, weight miscalibration
+2025-08-28 07:54:05,917 - INFO - 
+4. LIMITING FACTORS:
+2025-08-28 07:54:05,917 - INFO -    • Suboptimal slope (25.9° outside 5-20° range)
+2025-08-28 07:54:05,917 - INFO -    • Poor aspect (23° not south-facing)
+2025-08-28 07:54:05,917 - INFO - 
+5. RECOMMENDATIONS:
+2025-08-28 07:54:05,917 - INFO -    • Target moderate slopes (5-20°) for optimal visibility
+2025-08-28 07:54:05,917 - INFO -    • Focus on south-facing slopes for thermal advantage
+2025-08-28 07:54:05,918 - INFO - 
+6. Detailed results saved to: tinmouth_diagnostic_20250828_075405.json
+2025-08-28 07:54:05,918 - INFO - ============================================================

@@ -1,0 +1,167 @@
+2025-08-28 08:53:31,272 [INFO] ================================================================================
+2025-08-28 08:53:39,155 [ERROR] Stack trace:
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\test_production_bedding_integration.py", line 47, in test_production_bedding_integration
+    from services.prediction_context import PredictionContext
+ModuleNotFoundError: No module named 'services.prediction_context'
+
+2025-08-28 08:57:06,037 [INFO] Starting Production Bedding Zone Integration Test
+2025-08-28 08:57:06,038 [INFO] ================================================================================
+2025-08-28 08:57:13,610 [INFO] Testing coordinates: 43.3146, -73.2178 (Tinmouth, VT)
+2025-08-28 08:57:13,611 [INFO] Initializing PredictionService with bedding fix...
+2025-08-28 08:57:13,640 [INFO]    Environment: development
+2025-08-28 08:57:13,640 [INFO]    Version: 1.0.0-dev
+2025-08-28 08:57:13,640 [INFO]    Parameters: 101
+2025-08-28 08:57:13,640 [INFO]    Source files: 2
+2025-08-28 08:57:13,663 [INFO] Data directory ensured: data
+2025-08-28 08:57:14,970 [INFO] Bedding fix successfully initialized
+2025-08-28 08:57:14,970 [ERROR] Integration test failed with error: PredictionContext.__init__() got an unexpected keyword argument 'time_period'
+2025-08-28 08:57:14,970 [ERROR] Stack trace:
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\test_production_bedding_integration.py", line 65, in test_production_bedding_integration
+    context = PredictionContext(
+              ^^^^^^^^^^^^^^^^^^
+TypeError: PredictionContext.__init__() got an unexpected keyword argument 'time_period'
+
+2025-08-28 08:58:06,042 [INFO] Starting Production Bedding Zone Integration Test
+2025-08-28 08:58:06,043 [INFO] ================================================================================
+2025-08-28 08:58:08,057 [INFO] Testing coordinates: 43.3146, -73.2178 (Tinmouth, VT)
+2025-08-28 08:58:08,057 [INFO] Initializing PredictionService with bedding fix...
+2025-08-28 08:58:08,064 [INFO]    Environment: development
+2025-08-28 08:58:08,064 [INFO]    Version: 1.0.0-dev
+2025-08-28 08:58:08,064 [INFO]    Parameters: 101
+2025-08-28 08:58:08,064 [INFO]    Source files: 2
+2025-08-28 08:58:08,072 [INFO] Data directory ensured: data
+2025-08-28 08:58:09,255 [INFO] Bedding fix successfully initialized
+2025-08-28 08:58:09,256 [INFO] Generating prediction with bedding zone integration...
+2025-08-28 08:58:09,256 [INFO] Starting prediction for 43.3146, -73.2178
+2025-08-28 08:58:09,256 [ERROR] Prediction failed: Terrain analysis failed: analyze_terrain_and_vegetation() takes 2 positional arguments but 3 were given
+2025-08-28 08:58:09,256 [ERROR] Integration test failed with error: Prediction generation failed: Terrain analysis failed: analyze_terrain_and_vegetation() takes 2 positional arguments but 3 were given
+2025-08-28 08:58:09,256 [ERROR] Stack trace:
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 290, in _analyze_terrain
+    features = self.core.analyze_terrain_and_vegetation(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: analyze_terrain_and_vegetation() takes 2 positional arguments but 3 were given
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 248, in predict
+    terrain_data = self._analyze_terrain(context)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 325, in _analyze_terrain
+    raise TerrainAnalysisError(f"Terrain analysis failed: {str(e)}") from e
+services.prediction_service.TerrainAnalysisError: Terrain analysis failed: analyze_terrain_and_vegetation() takes 2 positional arguments but 3 were given
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\test_production_bedding_integration.py", line 76, in test_production_bedding_integration
+    prediction_result = prediction_service.predict(context)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 282, in predict
+    raise PredictionServiceError(f"Prediction generation failed: {str(e)}") from e
+services.prediction_service.PredictionServiceError: Prediction generation failed: Terrain analysis failed: analyze_terrain_and_vegetation() takes 2 positional arguments but 3 were given
+
+2025-08-28 09:03:03,557 [INFO] Starting Production Bedding Zone Integration Test
+2025-08-28 09:03:03,558 [INFO] ================================================================================
+2025-08-28 09:03:05,640 [INFO] Testing coordinates: 43.3146, -73.2178 (Tinmouth, VT)
+2025-08-28 09:03:05,640 [INFO] Initializing PredictionService with bedding fix...
+2025-08-28 09:03:05,648 [INFO]    Environment: development
+2025-08-28 09:03:05,648 [INFO]    Version: 1.0.0-dev
+2025-08-28 09:03:05,648 [INFO]    Parameters: 101
+2025-08-28 09:03:05,648 [INFO]    Source files: 2
+2025-08-28 09:03:05,656 [INFO] Data directory ensured: data
+2025-08-28 09:03:07,040 [INFO] Bedding fix successfully initialized
+2025-08-28 09:03:07,040 [INFO] Generating prediction with bedding zone integration...
+2025-08-28 09:03:07,040 [INFO] Starting prediction for 43.3146, -73.2178
+2025-08-28 09:03:32,719 [WARNING] OSM vegetation data fetch failed: 504 Server Error: Gateway Timeout for url: https://overpass-api.de/api/interpreter, using location-specific default grid
+2025-08-28 09:03:32,725 [INFO] Generated location-specific vegetation grid for 43.3146,-73.2178 - Hash: 411
+2025-08-28 09:03:32,729 [ERROR] REAL OSM security analysis failed: invalid literal for int() with base 10: 'mature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckm
+2025-08-28 09:03:33,298 [WARNING] Enhanced prediction system not available: cannot import name 'get_enhanced_prediction_engine' from 'backend.enhanced_prediction_engine' (C:\Users\Rich\deer_pred_app\backend\enhanced_prediction_engine.py)
+2025-08-28 09:03:33,298 [WARNING] Falling back to standard prediction functionality
+2025-08-28 09:03:33,304 [WARNING] Enhanced prediction system not available: cannot import name 'get_enhanced_prediction_engine' from 'backend.enhanced_prediction_engine' (C:\Users\Rich\deer_pred_app\backend\enhanced_prediction_engine.py)
+2025-08-28 09:03:33,304 [WARNING] Falling back to standard prediction functionality
+2025-08-28 09:03:33,305 [ERROR] Prediction failed: Rule engine execution failed: cannot import name 'load_rules' from 'backend.main' (C:\Users\Rich\deer_pred_app\backend\main.py)
+2025-08-28 09:03:33,305 [ERROR] Integration test failed with error: Prediction generation failed: Rule engine execution failed: cannot import name 'load_rules' from 'backend.main' (C:\Users\Rich\deer_pred_app\backend\main.py)
+2025-08-28 09:03:33,305 [ERROR] Stack trace:
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 543, in _execute_rule_engine
+    rules = self._load_rules()
+            ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 916, in _load_rules
+    from backend.main import load_rules
+ImportError: cannot import name 'load_rules' from 'backend.main' (C:\Users\Rich\deer_pred_app\backend\main.py)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 254, in predict
+    score_maps = self._execute_rule_engine(context, terrain_data, weather_data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 646, in _execute_rule_engine
+    raise PredictionServiceError(f"Rule engine execution failed: {str(e)}") from e
+services.prediction_service.PredictionServiceError: Rule engine execution failed: cannot import name 'load_rules' from 'backend.main' (C:\Users\Rich\deer_pred_app\backend\main.py)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\test_production_bedding_integration.py", line 76, in test_production_bedding_integration
+    prediction_result = prediction_service.predict(context)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 282, in predict
+    raise PredictionServiceError(f"Prediction generation failed: {str(e)}") from e
+services.prediction_service.PredictionServiceError: Prediction generation failed: Rule engine execution failed: cannot import name 'load_rules' from 'backend.main' (C:\Users\Rich\deer_pred_app\backend\main.py)
+
+2025-08-28 09:04:06,074 [INFO] Starting Production Bedding Zone Integration Test
+2025-08-28 09:04:06,075 [INFO] ================================================================================
+2025-08-28 09:04:08,144 [INFO] Testing coordinates: 43.3146, -73.2178 (Tinmouth, VT)
+2025-08-28 09:04:08,144 [INFO] Initializing PredictionService with bedding fix...
+2025-08-28 09:04:08,150 [INFO]    Environment: development
+2025-08-28 09:04:08,150 [INFO]    Version: 1.0.0-dev
+2025-08-28 09:04:08,150 [INFO]    Parameters: 101
+2025-08-28 09:04:08,150 [INFO]    Source files: 2
+2025-08-28 09:04:08,159 [INFO] Data directory ensured: data
+2025-08-28 09:04:09,328 [INFO] Bedding fix successfully initialized
+2025-08-28 09:04:09,328 [INFO] Generating prediction with bedding zone integration...
+2025-08-28 09:04:09,328 [INFO] Starting prediction for 43.3146, -73.2178
+2025-08-28 09:04:37,744 [WARNING] OSM vegetation data fetch failed: HTTPSConnectionPool(host='overpass-api.de', port=443): Read timed out. (read timeout=5), using location-specific default grid
+2025-08-28 09:04:37,745 [INFO] Generated location-specific vegetation grid for 43.3146,-73.2178 - Hash: 411
+2025-08-28 09:04:37,748 [ERROR] REAL OSM security analysis failed: invalid literal for int() with base 10: 'mature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckmature_buckm
+2025-08-28 09:04:38,256 [WARNING] Failed to load rules from config: 'DeerPredictionConfig' object has no attribute 'get_rules'
+2025-08-28 09:04:38,267 [ERROR] Prediction failed: Rule engine execution failed: 'int' object has no attribute 'endswith'
+2025-08-28 09:04:38,267 [ERROR] Integration test failed with error: Prediction generation failed: Rule engine execution failed: 'int' object has no attribute 'endswith'
+2025-08-28 09:04:38,268 [ERROR] Stack trace:
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 544, in _execute_rule_engine
+    conditions = self._build_conditions(context, weather_data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 922, in _build_conditions
+    "time_of_day": self.core.get_time_of_day(context.date_time.hour),
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\core.py", line 862, in get_time_of_day
+    if date_time_str.endswith('Z'):
+       ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'int' object has no attribute 'endswith'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 254, in predict
+    score_maps = self._execute_rule_engine(context, terrain_data, weather_data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 646, in _execute_rule_engine
+    raise PredictionServiceError(f"Rule engine execution failed: {str(e)}") from e
+services.prediction_service.PredictionServiceError: Rule engine execution failed: 'int' object has no attribute 'endswith'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Rich\deer_pred_app\test_production_bedding_integration.py", line 76, in test_production_bedding_integration
+    prediction_result = prediction_service.predict(context)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rich\deer_pred_app\backend\services\prediction_service.py", line 282, in predict
+    raise PredictionServiceError(f"Prediction generation failed: {str(e)}") from e
+services.prediction_service.PredictionServiceError: Prediction generation failed: Rule engine execution failed: 'int' object has no attribute 'endswith'
+

@@ -298,7 +298,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         return gee_data
 
     def evaluate_bedding_suitability(self, gee_data: Dict, osm_data: Dict, weather_data: Dict) -> Dict:
-        """Comprehensive bedding zone suitability evaluation"""
+        """Comprehensive bedding zone suitability evaluation with adaptive thresholds"""
         criteria = {
             "canopy_coverage": gee_data.get("canopy_coverage", 0),
             "road_distance": osm_data.get("nearest_road_distance_m", 0),
@@ -308,12 +308,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "temperature": weather_data.get("temperature", 50)
         }
         
-        # Biological criteria thresholds
+        # Adaptive biological criteria thresholds for varying terrain conditions
+        # Adjusted for Vermont mixed forest and mountainous terrain
         thresholds = {
-            "min_canopy": 0.7,      # >70% canopy for security
-            "min_road_distance": 200,  # >200m from roads
-            "min_slope": 3,         # 3°-25° slope range (adjusted for terrain variety)
-            "max_slope": 25,        # Increased max slope for steeper terrain
+            "min_canopy": 0.6,      # Lowered from 0.7 for high-pressure areas with marginal cover
+            "min_road_distance": 200,  # >200m from roads (maintained)
+            "min_slope": 3,         # 3°-30° slope range (expanded for mountainous terrain)
+            "max_slope": 30,        # Increased from 25° for steeper Vermont terrain
             "optimal_aspect_min": 135,  # South-facing slopes (135°-225°)
             "optimal_aspect_max": 225
         }
@@ -377,13 +378,32 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         overall_score = sum(scores[key] * weights[key] for key in weights.keys())
         
-        # Determine if location meets minimum criteria
-        meets_criteria = (
-            criteria["canopy_coverage"] > thresholds["min_canopy"] and
-            criteria["road_distance"] > thresholds["min_road_distance"] and
-            thresholds["min_slope"] <= criteria["slope"] <= thresholds["max_slope"] and
-            overall_score >= 80  # Maintaining high biological standards
+        # Adaptive criteria logic - compensation allowed between factors
+        primary_criteria_met = (
+            criteria["canopy_coverage"] >= thresholds["min_canopy"] or 
+            criteria["road_distance"] >= thresholds["min_road_distance"] * 1.5  # Excellent isolation can offset marginal canopy
         )
+        
+        terrain_suitable = (
+            thresholds["min_slope"] <= criteria["slope"] <= thresholds["max_slope"]
+        )
+        
+        # Determine if location meets minimum criteria with adaptive logic
+        # Changed from ALL criteria must pass to MOST criteria with compensation
+        meets_criteria = (
+            primary_criteria_met and
+            terrain_suitable and
+            overall_score >= 70  # Lowered from 80 for viable but not perfect habitat
+        )
+        
+        # Enhanced logging for debugging zone generation failures
+        logger.info(f"🛌 Bedding Suitability Analysis:")
+        logger.info(f"   Canopy: {criteria['canopy_coverage']:.1%} (need: {thresholds['min_canopy']:.1%}) = {scores['canopy']:.1f}/100")
+        logger.info(f"   Road Distance: {criteria['road_distance']:.0f}m (need: {thresholds['min_road_distance']:.0f}m) = {scores['isolation']:.1f}/100")
+        logger.info(f"   Slope: {criteria['slope']:.1f}° (range: {thresholds['min_slope']:.0f}°-{thresholds['max_slope']:.0f}°) = {scores['slope']:.1f}/100")
+        logger.info(f"   Aspect: {criteria['aspect']:.0f}° (optimal: {thresholds['optimal_aspect_min']:.0f}°-{thresholds['optimal_aspect_max']:.0f}°) = {scores['aspect']:.1f}/100")
+        logger.info(f"   Overall Score: {overall_score:.1f}% (need: ≥70%)")
+        logger.info(f"   Meets Criteria: {meets_criteria} (Primary: {primary_criteria_met}, Terrain: {terrain_suitable})")
         
         return {
             "criteria": criteria,

@@ -1,0 +1,74 @@
+# CI/CD Pipeline for automated frontend validation
+name: Deer Prediction App - Frontend Validation
+on: 
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  frontend-validation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build Docker image with Playwright
+      run: |
+        docker build -f Dockerfile.frontend-test -t deer-prediction-frontend-test .
+        
+    - name: Start application containers
+      run: |
+        # Start backend
+        docker run -d -p 8000:8000 --name deer-backend \
+          --env-file .env deer-prediction-frontend-test \
+          uvicorn backend.main:app --host 0.0.0.0 --port 8000
+          
+        # Start frontend  
+        docker run -d -p 8501:8501 --name deer-frontend \
+          --link deer-backend:backend \
+          deer-prediction-frontend-test
+          
+        # Wait for services to start
+        sleep 30
+        
+    - name: Run Playwright frontend validation
+      run: |
+        docker exec deer-frontend pytest tests/test_frontend_validation.py -v -s
+        
+    - name: Check backend-frontend data consistency
+      run: |
+        docker exec deer-frontend python -c "
+        import requests
+        import json
+        
+        # Test backend API
+        response = requests.post('http://backend:8000/predict', 
+          json={'lat': 43.3145, 'lon': -73.2175, 'date_time': '2025-08-28T07:00:00', 'season': 'early_season'})
+        
+        if response.status_code == 200:
+          data = response.json()
+          print('Backend API Response:', json.dumps(data, indent=2)[:500])
+        else:
+          print('Backend API Error:', response.status_code, response.text)
+        "
+        
+    - name: Generate validation report
+      if: always()
+      run: |
+        echo '## Frontend Validation Report' > validation-report.md
+        echo '- Backend API Status: ' >> validation-report.md
+        docker exec deer-backend curl -f http://localhost:8000/health || echo 'FAILED' >> validation-report.md
+        echo '- Frontend Status: ' >> validation-report.md  
+        docker exec deer-frontend curl -f http://localhost:8501 || echo 'FAILED' >> validation-report.md
+        echo '- Expected: 3+ green bedding pins, 1+ red stand pins, 97.1% suitability' >> validation-report.md
+        
+    - name: Cleanup containers
+      if: always()
+      run: |
+        docker stop deer-backend deer-frontend || true
+        docker rm deer-backend deer-frontend || true

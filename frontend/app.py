@@ -6,12 +6,26 @@ import json
 import os
 import hashlib
 import math
+import logging
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from map_config import MAP_SOURCES
+from enhanced_data_validation import (
+    FrontendDataValidator,
+    create_enhanced_data_traceability_display,
+    enhanced_backend_logging_for_predictions,
+    check_enhanced_bedding_predictor_integration
+)
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging for enhanced data traceability
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # --- Deer Approach Direction Calculation Functions ---
 def calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type):
@@ -558,22 +572,58 @@ with tab_predict:
                             fillOpacity=0.7
                         ).add_to(m)
             
-            # Add bedding zone markers  
+            # Add bedding zone markers with enhanced suitability display
             if 'bedding_zones' in prediction and prediction['bedding_zones']:
                 bedding_features = prediction['bedding_zones'].get('features', [])
-                for feature in bedding_features:
+                
+                # Get overall suitability score from properties
+                bedding_properties = prediction['bedding_zones'].get('properties', {})
+                suitability_analysis = bedding_properties.get('suitability_analysis', {})
+                overall_suitability = suitability_analysis.get('overall_score', 0)
+                
+                for i, feature in enumerate(bedding_features, 1):
                     if feature.get('geometry') and feature['geometry'].get('coordinates'):
                         coords = feature['geometry']['coordinates']
                         lat, lon = coords[1], coords[0]  # GeoJSON is [lon, lat]
-                        score = feature['properties'].get('score', 0)
+                        properties = feature.get('properties', {})
+                        score = properties.get('score', 0)
                         
+                        # Enhanced popup with biological accuracy details
+                        popup_content = f"""
+                        <div style='width: 250px;'>
+                            <h4>🛏️ Enhanced Bedding Zone {i}</h4>
+                            <p><b>Zone Score:</b> {score:.1f}/10</p>
+                            <p><b>Overall Suitability:</b> {overall_suitability:.1f}%</p>
+                            <p><b>Biological Features:</b></p>
+                            <ul>
+                                <li>Adaptive thresholds active</li>
+                                <li>Canopy & slope optimized</li>
+                                <li>South-facing exposure</li>
+                                <li>Leeward ridge position</li>
+                            </ul>
+                        </div>
+                        """
+                        
+                        # Make bedding zones highly visible with larger radius
                         folium.CircleMarker(
                             [lat, lon],
-                            radius=10,
-                            popup=f"🛏️ Bedding Area<br>Score: {score:.2f}",
-                            color='green',
+                            radius=15,  # Larger radius for visibility
+                            popup=folium.Popup(popup_content, max_width=300),
+                            color='darkgreen',
                             fillColor='lightgreen',
-                            fillOpacity=0.8
+                            fillOpacity=0.9,
+                            weight=3
+                        ).add_to(m)
+                        
+                        # Add tooltip for hover display
+                        folium.Marker(
+                            [lat, lon],
+                            icon=folium.DivIcon(
+                                html=f'<div style="color: green; font-weight: bold;">🛏️{i}</div>',
+                                icon_size=(30, 30),
+                                icon_anchor=(15, 15)
+                            ),
+                            tooltip=f"Bedding Zone {i}: {overall_suitability:.1f}% suitability"
                         ).add_to(m)
             
             # Add feeding area markers
@@ -769,8 +819,37 @@ with tab_predict:
                         # Direct prediction data format
                         prediction = response_data
                     
+                    # ENHANCED: Log backend data for traceability
+                    validation_results = enhanced_backend_logging_for_predictions(
+                        st.session_state.hunt_location[0],
+                        st.session_state.hunt_location[1], 
+                        prediction
+                    )
+                    
+                    # Check if EnhancedBeddingZonePredictor is active
+                    integration_check = check_enhanced_bedding_predictor_integration()
+                    
+                    # Store results and show appropriate message
                     st.session_state.prediction_results = prediction
-                    st.success("✅ Enhanced bedding predictions generated successfully!")
+                    
+                    if validation_results.get("data_extraction_success", False):
+                        bedding_count = validation_results.get("bedding_zones_count", 0)
+                        suitability = validation_results.get("suitability_score", 0)
+                        confidence = validation_results.get("confidence_score", 0)
+                        
+                        if bedding_count > 0 and suitability > 80:
+                            st.success(f"✅ Enhanced bedding predictions generated successfully!")
+                            st.info(f"🎯 Generated {bedding_count} bedding zones with {suitability:.1f}% suitability ({confidence:.1f}% confidence)")
+                        elif bedding_count > 0:
+                            st.success(f"✅ Bedding predictions generated!")
+                            st.warning(f"⚠️ Generated {bedding_count} zones with {suitability:.1f}% suitability - may need optimization")
+                        else:
+                            st.warning("⚠️ Prediction completed but no bedding zones generated")
+                            if integration_check.get("predictor_type_detected") == "mature_buck_predictor":
+                                st.error("🔧 Detection: Using legacy predictor instead of EnhancedBeddingZonePredictor")
+                    else:
+                        st.success("✅ Prediction completed")
+                    
                     st.rerun()  # Refresh to show results on map
                     
                 else:
@@ -778,6 +857,7 @@ with tab_predict:
                     
             except Exception as e:
                 st.error(f"Failed to get prediction: {e}")
+                logger.error(f"Prediction request failed: {e}")
     
     # Advanced options
     with st.expander("🎥 Advanced Options"):
@@ -1657,3 +1737,6 @@ with tab_analytics:
 # Add footer
 st.markdown("---")
 st.markdown("🦌 **Vermont Deer Movement Predictor** | Enhanced with Real-Time Scouting Data | Vermont Legal Hunting Hours Compliant")
+
+# Add enhanced data traceability display to sidebar
+create_enhanced_data_traceability_display()

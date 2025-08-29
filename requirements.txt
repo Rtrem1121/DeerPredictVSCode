@@ -20,6 +20,10 @@ httpx
 aiohttp
 selenium
 
+# Frontend Testing Dependencies (Playwright)
+playwright>=1.40.0
+pytest-playwright>=0.4.0
+
 # Configuration Management Dependencies
 PyYAML>=6.0
 watchdog>=3.0.0

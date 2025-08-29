@@ -412,6 +412,84 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "meets_criteria": meets_criteria,
             "thresholds": thresholds
         }
+    
+    def _calculate_optimal_bedding_positions(self, lat: float, lon: float, gee_data: Dict, 
+                                           osm_data: Dict, weather_data: Dict, suitability: Dict) -> List[Dict]:
+        """Calculate optimal bedding positions using environmental analysis"""
+        
+        # Extract environmental data
+        wind_direction = weather_data.get("wind_direction", 180)
+        wind_speed = weather_data.get("wind_speed", 5)
+        temperature = weather_data.get("temperature", 50)
+        slope = gee_data.get("slope", 10)
+        aspect = gee_data.get("aspect", 180)
+        elevation = gee_data.get("elevation", 300)
+        
+        # Calculate leeward direction (opposite of wind)
+        leeward_direction = (wind_direction + 180) % 360
+        
+        # Base offset distance - make it vary with environmental factors
+        base_offset = 0.0008 + (slope / 1000)  # Vary with terrain steepness
+        
+        # Position 1: Primary - Leeward slope with thermal advantage
+        primary_bearing = leeward_direction
+        if temperature < 40:  # Cold weather - favor south-facing thermal slopes
+            primary_bearing = (leeward_direction + 180) % 360  # South-facing leeward
+        
+        # Apply actual bearing calculations (not hardcoded!)
+        primary_lat_offset = base_offset * 1.2 * np.cos(np.radians(primary_bearing))
+        primary_lon_offset = base_offset * 1.2 * np.sin(np.radians(primary_bearing))
+        
+        # Position 2: Secondary - Optimal canopy protection  
+        # Position perpendicular to wind for crosswind scent advantage
+        secondary_bearing = (wind_direction + 90) % 360
+        secondary_lat_offset = base_offset * 0.8 * np.cos(np.radians(secondary_bearing))
+        secondary_lon_offset = base_offset * 0.8 * np.sin(np.radians(secondary_bearing))
+        
+        # Position 3: Escape - Higher elevation with visibility
+        # Position uphill from primary bedding for escape routes
+        escape_bearing = aspect  # Use slope aspect for uphill direction
+        if slope < 5:  # Flat terrain - use wind protection
+            escape_bearing = (leeward_direction + 45) % 360
+            
+        escape_lat_offset = base_offset * 0.6 * np.cos(np.radians(escape_bearing))
+        escape_lon_offset = base_offset * 0.6 * np.sin(np.radians(escape_bearing))
+        
+        # Adjust offsets based on terrain steepness AND wind speed
+        terrain_multiplier = 1.0 + (slope / 100)  # Steeper slopes = larger spacing
+        wind_multiplier = 1.0 + (wind_speed / 50)  # Higher wind = more spacing
+        
+        zone_variations = [
+            {
+                "offset": {
+                    "lat": primary_lat_offset * terrain_multiplier * wind_multiplier, 
+                    "lon": primary_lon_offset * terrain_multiplier * wind_multiplier
+                },
+                "type": "primary",
+                "description": f"Primary bedding: Leeward thermal position ({primary_bearing:.0f}°)"
+            },
+            {
+                "offset": {
+                    "lat": secondary_lat_offset * terrain_multiplier * wind_multiplier, 
+                    "lon": secondary_lon_offset * terrain_multiplier * wind_multiplier
+                },
+                "type": "secondary", 
+                "description": f"Secondary bedding: Crosswind canopy protection ({secondary_bearing:.0f}°)"
+            },
+            {
+                "offset": {
+                    "lat": escape_lat_offset * terrain_multiplier * wind_multiplier, 
+                    "lon": escape_lon_offset * terrain_multiplier * wind_multiplier
+                },
+                "type": "escape",
+                "description": f"Escape bedding: Elevated security position ({escape_bearing:.0f}°)"
+            }
+        ]
+        
+        logger.info(f"🧭 Calculated bedding positions: Wind={wind_direction:.0f}°, "
+                   f"Leeward={leeward_direction:.0f}°, Slope={slope:.1f}°, Aspect={aspect:.0f}°")
+        
+        return zone_variations
 
     def generate_enhanced_bedding_zones(self, lat: float, lon: float, gee_data: Dict, 
                                        osm_data: Dict, weather_data: Dict) -> Dict:
@@ -423,24 +501,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             bedding_zones = []
             
             if suitability["meets_criteria"]:
-                # Generate multiple bedding zones with variations
-                zone_variations = [
-                    {
-                        "offset": {"lat": 0, "lon": 0},
-                        "type": "primary",
-                        "description": "Primary bedding area"
-                    },
-                    {
-                        "offset": {"lat": 0.0008, "lon": -0.0006},
-                        "type": "secondary", 
-                        "description": "Secondary bedding area"
-                    },
-                    {
-                        "offset": {"lat": -0.0005, "lon": 0.0007},
-                        "type": "escape",
-                        "description": "Escape bedding area"
-                    }
-                ]
+                # Generate multiple bedding zones using environmental analysis
+                zone_variations = self._calculate_optimal_bedding_positions(
+                    lat, lon, gee_data, osm_data, weather_data, suitability
+                )
                 
                 for i, variation in enumerate(zone_variations):
                     zone_lat = lat + variation["offset"]["lat"]
@@ -591,6 +655,77 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             confidence += 0.15
         
         return min(max(confidence, 0.0), 1.0)
+    
+    def _calculate_optimal_stand_positions(self, lat: float, lon: float, gee_data: Dict, 
+                                         osm_data: Dict, weather_data: Dict) -> List[Dict]:
+        """Calculate optimal stand positions using environmental analysis"""
+        
+        # Extract environmental data
+        wind_direction = weather_data.get("wind_direction", 180)
+        wind_speed = weather_data.get("wind_speed", 5)
+        slope = gee_data.get("slope", 10)
+        aspect = gee_data.get("aspect", 180)
+        elevation = gee_data.get("elevation", 300)
+        
+        # Base offset distance for stands (200-300 meters)
+        base_offset = 0.002  # ~222m at typical latitude
+        
+        # Stand 1: Travel Corridor - Upwind of bedding, on travel routes
+        # Position upwind for scent advantage
+        upwind_bearing = wind_direction
+        travel_lat_offset = base_offset * 1.5 * np.cos(np.radians(upwind_bearing))
+        travel_lon_offset = base_offset * 1.5 * np.sin(np.radians(upwind_bearing))
+        
+        # Stand 2: Pinch Point - Use terrain features for funneling
+        # Position on ridges or near water/terrain bottlenecks
+        if slope > 15:  # Steep terrain - use ridge lines
+            pinch_bearing = aspect  # Follow ridgeline direction
+        else:  # Flatter terrain - use wind advantage
+            pinch_bearing = (wind_direction + 45) % 360
+            
+        pinch_lat_offset = base_offset * 0.8 * np.cos(np.radians(pinch_bearing))
+        pinch_lon_offset = base_offset * 0.8 * np.sin(np.radians(pinch_bearing))
+        
+        # Stand 3: Feeding Area - Downwind of feeding areas, approach routes
+        # Position for evening movement interception
+        downwind_bearing = (wind_direction + 180) % 360
+        feeding_lat_offset = base_offset * 1.2 * np.cos(np.radians(downwind_bearing))
+        feeding_lon_offset = base_offset * 1.2 * np.sin(np.radians(downwind_bearing))
+        
+        # Terrain adjustments
+        terrain_multiplier = 1.0 + (slope / 200)  # Larger spacing on steep terrain
+        
+        stand_variations = [
+            {
+                "offset": {
+                    "lat": travel_lat_offset * terrain_multiplier,
+                    "lon": travel_lon_offset * terrain_multiplier
+                },
+                "type": "Travel Corridor Stand",
+                "description": f"Upwind travel corridor position ({upwind_bearing:.0f}°)"
+            },
+            {
+                "offset": {
+                    "lat": pinch_lat_offset * terrain_multiplier,
+                    "lon": pinch_lon_offset * terrain_multiplier
+                },
+                "type": "Pinch Point Stand", 
+                "description": f"Terrain funnel advantage ({pinch_bearing:.0f}°)"
+            },
+            {
+                "offset": {
+                    "lat": feeding_lat_offset * terrain_multiplier,
+                    "lon": feeding_lon_offset * terrain_multiplier
+                },
+                "type": "Feeding Area Stand",
+                "description": f"Evening feeding approach ({downwind_bearing:.0f}°)"
+            }
+        ]
+        
+        logger.info(f"🎯 Calculated stand positions: Wind={wind_direction:.0f}°, "
+                   f"Upwind={upwind_bearing:.0f}°, Terrain slope={slope:.1f}°")
+        
+        return stand_variations
 
     def generate_enhanced_stand_sites(self, lat: float, lon: float, gee_data: Dict, 
                                      osm_data: Dict, weather_data: Dict, season: str) -> List[Dict]:
@@ -598,24 +733,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         try:
             stand_sites = []
             
-            # Generate 3 strategic stand locations
-            stand_variations = [
-                {
-                    "offset": {"lat": 0.003, "lon": -0.002},
-                    "type": "Travel Corridor Stand",
-                    "description": "Primary stand upwind of bedding area"
-                },
-                {
-                    "offset": {"lat": -0.001, "lon": 0.004},
-                    "type": "Pinch Point Stand", 
-                    "description": "Secondary stand at terrain funnel"
-                },
-                {
-                    "offset": {"lat": -0.002, "lon": 0.002},
-                    "type": "Feeding Area Stand",
-                    "description": "Tertiary stand near food sources"
-                }
-            ]
+            # Generate 3 strategic stand locations using environmental analysis
+            stand_variations = self._calculate_optimal_stand_positions(
+                lat, lon, gee_data, osm_data, weather_data
+            )
             
             for i, variation in enumerate(stand_variations):
                 stand_lat = lat + variation["offset"]["lat"]
@@ -658,6 +779,82 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         except Exception as e:
             logger.error(f"❌ Stand site generation failed: {e}")
             return []
+    
+    def _calculate_optimal_feeding_positions(self, lat: float, lon: float, gee_data: Dict, 
+                                           osm_data: Dict, weather_data: Dict) -> List[Dict]:
+        """Calculate optimal feeding positions using environmental analysis"""
+        
+        # Extract environmental data
+        wind_direction = weather_data.get("wind_direction", 180)
+        temperature = weather_data.get("temperature", 50)
+        slope = gee_data.get("slope", 10)
+        aspect = gee_data.get("aspect", 180)
+        canopy = gee_data.get("canopy_coverage", 0.5)
+        
+        # Base offset distance for feeding areas (150-250 meters)
+        base_offset = 0.0015  # ~167m at typical latitude
+        
+        # Feeding Area 1: Primary - Open areas with edge cover
+        # Position in areas with partial canopy (edge habitat)
+        if canopy > 0.7:  # Dense forest - move toward openings
+            primary_bearing = (aspect + 90) % 360  # Perpendicular to slope
+        else:  # Open area - stay near cover
+            primary_bearing = (wind_direction + 135) % 360  # Downwind with cover
+            
+        primary_lat_offset = base_offset * 1.3 * np.cos(np.radians(primary_bearing))
+        primary_lon_offset = base_offset * 1.3 * np.sin(np.radians(primary_bearing))
+        
+        # Feeding Area 2: Secondary - Browse areas near bedding
+        # Position for morning/evening travel convenience
+        secondary_bearing = (wind_direction + 270) % 360  # Crosswind from bedding
+        secondary_lat_offset = base_offset * 0.7 * np.cos(np.radians(secondary_bearing))
+        secondary_lon_offset = base_offset * 0.7 * np.sin(np.radians(secondary_bearing))
+        
+        # Feeding Area 3: Emergency - Water access and escape routes
+        # Position near water sources with multiple escape routes
+        if slope > 10:  # Sloped terrain - use valley bottoms
+            emergency_bearing = (aspect + 180) % 360  # Toward valley
+        else:  # Flat terrain - use thermal advantage
+            emergency_bearing = 180 if temperature < 50 else 0  # South in cold, north in warm
+            
+        emergency_lat_offset = base_offset * 1.0 * np.cos(np.radians(emergency_bearing))
+        emergency_lon_offset = base_offset * 1.0 * np.sin(np.radians(emergency_bearing))
+        
+        # Terrain and canopy adjustments
+        terrain_multiplier = 1.0 + (slope / 300)
+        canopy_multiplier = 1.2 if canopy < 0.3 else 0.8  # Larger spacing in open areas
+        
+        feeding_variations = [
+            {
+                "offset": {
+                    "lat": primary_lat_offset * terrain_multiplier * canopy_multiplier,
+                    "lon": primary_lon_offset * terrain_multiplier * canopy_multiplier
+                },
+                "type": "Primary Feeding Area",
+                "description": f"Edge habitat feeding ({primary_bearing:.0f}°, {canopy:.1%} canopy)"
+            },
+            {
+                "offset": {
+                    "lat": secondary_lat_offset * terrain_multiplier * canopy_multiplier,
+                    "lon": secondary_lon_offset * terrain_multiplier * canopy_multiplier
+                },
+                "type": "Secondary Feeding Area", 
+                "description": f"Browse area near cover ({secondary_bearing:.0f}°)"
+            },
+            {
+                "offset": {
+                    "lat": emergency_lat_offset * terrain_multiplier * canopy_multiplier,
+                    "lon": emergency_lon_offset * terrain_multiplier * canopy_multiplier
+                },
+                "type": "Emergency Feeding Area",
+                "description": f"Water access feeding ({emergency_bearing:.0f}°)"
+            }
+        ]
+        
+        logger.info(f"🌾 Calculated feeding positions: Canopy={canopy:.1%}, "
+                   f"Slope={slope:.1f}°, Temp={temperature:.0f}°F")
+        
+        return feeding_variations
 
     def generate_enhanced_feeding_areas(self, lat: float, lon: float, gee_data: Dict, 
                                        osm_data: Dict, weather_data: Dict) -> Dict:
@@ -665,24 +862,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         try:
             feeding_features = []
             
-            # Generate 3 feeding area locations
-            feeding_variations = [
-                {
-                    "offset": {"lat": -0.002, "lon": 0.003},
-                    "type": "Primary Feeding Area",
-                    "description": "Main food plot location"
-                },
-                {
-                    "offset": {"lat": 0.001, "lon": -0.003},
-                    "type": "Secondary Feeding Area", 
-                    "description": "Browse area near cover"
-                },
-                {
-                    "offset": {"lat": 0.003, "lon": 0.001},
-                    "type": "Emergency Feeding Area",
-                    "description": "Backup food source"
-                }
-            ]
+            # Generate 3 feeding area locations using environmental analysis
+            feeding_variations = self._calculate_optimal_feeding_positions(
+                lat, lon, gee_data, osm_data, weather_data
+            )
             
             for i, variation in enumerate(feeding_variations):
                 feeding_lat = lat + variation["offset"]["lat"]
@@ -732,6 +915,51 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         except Exception as e:
             logger.error(f"❌ Feeding area generation failed: {e}")
             return {"type": "FeatureCollection", "features": []}
+    
+    def _calculate_optimal_camera_position(self, lat: float, lon: float, gee_data: Dict, 
+                                         osm_data: Dict, weather_data: Dict) -> Dict:
+        """Calculate optimal camera position using environmental analysis"""
+        
+        # Extract environmental data
+        wind_direction = weather_data.get("wind_direction", 180)
+        slope = gee_data.get("slope", 10)
+        aspect = gee_data.get("aspect", 180)
+        canopy = gee_data.get("canopy_coverage", 0.5)
+        
+        # Base offset distance for camera (200 meters)
+        base_offset = 0.0018  # ~200m at typical latitude
+        
+        # Camera positioning strategy:
+        # 1. Overlook travel corridors (perpendicular to slope direction)
+        # 2. Downwind for scent management
+        # 3. Good visibility but concealed
+        
+        if slope > 15:  # Steep terrain - use elevation advantage
+            # Position to overlook downslope travel corridors
+            camera_bearing = (aspect + 180) % 360  # Look downslope
+        elif canopy < 0.4:  # Open terrain - use wind advantage
+            # Position downwind for scent control
+            camera_bearing = (wind_direction + 180) % 360
+        else:  # Mixed terrain - balance visibility and concealment
+            # Position at edge of cover with good visibility
+            camera_bearing = (wind_direction + 225) % 360  # Downwind and offset
+        
+        # Calculate offsets with terrain adjustments
+        terrain_multiplier = 1.0 + (slope / 200)
+        visibility_multiplier = 1.3 if canopy < 0.6 else 0.9
+        
+        lat_offset = base_offset * terrain_multiplier * visibility_multiplier * np.cos(np.radians(camera_bearing))
+        lon_offset = base_offset * terrain_multiplier * visibility_multiplier * np.sin(np.radians(camera_bearing))
+        
+        logger.info(f"📷 Camera position: {camera_bearing:.0f}° bearing, "
+                   f"Slope={slope:.1f}°, Canopy={canopy:.1%}")
+        
+        return {
+            "lat_offset": lat_offset,
+            "lon_offset": lon_offset,
+            "bearing": camera_bearing,
+            "strategy": f"Overlook position at {camera_bearing:.0f}°"
+        }
 
     def generate_enhanced_camera_placement(self, lat: float, lon: float, gee_data: Dict, 
                                           osm_data: Dict, weather_data: Dict, 
@@ -750,9 +978,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 
                 base_confidence = best_stand["confidence"]
             else:
-                # Fallback if no stands available
-                camera_lat = lat + 0.002
-                camera_lon = lon - 0.003
+                # Calculate optimal camera position using environmental analysis
+                camera_position = self._calculate_optimal_camera_position(
+                    lat, lon, gee_data, osm_data, weather_data
+                )
+                camera_lat = lat + camera_position["lat_offset"]
+                camera_lon = lon + camera_position["lon_offset"]
                 base_confidence = 75
             
             # Calculate camera confidence

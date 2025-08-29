@@ -291,6 +291,8 @@ class OptimizedBiologicalIntegration:
                 "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure",
                 "hourly": "temperature_2m,surface_pressure,wind_speed_10m,wind_direction_10m",
                 "timezone": "America/New_York",
+                "temperature_unit": "fahrenheit",  # FIX: Request Fahrenheit directly
+                "wind_speed_unit": "mph",  # Also fix wind speed units
                 "forecast_days": 1,
                 "past_days": 1  # Get past 24 hours for trend analysis
             }

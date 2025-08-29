@@ -20,6 +20,8 @@ class PredictionRequest(BaseModel):
     date_time: str
     season: str = "fall"
     fast_mode: bool = False
+    hunt_period: str = "AM"  # Added to match frontend payload
+    include_camera_placement: bool = False  # Added to match frontend payload
 
 class PredictionResponse(BaseModel):
     success: bool

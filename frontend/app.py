@@ -764,9 +764,13 @@ with tab_predict:
         
         # Display map and capture click events
         # Use dynamic key to force refresh when predictions are made
+        # FIXED: Include prediction hash to force map refresh when new predictions are generated
         map_key = "hunt_map"
         if 'prediction_results' in st.session_state and st.session_state.prediction_results:
-            map_key = f"hunt_map_{st.session_state.hunt_location[0]:.4f}_{st.session_state.hunt_location[1]:.4f}"
+            # Create hash of prediction results to force refresh when predictions change
+            import hashlib
+            prediction_hash = hashlib.md5(str(st.session_state.prediction_results).encode()).hexdigest()[:8]
+            map_key = f"hunt_map_{st.session_state.hunt_location[0]:.4f}_{st.session_state.hunt_location[1]:.4f}_{prediction_hash}"
         
         map_data = st_folium(m, key=map_key, width=700, height=500)
         
@@ -774,90 +778,133 @@ with tab_predict:
         if map_data['last_clicked']:
             new_lat = map_data['last_clicked']['lat']
             new_lng = map_data['last_clicked']['lng']
-            st.session_state.hunt_location = [new_lat, new_lng]
-            st.rerun()
+            
+            # Check if this is a new location
+            old_location = st.session_state.hunt_location
+            new_location = [new_lat, new_lng]
+            
+            # If location changed significantly (>100m), clear old predictions
+            if (abs(old_location[0] - new_lat) > 0.001 or 
+                abs(old_location[1] - new_lng) > 0.001):
+                
+                st.session_state.hunt_location = new_location
+                
+                # Clear old prediction results to prevent showing stale markers
+                if 'prediction_results' in st.session_state:
+                    del st.session_state.prediction_results
+                    
+                st.rerun()
     
     # Display current coordinates
     st.write(f"📍 **Current Location:** {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
     
+    # DEBUG: Show map refresh status
+    if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+        # Count markers that would be displayed
+        marker_count = 0
+        prediction = st.session_state.prediction_results
+        
+        if 'bedding_zones' in prediction and prediction['bedding_zones']:
+            marker_count += len(prediction['bedding_zones'].get('features', []))
+        if 'feeding_areas' in prediction and prediction['feeding_areas']:
+            marker_count += len(prediction['feeding_areas'].get('features', []))
+        if 'optimized_points' in prediction and prediction['optimized_points']:
+            opt_points = prediction['optimized_points']
+            for category in ['stand_sites', 'bedding_sites', 'feeding_sites', 'camera_placements']:
+                marker_count += len(opt_points.get(category, []))
+        
+        st.success(f"🗺️ **Map Status:** Displaying {marker_count} prediction markers for location {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
+    else:
+        st.info("🗺️ **Map Status:** No predictions loaded - click 'Generate Hunting Predictions' to see markers")
+    
     # Generate Predictions button - positioned above Advanced Options
-    if st.button("🎯 Generate Hunting Predictions", type="primary", use_container_width=False):
-        with st.spinner("🧠 Analyzing deer movement patterns..."):
-            # Convert hunt period to representative time for backend compatibility
-            period_times = {
-                "AM": "07:00:00",    # 7:00 AM - middle of dawn period
-                "DAY": "13:00:00",   # 1:00 PM - middle of day period  
-                "PM": "18:00:00"     # 6:00 PM - middle of evening period
-            }
-            
-            # Prepare prediction request
-            prediction_data = {
-                "lat": st.session_state.hunt_location[0],
-                "lon": st.session_state.hunt_location[1],
-                "date_time": f"{hunt_date}T{period_times[hunt_period]}",
-                "hunt_period": hunt_period,  # Add hunt period for future backend use
-                "season": season,
-                "fast_mode": True,  # Enable fast mode for UI responsiveness
-                "include_camera_placement": st.session_state.get('include_camera_placement', False)
-            }
-            
-            try:
-                # Make prediction request
-                response = requests.post(
-                    f"{BACKEND_URL}/predict",
-                    json=prediction_data,
-                    headers={'Content-Type': 'application/json'}
-                )
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        if st.button("🎯 Generate Hunting Predictions", type="primary", use_container_width=False):
+            with st.spinner("🧠 Analyzing deer movement patterns..."):
+                # Convert hunt period to representative time for backend compatibility
+                period_times = {
+                    "AM": "07:00:00",    # 7:00 AM - middle of dawn period
+                    "DAY": "13:00:00",   # 1:00 PM - middle of day period  
+                    "PM": "18:00:00"     # 6:00 PM - middle of evening period
+                }
                 
-                if response.status_code == 200:
-                    response_data = response.json()
-                    # Handle both old and new API response formats
-                    if 'success' in response_data and response_data.get('success'):
-                        # New enhanced API format with wrapper
-                        prediction = response_data.get('data', response_data)
-                    else:
-                        # Direct prediction data format
-                        prediction = response_data
-                    
-                    # ENHANCED: Log backend data for traceability
-                    validation_results = enhanced_backend_logging_for_predictions(
-                        st.session_state.hunt_location[0],
-                        st.session_state.hunt_location[1], 
-                        prediction
+                # Prepare prediction request
+                prediction_data = {
+                    "lat": st.session_state.hunt_location[0],
+                    "lon": st.session_state.hunt_location[1],
+                    "date_time": f"{hunt_date}T{period_times[hunt_period]}",
+                    "hunt_period": hunt_period,  # Add hunt period for future backend use
+                    "season": season,
+                    "fast_mode": True,  # Enable fast mode for UI responsiveness
+                    "include_camera_placement": st.session_state.get('include_camera_placement', False)
+                }
+                
+                try:
+                    # Make prediction request
+                    response = requests.post(
+                        f"{BACKEND_URL}/predict",
+                        json=prediction_data,
+                        headers={'Content-Type': 'application/json'}
                     )
                     
-                    # Check if EnhancedBeddingZonePredictor is active
-                    integration_check = check_enhanced_bedding_predictor_integration()
-                    
-                    # Store results and show appropriate message
-                    st.session_state.prediction_results = prediction
-                    
-                    if validation_results.get("data_extraction_success", False):
-                        bedding_count = validation_results.get("bedding_zones_count", 0)
-                        suitability = validation_results.get("suitability_score", 0)
-                        confidence = validation_results.get("confidence_score", 0)
-                        
-                        if bedding_count > 0 and suitability > 80:
-                            st.success(f"✅ Enhanced bedding predictions generated successfully!")
-                            st.info(f"🎯 Generated {bedding_count} bedding zones with {suitability:.1f}% suitability ({confidence:.1f}% confidence)")
-                        elif bedding_count > 0:
-                            st.success(f"✅ Bedding predictions generated!")
-                            st.warning(f"⚠️ Generated {bedding_count} zones with {suitability:.1f}% suitability - may need optimization")
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        # Handle both old and new API response formats
+                        if 'success' in response_data and response_data.get('success'):
+                            # New enhanced API format with wrapper
+                            prediction = response_data.get('data', response_data)
                         else:
-                            st.warning("⚠️ Prediction completed but no bedding zones generated")
-                            if integration_check.get("predictor_type_detected") == "mature_buck_predictor":
-                                st.error("🔧 Detection: Using legacy predictor instead of EnhancedBeddingZonePredictor")
+                            # Direct prediction data format
+                            prediction = response_data
+                        
+                        # ENHANCED: Log backend data for traceability
+                        validation_results = enhanced_backend_logging_for_predictions(
+                            st.session_state.hunt_location[0],
+                            st.session_state.hunt_location[1], 
+                            prediction
+                        )
+                        
+                        # Check if EnhancedBeddingZonePredictor is active
+                        integration_check = check_enhanced_bedding_predictor_integration()
+                        
+                        # Store results and show appropriate message
+                        st.session_state.prediction_results = prediction
+                        
+                        if validation_results.get("data_extraction_success", False):
+                            bedding_count = validation_results.get("bedding_zones_count", 0)
+                            suitability = validation_results.get("suitability_score", 0)
+                            confidence = validation_results.get("confidence_score", 0)
+                            
+                            if bedding_count > 0 and suitability > 80:
+                                st.success(f"✅ Enhanced bedding predictions generated successfully!")
+                                st.info(f"🎯 Generated {bedding_count} bedding zones with {suitability:.1f}% suitability ({confidence:.1f}% confidence)")
+                            elif bedding_count > 0:
+                                st.success(f"✅ Bedding predictions generated!")
+                                st.warning(f"⚠️ Generated {bedding_count} zones with {suitability:.1f}% suitability - may need optimization")
+                            else:
+                                st.warning("⚠️ Prediction completed but no bedding zones generated")
+                                if integration_check.get("predictor_type_detected") == "mature_buck_predictor":
+                                    st.error("🔧 Detection: Using legacy predictor instead of EnhancedBeddingZonePredictor")
+                        else:
+                            st.success("✅ Prediction completed")
+                        
+                        st.rerun()  # Refresh to show results on map
+                        
                     else:
-                        st.success("✅ Prediction completed")
-                    
-                    st.rerun()  # Refresh to show results on map
-                    
-                else:
-                    st.error(f"Prediction failed: {response.text}")
-                    
-            except Exception as e:
-                st.error(f"Failed to get prediction: {e}")
-                logger.error(f"Prediction request failed: {e}")
+                        st.error(f"Prediction failed: {response.text}")
+                        
+                except Exception as e:
+                    st.error(f"Failed to get prediction: {e}")
+                    logger.error(f"Prediction request failed: {e}")
+    
+    with col2:
+        if st.button("🗑️ Clear Cache", help="Clear cached predictions and force map refresh"):
+            if 'prediction_results' in st.session_state:
+                del st.session_state.prediction_results
+            st.success("Cache cleared!")
+            st.rerun()
     
     # Advanced options
     with st.expander("🎥 Advanced Options"):

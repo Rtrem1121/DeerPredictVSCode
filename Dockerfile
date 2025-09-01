@@ -1,9 +1,12 @@
 # Multi-stage Docker build for deer prediction app
 FROM python:3.10-slim as base
 
-# Install system dependencies (basic for now, can add GDAL later)
+# Install system dependencies including geospatial libraries
 RUN apt-get update && apt-get install -y \
     curl \
+    gdal-bin \
+    libgdal-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user

@@ -136,8 +136,8 @@ class ScoutingPredictionEnhancer:
         query = ScoutingQuery(
             lat=lat,
             lon=lon,
-            radius_miles=2.0,  # Search within 2 miles
-            days_back=60       # Only use recent observations
+            radius_miles=5.0,  # Search within 5 miles (increased from 2 miles)
+            days_back=365      # Use observations from last year (increased from 60 days)
         )
         return self.data_manager.get_observations(query)
 

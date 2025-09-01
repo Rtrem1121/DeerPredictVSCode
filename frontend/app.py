@@ -859,6 +859,29 @@ with tab_predict:
                             # Direct prediction data format
                             prediction = response_data
                         
+                        # NEW: Try to get detailed analysis if available
+                        try:
+                            analysis_response = requests.post(
+                                f"{BACKEND_URL}/analyze-prediction-detailed",
+                                json=prediction_data,
+                                headers={'Content-Type': 'application/json'},
+                                timeout=10  # Quick timeout for optional feature
+                            )
+                            
+                            if analysis_response.status_code == 200:
+                                analysis_data = analysis_response.json()
+                                if analysis_data.get('success') and analysis_data.get('detailed_analysis'):
+                                    # Add detailed analysis to prediction results
+                                    prediction['detailed_analysis'] = analysis_data['detailed_analysis']
+                                    st.info("✨ **Enhanced Analysis:** Detailed wind, thermal, and criteria analysis included!")
+                                else:
+                                    st.info("ℹ️ **Standard Analysis:** Basic prediction data available.")
+                            else:
+                                st.info("ℹ️ **Standard Analysis:** Detailed analysis endpoint not available.")
+                        except Exception as analysis_error:
+                            # Don't fail the whole prediction if detailed analysis fails
+                            st.info("ℹ️ **Standard Analysis:** Detailed analysis temporarily unavailable.")
+                        
                         # ENHANCED: Log backend data for traceability
                         validation_results = enhanced_backend_logging_for_predictions(
                             st.session_state.hunt_location[0],
@@ -981,6 +1004,358 @@ with tab_predict:
                     st.markdown(f"**{i}.** {cam['strategy']} ⭐{cam['score']:.1f}")
             
             st.markdown("---")
+        
+        # ==========================================
+        # COMPREHENSIVE PREDICTION ANALYSIS DISPLAY
+        # ==========================================
+        
+        # Check if we have detailed analysis data in the prediction results
+        detailed_analysis = prediction.get('detailed_analysis', None)
+        
+        if detailed_analysis:
+            # Display comprehensive analysis with expandable sections
+            with st.expander("🔍 **Detailed Prediction Analysis**", expanded=False):
+                
+                # Analysis Overview
+                st.markdown("### 📊 Analysis Overview")
+                
+                if 'analysis_metadata' in detailed_analysis:
+                    metadata = detailed_analysis['analysis_metadata']
+                    
+                    # Create overview metrics in columns
+                    overview_col1, overview_col2, overview_col3 = st.columns(3)
+                    
+                    with overview_col1:
+                        completion = metadata.get('completion_percentage', 0)
+                        if completion >= 80:
+                            st.success(f"🟢 **Analysis Status**\n{completion:.1f}% Complete (Excellent)")
+                        elif completion >= 60:
+                            st.warning(f"🟡 **Analysis Status**\n{completion:.1f}% Complete (Good)")
+                        else:
+                            st.error(f"🔴 **Analysis Status**\n{completion:.1f}% Complete (Limited)")
+                    
+                    with overview_col2:
+                        st.info(f"🔧 **Analyzer Version**\n{metadata.get('analyzer_version', 'Unknown')}")
+                        
+                    with overview_col3:
+                        # Show data collection status from the actual API response
+                        data_collected = metadata.get('data_collected', {})
+                        completed_count = sum(1 for v in data_collected.values() if v)
+                        total_count = len(data_collected)
+                        st.info(f"📋 **Data Collection**\n{completed_count}/{total_count} Sources Complete")
+                
+                # Criteria Analysis Tab
+                st.markdown("---")
+                st.markdown("### 📋 Criteria Analysis")
+                
+                if 'criteria_analysis' in detailed_analysis:
+                    criteria = detailed_analysis['criteria_analysis']
+                    
+                    # Criteria Summary
+                    if 'criteria_summary' in criteria:
+                        summary = criteria['criteria_summary']
+                        criteria_col1, criteria_col2, criteria_col3 = st.columns(3)
+                        
+                        with criteria_col1:
+                            st.metric("Total Criteria", summary.get('total_criteria', 0))
+                        with criteria_col2:
+                            st.metric("Met Criteria", summary.get('met_criteria', 0))
+                        with criteria_col3:
+                            compliance = summary.get('compliance_percentage', 0)
+                            st.metric("Compliance Rate", f"{compliance:.1f}%")
+                    
+                    # Detailed Criteria by Type
+                    criteria_detail_col1, criteria_detail_col2, criteria_detail_col3 = st.columns(3)
+                    
+                    with criteria_detail_col1:
+                        st.markdown("**🛏️ Bedding Criteria**")
+                        bedding = criteria.get('bedding_criteria', {})
+                        for key, value in list(bedding.items())[:3]:
+                            display_key = key.replace('_', ' ').title()
+                            if isinstance(value, float):
+                                st.write(f"• {display_key}: {value:.2f}")
+                            else:
+                                st.write(f"• {display_key}: {value}")
+                    
+                    with criteria_detail_col2:
+                        st.markdown("**🎯 Stand Criteria**")
+                        stand = criteria.get('stand_criteria', {})
+                        for key, value in list(stand.items())[:3]:
+                            display_key = key.replace('_', ' ').title()
+                            if isinstance(value, float):
+                                st.write(f"• {display_key}: {value:.2f}")
+                            else:
+                                st.write(f"• {display_key}: {value}")
+                    
+                    with criteria_detail_col3:
+                        st.markdown("**🌾 Feeding Criteria**")
+                        feeding = criteria.get('feeding_criteria', {})
+                        for key, value in list(feeding.items())[:3]:
+                            display_key = key.replace('_', ' ').title()
+                            if isinstance(value, float):
+                                st.write(f"• {display_key}: {value:.2f}")
+                            else:
+                                st.write(f"• {display_key}: {value}")
+                
+                # Environmental Analysis Tab
+                st.markdown("---")
+                st.markdown("### 🌿 Environmental Analysis")
+                
+                env_col1, env_col2 = st.columns(2)
+                
+                with env_col1:
+                    # Wind Analysis
+                    st.markdown("#### 🌬️ Wind Analysis")
+                    if 'wind_analysis' in detailed_analysis:
+                        wind = detailed_analysis['wind_analysis']
+                        
+                        # Overall Wind Conditions
+                        if 'overall_wind_conditions' in wind:
+                            overall = wind['overall_wind_conditions']
+                            st.write(f"**Current Wind:** {overall.get('prevailing_wind', 'Unknown')}")
+                            
+                            if overall.get('thermal_activity', False):
+                                st.success("🔥 Thermal Activity: Active")
+                            else:
+                                st.info("❄️ Thermal Activity: Inactive")
+                            
+                            rating = overall.get('hunting_rating', '0/10')
+                            if isinstance(rating, str) and '/' in rating:
+                                rating_num = float(rating.split('/')[0])
+                            else:
+                                rating_num = float(rating) if rating else 0
+                            
+                            if rating_num >= 8:
+                                st.success(f"🌬️ **Wind Rating:** {rating_num:.1f}/10 (Excellent)")
+                            elif rating_num >= 6:
+                                st.warning(f"🌬️ **Wind Rating:** {rating_num:.1f}/10 (Good)")
+                            else:
+                                st.error(f"🌬️ **Wind Rating:** {rating_num:.1f}/10 (Poor)")
+                        
+                        # Location Wind Analyses Summary
+                        if 'location_wind_analyses' in wind:
+                            locations = wind['location_wind_analyses']
+                            if locations:
+                                st.markdown("**Location Analysis:**")
+                                # Group by location type for better display
+                                location_types = {}
+                                for loc in locations:
+                                    loc_type = loc.get('location_type', 'Unknown').title()
+                                    if loc_type not in location_types:
+                                        location_types[loc_type] = []
+                                    location_types[loc_type].append(loc)
+                                
+                                for loc_type, locs in location_types.items():
+                                    avg_rating = sum(loc.get('wind_analysis', {}).get('wind_advantage_rating', 0) for loc in locs) / len(locs)
+                                    st.write(f"• {loc_type}: {avg_rating:.1f}/10")
+                        
+                        # Show detailed wind recommendations if available
+                        if 'wind_recommendations' in wind:
+                            recommendations = wind['wind_recommendations']
+                            if recommendations:
+                                st.markdown("**Wind Recommendations:**")
+                                for rec in recommendations[:2]:  # Show top 2
+                                    st.write(f"• {rec}")
+                        
+                        # Wind Summary
+                        if 'wind_summary' in wind:
+                            summary = wind['wind_summary']
+                            if 'confidence_assessment' in summary:
+                                confidence = summary['confidence_assessment']
+                                st.write(f"**Wind Analysis Confidence:** {confidence:.1f}%")
+                
+                with env_col2:
+                    # Thermal Analysis
+                    st.markdown("#### 🔥 Thermal Analysis")
+                    if 'thermal_analysis' in detailed_analysis:
+                        thermal = detailed_analysis['thermal_analysis']
+                        
+                        # Thermal Conditions
+                        if 'thermal_conditions' in thermal:
+                            conditions = thermal['thermal_conditions']
+                            is_active = conditions.get('is_active', False)
+                            strength = conditions.get('strength_scale', 0)
+                            direction = conditions.get('direction', 'Unknown')
+                            
+                            if is_active:
+                                if strength >= 7:
+                                    st.success(f"🔥 **Thermal Status:** Active & Strong ({strength:.1f}/10)")
+                                elif strength >= 5:
+                                    st.warning(f"🔥 **Thermal Status:** Active & Moderate ({strength:.1f}/10)")
+                                else:
+                                    st.info(f"🔥 **Thermal Status:** Active & Weak ({strength:.1f}/10)")
+                            else:
+                                st.error("❄️ **Thermal Status:** Inactive")
+                            
+                            st.write(f"**Direction:** {direction.replace('_', ' ').title()}")
+                        
+                        # Thermal Advantages
+                        if 'thermal_advantages' in thermal:
+                            advantages = thermal['thermal_advantages']
+                            optimal_timing = advantages.get('optimal_timing', 'Unknown')
+                            st.write(f"**Optimal Timing:** {optimal_timing.replace('_', ' ').title()}")
+                            
+                            hunting_windows = advantages.get('hunting_windows', [])
+                            if hunting_windows:
+                                st.markdown("**Prime Windows:**")
+                                for window in hunting_windows[:2]:  # Show first 2
+                                    st.write(f"• {window}")
+                        
+                        # Thermal Locations
+                        if 'thermal_locations' in thermal:
+                            locations = thermal['thermal_locations']
+                            if locations:
+                                st.markdown("**Active Zones:**")
+                                for loc in locations[:3]:  # Show first 3
+                                    st.write(f"• {loc.replace('_', ' ').title()}")
+                
+                # Data Quality and Scoring
+                st.markdown("---")
+                st.markdown("### 📈 Data Quality & Scoring")
+                
+                quality_col1, quality_col2 = st.columns(2)
+                
+                with quality_col1:
+                    # Data Source Analysis
+                    if 'data_source_analysis' in detailed_analysis:
+                        data_sources = detailed_analysis['data_source_analysis']
+                        st.markdown("#### 📊 Data Quality")
+                        
+                        if 'data_quality_summary' in data_sources:
+                            quality = data_sources['data_quality_summary']
+                            overall_quality = quality.get('overall_quality', 0)
+                            
+                            if overall_quality >= 8:
+                                st.success(f"🟢 **Overall Quality:** {overall_quality:.1f}/10 (High)")
+                            elif overall_quality >= 6:
+                                st.warning(f"🟡 **Overall Quality:** {overall_quality:.1f}/10 (Moderate)")
+                            else:
+                                st.error(f"🔴 **Overall Quality:** {overall_quality:.1f}/10 (Low)")
+                            
+                            freshness = quality.get('data_freshness', 0)
+                            completeness = quality.get('completeness', 0)
+                            st.write(f"• **Data Freshness:** {freshness:.1f}/10")
+                            st.write(f"• **Completeness:** {completeness:.1f}/10")
+                
+                with quality_col2:
+                    # Scoring Analysis
+                    if 'scoring_analysis' in detailed_analysis:
+                        scoring = detailed_analysis['scoring_analysis']
+                        st.markdown("#### 🎯 Confidence Metrics")
+                        
+                        if 'confidence_metrics' in scoring:
+                            metrics = scoring['confidence_metrics']
+                            overall_confidence = metrics.get('overall_confidence', 0)
+                            
+                            if overall_confidence >= 8:
+                                st.success(f"🟢 **Overall Confidence:** {overall_confidence:.1f}/10 (High)")
+                            elif overall_confidence >= 6:
+                                st.warning(f"🟡 **Overall Confidence:** {overall_confidence:.1f}/10 (Moderate)")
+                            else:
+                                st.error(f"🔴 **Overall Confidence:** {overall_confidence:.1f}/10 (Low)")
+                            
+                            prediction_reliability = metrics.get('prediction_reliability', 0)
+                            data_confidence = metrics.get('data_confidence', 0)
+                            st.write(f"• **Prediction Reliability:** {prediction_reliability:.1f}/10")
+                            st.write(f"• **Data Confidence:** {data_confidence:.1f}/10")
+        
+        else:
+            # Show notice that detailed analysis is not available
+            with st.expander("🔍 **Detailed Prediction Analysis**", expanded=False):
+                st.info("💡 **Enhanced Analysis Available:** Detailed analysis is available when using the new `/analyze-prediction-detailed` API endpoint. This provides comprehensive wind analysis, thermal analysis, criteria evaluation, and data quality metrics.")
+                st.markdown("**Features available with detailed analysis:**")
+                st.write("• 🌬️ Comprehensive wind direction analysis")
+                st.write("• 🔥 Advanced thermal wind calculations")
+                st.write("• 📋 Detailed criteria compliance scoring")
+                st.write("• 📊 Data quality and confidence metrics")
+                st.write("• 🎯 Algorithm analysis and feature engineering details")
+        
+        # Add comprehensive wind analysis section if available
+        if detailed_analysis and 'wind_analysis' in detailed_analysis:
+            wind_analysis = detailed_analysis['wind_analysis']
+            with st.expander("🌬️ **Comprehensive Wind Analysis - All Locations**", expanded=False):
+                st.markdown("### 🌬️ Complete Wind Intelligence Report")
+                
+                # Overall Wind Summary
+                if 'wind_summary' in wind_analysis:
+                    wind_summary = wind_analysis['wind_summary']
+                    overall_conditions = wind_summary.get('overall_wind_conditions', {})
+                    
+                    summary_col1, summary_col2 = st.columns(2)
+                    with summary_col1:
+                        st.markdown("**🌬️ Current Wind Conditions:**")
+                        st.write(f"• Prevailing Wind: {overall_conditions.get('prevailing_wind', 'Unknown')}")
+                        st.write(f"• Thermal Activity: {'Active' if overall_conditions.get('thermal_activity', False) else 'Inactive'}")
+                        st.write(f"• Effective Wind: {overall_conditions.get('effective_wind', 'Unknown')}")
+                    
+                    with summary_col2:
+                        rating = overall_conditions.get('hunting_rating', '0/10')
+                        if isinstance(rating, str) and '/' in rating:
+                            rating_display = rating
+                        else:
+                            rating_display = f"{rating:.1f}/10"
+                        st.metric("🎯 Hunting Rating", rating_display)
+                
+                # Detailed Location Analysis
+                if 'location_wind_analyses' in wind_analysis:
+                    locations = wind_analysis['location_wind_analyses']
+                    st.markdown("---")
+                    st.markdown(f"### 📍 Location-Specific Wind Analysis ({len(locations)} Locations)")
+                    
+                    # Group by location type
+                    location_groups = {'bedding': [], 'stand': [], 'feeding': []}
+                    for loc in locations:
+                        loc_type = loc.get('location_type', 'unknown')
+                        if loc_type in location_groups:
+                            location_groups[loc_type].append(loc)
+                    
+                    # Display each group
+                    for group_name, group_locations in location_groups.items():
+                        if group_locations:
+                            st.markdown(f"#### 🎯 {group_name.title()} Locations ({len(group_locations)} spots)")
+                            
+                            for i, loc in enumerate(group_locations):
+                                coords = loc.get('coordinates', [0, 0])
+                                wind_data = loc.get('wind_analysis', {})
+                                
+                                with st.container():
+                                    st.markdown(f"**Location {i+1}: {coords[0]:.4f}, {coords[1]:.4f}**")
+                                    
+                                    # Wind details in columns
+                                    wind_col1, wind_col2, wind_col3 = st.columns(3)
+                                    
+                                    with wind_col1:
+                                        st.write(f"🌬️ Wind Direction: {wind_data.get('prevailing_wind_direction', 'Unknown')}°")
+                                        st.write(f"💨 Wind Speed: {wind_data.get('prevailing_wind_speed', 'Unknown')} mph")
+                                        st.write(f"🎯 Scent Cone: {wind_data.get('scent_cone_direction', 'Unknown')}°")
+                                    
+                                    with wind_col2:
+                                        st.write(f"⭐ Wind Rating: {wind_data.get('wind_advantage_rating', 0):.1f}/10")
+                                        st.write(f"🔥 Thermal Active: {'Yes' if wind_data.get('thermal_wind_active', False) else 'No'}")
+                                        st.write(f"📍 Approach Bearing: {wind_data.get('optimal_approach_bearing', 'Unknown')}°")
+                                    
+                                    with wind_col3:
+                                        confidence = loc.get('confidence_score', 0)
+                                        if confidence >= 0.7:
+                                            st.success(f"✅ Confidence: {confidence:.1%}")
+                                        elif confidence >= 0.5:
+                                            st.warning(f"⚠️ Confidence: {confidence:.1%}")
+                                        else:
+                                            st.error(f"❌ Confidence: {confidence:.1%}")
+                                    
+                                    # Recommendations
+                                    recommendations = wind_data.get('recommendations', [])
+                                    if recommendations:
+                                        st.markdown("**🎯 Tactical Recommendations:**")
+                                        for rec in recommendations[:2]:
+                                            st.write(f"• {rec}")
+                                    
+                                    # Entry routes
+                                    entry_routes = loc.get('optimal_entry_routes', [])
+                                    if entry_routes:
+                                        st.write(f"**🚶 Entry Route:** {entry_routes[0]}")
+                                    
+                                    st.markdown("---")
         
         if prediction.get('mature_buck_analysis') is not None:
             stand_recommendations = prediction['mature_buck_analysis'].get('stand_recommendations', [])

@@ -59,7 +59,7 @@ class AdvancedThermalAnalyzer:
         
         # Thermal strength multipliers by time of day
         self.time_multipliers = {
-            'morning_thermal': {  # Katabatic (downslope) flow
+            'morning_thermal': {  # Katabatic (downslope) flow - cool slopes (5-10 AM)
                 5: 0.8,   # Strong
                 6: 1.0,   # Peak
                 7: 0.9,   # Strong  
@@ -67,14 +67,21 @@ class AdvancedThermalAnalyzer:
                 9: 0.3,   # Weak
                 10: 0.1   # Ending
             },
-            'evening_thermal': { # Anabatic (upslope) flow
-                14: 0.2,  # Beginning
-                15: 0.4,  # Building
-                16: 0.7,  # Strong
-                17: 1.0,  # Peak
-                18: 0.8,  # Strong
-                19: 0.5,  # Weakening
-                20: 0.2   # Ending
+            'midday_thermal': { # Anabatic (upslope) flow - heated slopes (11 AM - 4 PM)
+                11: 0.2,  # Beginning
+                12: 0.4,  # Building
+                13: 0.7,  # Strong
+                14: 1.0,  # Peak
+                15: 0.8,  # Strong
+                16: 0.5   # Weakening
+            },
+            'evening_thermal': { # Katabatic (downslope) flow - cooling slopes (5-10 PM)
+                17: 0.8,  # Strong cooling begins
+                18: 0.7,  # Strong
+                19: 0.6,  # Moderate
+                20: 0.4,  # Weakening
+                21: 0.3,  # Weak
+                22: 0.2   # Ending
             }
         }
     
@@ -359,7 +366,7 @@ class AdvancedThermalAnalyzer:
             # Insufficient conditions for thermal development
             return activity
         
-        # Morning thermal period (5-10 AM) - Katabatic flow
+        # Morning thermal period (5-10 AM) - Katabatic downslope flow (cool slopes)
         if 5 <= time_of_day <= 10:
             time_multiplier = self.time_multipliers['morning_thermal'].get(time_of_day, 0)
             
@@ -368,34 +375,50 @@ class AdvancedThermalAnalyzer:
                 
                 activity.update({
                     'is_active': True,
-                    'direction': 'downslope',
+                    'direction': 'downslope',  # Cool air sinks down slopes
                     'strength': min(strength, 10.0),
                     'dominance': 'thermal' if strength > 0.7 else 'mixed',
                     'confidence': 0.8 if time_of_day in [6, 7] else 0.6
                 })
         
-        # Evening thermal period (2-8 PM) - Anabatic flow
-        elif 14 <= time_of_day <= 20:
-            time_multiplier = self.time_multipliers['evening_thermal'].get(time_of_day, 0)
+        # Midday thermal period (11 AM - 4 PM) - Anabatic upslope flow (heated slopes)
+        elif 11 <= time_of_day <= 16:
+            time_multiplier = self.time_multipliers['midday_thermal'].get(time_of_day, 0)
             
-            # Boost solar factor for afternoon hours when sun is still significant
+            # Peak solar heating creates upslope thermals
             enhanced_solar_factor = solar_factor
-            if 14 <= time_of_day <= 18:  # Afternoon to early evening
-                enhanced_solar_factor = max(solar_factor, 0.3)  # Minimum solar contribution
+            if 11 <= time_of_day <= 15:  # Peak heating period
+                enhanced_solar_factor = max(solar_factor, 0.4)  # Strong solar contribution
             
-            if time_multiplier > 0.2 and enhanced_solar_factor > 0.1:  # Lower thresholds for evening
+            if time_multiplier > 0.2 and enhanced_solar_factor > 0.2:
                 strength = time_multiplier * thermal_potential * enhanced_solar_factor * min(temp_gradient / min_gradient, 2.0)
                 
-                # Boost strength for strong terrain and good conditions
+                # Boost strength for strong terrain and good solar conditions
                 if thermal_potential > 0.7 and temp_gradient > min_gradient * 1.2:
                     strength *= 1.3  # Vermont terrain bonus
                 
                 activity.update({
                     'is_active': True,
-                    'direction': 'upslope',
+                    'direction': 'upslope',  # Heated air rises up slopes
                     'strength': min(strength, 10.0),
                     'dominance': 'thermal' if strength > 0.7 else 'mixed',
-                    'confidence': 0.9 if time_of_day in [16, 17] else 0.7
+                    'confidence': 0.9 if time_of_day in [13, 14] else 0.7
+                })
+        
+        # CRITICAL FIX: Evening thermal period (5 PM - 10 PM) - Katabatic downslope flow (cooling slopes)
+        elif 17 <= time_of_day <= 22:
+            # Evening cooling creates downslope thermal flow
+            evening_multiplier = max(0.8 - (time_of_day - 17) * 0.15, 0.2)  # Strong at 5PM, weaker later
+            
+            if thermal_potential > 0.3:  # Any terrain variation creates thermal flow
+                strength = evening_multiplier * thermal_potential * 0.8  # Strong evening thermals
+                
+                activity.update({
+                    'is_active': True,
+                    'direction': 'downslope',  # Cooling air sinks down slopes - CRITICAL FOR SCENT FLOW
+                    'strength': min(strength, 10.0),
+                    'dominance': 'thermal' if strength > 0.6 else 'mixed',
+                    'confidence': 0.9 if time_of_day in [17, 18] else 0.7
                 })
         
         return activity

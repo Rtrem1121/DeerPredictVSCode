@@ -11,14 +11,17 @@ Key Responsibilities:
 - Provide detailed logging of prediction metrics
 - Handle error scenarios gracefully
 - Integrate wind direction and thermal analysis for all location types
+- Apply real-time hunting context for actionable recommendations
 
 Author: GitHub Copilot  
-Version: 3.1.0 - Wind and Thermal Analysis Integration
-Date: September 1, 2025
+Version: 3.2.0 - Real-Time Context Integration
+Date: September 3, 2025
 """
 
 from enhanced_bedding_zone_predictor import EnhancedBeddingZonePredictor
 from dataclasses import asdict
+from datetime import datetime
+from backend.hunting_context_analyzer import analyze_hunting_context, create_time_aware_prediction_context
 from backend.scouting_prediction_enhancer import get_scouting_enhancer
 from backend.advanced_thermal_analysis import AdvancedThermalAnalyzer
 from backend.analysis.wind_thermal_analyzer import get_wind_thermal_analyzer
@@ -246,7 +249,7 @@ class PredictionService:
             if analyzer:
                 try:
                     self._collect_data_source_analysis(analyzer, gee_data, osm_data, weather_data, scouting_enhancement_result)
-                    self._collect_algorithm_analysis(analyzer, result)
+                    # NOTE: Algorithm analysis moved to after wind analyses are added
                     self._collect_scoring_analysis(analyzer, result)
                 except Exception as e:
                     logger.warning(f"⚠️ Additional analysis collection failed: {e}")
@@ -291,6 +294,25 @@ class PredictionService:
             result['thermal_analysis'] = thermal_analysis.__dict__ if thermal_analysis else None
             result['wind_analyses'] = [analysis.__dict__ for analysis in wind_analyses]
             result['wind_summary'] = wind_summary
+            
+            # CRITICAL FIX: Collect algorithm analysis AFTER wind analyses are added to result
+            if analyzer:
+                try:
+                    self._collect_algorithm_analysis(analyzer, result)
+                    # Update wind analysis availability flag now that wind data exists
+                    if hasattr(analyzer, 'criteria_analysis') and analyzer.criteria_analysis:
+                        analyzer.criteria_analysis.stand_criteria['wind_analysis_available'] = bool(result.get('wind_analyses'))
+                except Exception as e:
+                    logger.warning(f"⚠️ Algorithm analysis collection failed: {e}")
+            
+            # Apply real-time hunting context analysis
+            try:
+                current_time = datetime.now()
+                logger.info(f"🕐 Applying real-time context analysis for {current_time.strftime('%H:%M')} on {current_time.strftime('%B %d')}")
+                result = create_time_aware_prediction_context(result, current_time)
+                logger.info(f"✅ Context applied: {result.get('context_summary', {}).get('situation', 'unknown')}")
+            except Exception as e:
+                logger.warning(f"⚠️ Context analysis failed: {e}")
             
             return result
             
@@ -366,9 +388,9 @@ class PredictionService:
             
             # Extract stand criteria
             stand_recommendations = result.get('mature_buck_analysis', {}).get('stand_recommendations', [])
+            
             stand_criteria = {
                 'stand_count': len(stand_recommendations),
-                'wind_analysis_available': bool(result.get('wind_analyses')),
                 'thermal_analysis_available': bool(result.get('thermal_analysis'))
             }
             

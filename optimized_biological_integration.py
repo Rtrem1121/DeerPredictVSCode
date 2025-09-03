@@ -452,14 +452,23 @@ class OptimizedBiologicalIntegration:
         cold_temp = temperature < 45
         falling_pressure = pressure_trend.get("trend") in ["falling", "falling_rapidly"]
         
-        # NEW: Wind shift indicators
-        wind_shift = wind_trend.get("direction_shift", 0) > 30
+        # CRITICAL FIX: Cold front MUST have cold temperature
+        # Don't detect cold front with warm temperatures (60°F+ in Vermont early fall)
+        if temperature > 60:
+            return False
+        
+        # NEW: Wind shift indicators (secondary factors only)
+        wind_shift = wind_trend.get("direction_shift", 0) > 45  # Increased threshold
         wind_triggers_movement = wind_trend.get("triggers_movement", False)
         
-        # Enhanced detection - any three of five conditions
-        conditions_met = sum([low_pressure, cold_temp, falling_pressure, wind_shift, wind_triggers_movement])
+        # FIXED: Require core cold front indicators + optional wind factors
+        # Must have BOTH low pressure AND falling pressure for legitimate cold front
+        core_cold_front = (low_pressure and falling_pressure) or (cold_temp and falling_pressure)
         
-        return conditions_met >= 2  # More sensitive with wind data
+        # Wind factors can enhance detection but not trigger alone
+        wind_enhancement = wind_shift and wind_triggers_movement
+        
+        return core_cold_front or (cold_temp and low_pressure and wind_enhancement)
     
     def calculate_cold_front_strength_with_wind(self, weather_data: Dict) -> float:
         """Calculate cold front strength including wind factors"""
@@ -468,38 +477,45 @@ class OptimizedBiologicalIntegration:
         pressure_trend = weather_data.get("pressure_trend", {})
         wind_trend = weather_data.get("wind_trend", {})
         
+        # CRITICAL FIX: Return 0 strength for warm weather (60°F+ in Vermont early fall)
+        if temperature > 60:
+            return 0.0
+        
         strength = 0.0
         
-        # Pressure component (0.0 to 0.3)
-        if pressure < 29.5:
+        # Pressure component (0.0 to 0.3) - more conservative
+        if pressure < 29.0:  # Much lower threshold for significant low pressure
             strength += 0.3
-        elif pressure < 29.9:
-            strength += 0.15 + (29.9 - pressure) * 0.375
+        elif pressure < 29.5:
+            strength += 0.15 + (29.5 - pressure) * 0.3
         
-        # Temperature component (0.0 to 0.25)
+        # Temperature component (0.0 to 0.25) - unchanged
         if temperature < 35:
             strength += 0.25
         elif temperature < 45:
             strength += (45 - temperature) * 0.025
         
-        # Pressure trend component (0.0 to 0.25)
+        # Pressure trend component (0.0 to 0.25) - require significant falling
         change_rate = abs(pressure_trend.get("change_rate", 0))
-        if change_rate > 0.15:
-            strength += 0.25
-        elif change_rate > 0.05:
-            strength += change_rate * 1.67
+        if pressure_trend.get("trend") in ["falling", "falling_rapidly"]:
+            if change_rate > 0.1:  # Increased threshold for significant pressure drop
+                strength += 0.25
+            elif change_rate > 0.05:
+                strength += change_rate * 2.5
         
-        # NEW: Wind trend component (0.0 to 0.2)
+        # NEW: Wind trend component (0.0 to 0.15) - reduced max contribution
         direction_shift = wind_trend.get("direction_shift", 0)
         speed_change = abs(wind_trend.get("speed_change", 0))
         
-        if direction_shift > 45:
-            strength += 0.15  # Major wind shift
-        elif direction_shift > 20:
-            strength += 0.1   # Moderate wind shift
-        
-        if speed_change > 8:
-            strength += 0.05  # Significant speed change
+        # Only count wind factors if there's already some cold front evidence
+        if strength > 0.1:  # Only enhance existing cold front indicators
+            if direction_shift > 60:  # Higher threshold for major shift
+                strength += 0.1
+            elif direction_shift > 30:
+                strength += 0.05
+            
+            if speed_change > 10:  # Higher threshold for significant speed change
+                strength += 0.05
         
         return min(1.0, strength)
     

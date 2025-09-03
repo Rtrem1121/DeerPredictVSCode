@@ -159,8 +159,9 @@ class WindThermalAnalyzer:
         # Calculate scent cone direction (where scent travels)
         scent_direction = (effective_direction + 180) % 360  # Downwind direction
         
-        # Calculate optimal approach bearing (upwind approach)
-        optimal_approach = effective_direction  # Upwind approach
+        # CRITICAL FIX: Calculate optimal approach bearing (upwind approach)
+        # Approach FROM the scent direction so wind blows scent AWAY from deer
+        optimal_approach = scent_direction  # Approach into the wind
         
         # Rate wind advantage for hunting
         wind_rating = self._rate_wind_conditions(effective_speed, prevailing_speed, thermal_strength)

@@ -966,9 +966,89 @@ with tab_predict:
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:
         prediction = st.session_state.prediction_results
         
-        # Debug section - Add toggle to show prediction data
-        with st.expander("🐛 Debug: Show Raw Prediction Data"):
-            st.json(prediction)
+        # Debug section - Enhanced validation metrics and raw data
+        with st.expander("🐛 Debug: Show Enhanced Validation Data"):
+            # Critical validation metrics tabs
+            tab1, tab2, tab3 = st.tabs(["🎯 Critical Validations", "📊 Terrain Data", "🗂️ Raw JSON"])
+            
+            with tab1:
+                st.subheader("🔍 System Validation Status")
+                
+                # Slope consistency validation
+                if 'bedding_zones' in prediction and prediction['bedding_zones'].get('properties', {}).get('slope_tracking'):
+                    slope_tracking = prediction['bedding_zones']['properties']['slope_tracking']
+                    gee_slope = prediction.get('gee_data', {}).get('slope', 'N/A')
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("🏔️ Slope Consistency", 
+                                slope_tracking.get('consistency_check', 'unknown').title(),
+                                delta="✅ Verified" if slope_tracking.get('consistency_check') == 'verified' else "❌ Issue")
+                        st.metric("📏 GEE Source Slope", f"{gee_slope:.1f}°" if isinstance(gee_slope, (int, float)) else str(gee_slope))
+                    
+                    with col2:
+                        st.metric("🎯 Suitability Slope", f"{slope_tracking.get('gee_source_slope', 'N/A'):.1f}°" if isinstance(slope_tracking.get('gee_source_slope'), (int, float)) else "N/A")
+                        zones_slopes = slope_tracking.get('zones_using_slope', [])
+                        unique_slopes = len(set(zones_slopes)) if zones_slopes else 0
+                        st.metric("🛏️ Zone Slope Unity", f"{unique_slopes} unique values" if unique_slopes else "No zones",
+                                delta="✅ Consistent" if unique_slopes <= 1 else f"❌ {unique_slopes} different values")
+                
+                # Aspect consistency validation  
+                if 'feeding_areas' in prediction and prediction['feeding_areas'].get('features'):
+                    feeding_features = prediction['feeding_areas']['features']
+                    terrain_aspects = [f.get('properties', {}).get('terrain_aspect') for f in feeding_features]
+                    unique_aspects = len(set(terrain_aspects)) if terrain_aspects else 0
+                    
+                    st.metric("🧭 Feeding Aspect Unity", f"{unique_aspects} unique values",
+                            delta="✅ Consistent" if unique_aspects <= 1 else f"❌ {unique_aspects} different values")
+                
+                # Bedding zone generation status
+                bedding_count = len(prediction.get('bedding_zones', {}).get('features', []))
+                st.metric("🛏️ Bedding Zones Generated", bedding_count,
+                        delta="✅ Success" if bedding_count > 0 else "❌ No zones (check slope limits)")
+                
+                # Biological accuracy indicators
+                if bedding_count > 0:
+                    first_zone = prediction['bedding_zones']['features'][0]['properties']
+                    slope_val = first_zone.get('slope', 0)
+                    aspect_val = first_zone.get('aspect', 0)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        slope_status = "✅ Suitable" if slope_val <= 30 else "❌ Too steep"
+                        st.metric("🏔️ Slope Biological Check", f"{slope_val:.1f}°", delta=slope_status)
+                    
+                    with col2:
+                        aspect_status = "✅ Optimal" if 135 <= aspect_val <= 225 else "⚠️ Suboptimal"
+                        st.metric("🧭 Aspect Biological Check", f"{aspect_val:.0f}°", delta=aspect_status)
+            
+            with tab2:
+                st.subheader("🗺️ Terrain & Environmental Data")
+                
+                # GEE Data
+                if 'gee_data' in prediction:
+                    gee_data = prediction['gee_data']
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**🛰️ Google Earth Engine Data**")
+                        st.write(f"📏 Slope: {gee_data.get('slope', 'N/A'):.2f}°" if isinstance(gee_data.get('slope'), (int, float)) else f"📏 Slope: {gee_data.get('slope', 'N/A')}")
+                        st.write(f"🧭 Aspect: {gee_data.get('aspect', 'N/A'):.0f}°" if isinstance(gee_data.get('aspect'), (int, float)) else f"🧭 Aspect: {gee_data.get('aspect', 'N/A')}")
+                        st.write(f"🌲 Canopy: {gee_data.get('canopy_coverage', 'N/A'):.1%}" if isinstance(gee_data.get('canopy_coverage'), (int, float)) else f"🌲 Canopy: {gee_data.get('canopy_coverage', 'N/A')}")
+                        st.write(f"📍 Elevation: {gee_data.get('elevation', 'N/A'):.0f}m" if isinstance(gee_data.get('elevation'), (int, float)) else f"📍 Elevation: {gee_data.get('elevation', 'N/A')}")
+                    
+                    with col2:
+                        st.markdown("**🏞️ OSM & Weather Data**")
+                        osm_data = prediction.get('osm_data', {})
+                        weather_data = prediction.get('weather_data', {})
+                        st.write(f"🛣️ Road Distance: {osm_data.get('nearest_road_distance_m', 'N/A'):.0f}m" if isinstance(osm_data.get('nearest_road_distance_m'), (int, float)) else f"�️ Road Distance: {osm_data.get('nearest_road_distance_m', 'N/A')}")
+                        st.write(f"🌡️ Temperature: {weather_data.get('temperature', 'N/A'):.1f}°F" if isinstance(weather_data.get('temperature'), (int, float)) else f"🌡️ Temperature: {weather_data.get('temperature', 'N/A')}")
+                        st.write(f"💨 Wind: {weather_data.get('wind_direction', 'N/A'):.0f}° at {weather_data.get('wind_speed', 'N/A'):.1f}mph" if isinstance(weather_data.get('wind_direction'), (int, float)) and isinstance(weather_data.get('wind_speed'), (int, float)) else f"💨 Wind: {weather_data.get('wind_direction', 'N/A')}° at {weather_data.get('wind_speed', 'N/A')}mph")
+            
+            with tab3:
+                st.subheader("🗂️ Complete Raw Prediction Data")
+                st.json(prediction)
+            
             if st.button("🗑️ Clear Cached Results"):
                 del st.session_state.prediction_results
                 st.success("Cache cleared! Please make a new prediction.")

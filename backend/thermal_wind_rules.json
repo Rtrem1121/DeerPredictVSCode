@@ -15,19 +15,34 @@
     "explanation": "Strong morning thermal flow provides excellent scent protection for bedding deer"
   },
   {
-    "description": "Evening upslope thermals favor valley bottom feeding areas",
+    "description": "Midday upslope thermals favor valley bottom feeding areas",
     "conditions": {
       "thermal_active": true,
       "thermal_direction": "upslope",
       "thermal_strength": {">=": 4.0},
-      "time_of_day": "evening"
+      "time_of_day": ["late_morning", "midday", "early_afternoon"]
     },
     "terrain_features": ["valley_bottom", "creek_bed", "lower_slope"],
     "boost": {
-      "feeding": 1.8,
+      "feeding": 1.6,
+      "travel": 1.3
+    },
+    "explanation": "Midday solar heating creates upslope thermals, making valley feeding areas more secure"
+  },
+  {
+    "description": "Evening downslope thermals favor upper slope bedding areas",
+    "conditions": {
+      "thermal_active": true,
+      "thermal_direction": "downslope",
+      "thermal_strength": {">=": 4.0},
+      "time_of_day": "evening"
+    },
+    "terrain_features": ["upper_slope", "ridge_areas", "elevated_bedding"],
+    "boost": {
+      "bedding": 1.8,
       "travel": 1.4
     },
-    "explanation": "Evening thermals pull scent upslope, creating safe feeding zones in valleys"
+    "explanation": "Evening cooling creates downslope thermal flow, enhancing security for deer bedding on upper slopes"
   },
   {
     "description": "Thermal wind transitions create excellent travel corridors",
@@ -57,17 +72,17 @@
     "explanation": "Deer position strategically on thermal-influenced terrain for scent advantage"
   },
   {
-    "description": "Valley bedding preference during evening thermal periods",
+    "description": "Valley bedding preference during morning thermal periods",
     "conditions": {
       "thermal_bedding_behavior": "valley_bedding_preference",
-      "time_of_day": ["late_afternoon", "evening"]
+      "time_of_day": ["early_morning"]
     },
     "terrain_features": ["protected_valley", "creek_bottom", "low_saddle"],
     "boost": {
       "bedding": 1.6,
       "feeding": 1.2
     },
-    "explanation": "Evening thermal flow creates protected bedding zones in valley areas"
+    "explanation": "Morning thermal flow creates protected bedding zones in valley areas as cool air settles"
   },
   {
     "description": "Enhanced downhill movement during morning thermal flow",
@@ -83,17 +98,17 @@
     "explanation": "Morning katabatic flow enhances deer confidence in downslope movement"
   },
   {
-    "description": "Enhanced uphill movement during evening thermal flow",
+    "description": "Enhanced downhill movement during evening thermal flow",
     "conditions": {
-      "thermal_travel_patterns": "uphill_movement_enhanced",
+      "thermal_travel_patterns": "downhill_movement_enhanced",
       "time_of_day": ["late_afternoon", "evening"]
     },
-    "terrain_features": ["uphill_travel_route", "ridge_approach", "thermal_corridor"],
+    "terrain_features": ["downhill_travel_route", "drainage", "slope_corridor"],
     "boost": {
       "travel": 1.8,
       "feeding": 1.3
     },
-    "explanation": "Evening anabatic flow supports upslope deer movement to feeding areas"
+    "explanation": "Evening katabatic (downslope) flow enhances deer confidence in downhill movement to feeding areas"
   },
   {
     "description": "Complex thermal scent patterns create secure movement zones",
@@ -127,12 +142,12 @@
       "thermal_timing_advantage": "prime_evening_thermal",
       "time_of_day": "evening"
     },
-    "terrain_features": ["valley_bottoms", "lower_slopes", "feeding_areas"],
+    "terrain_features": ["upper_slopes", "ridge_areas", "elevated_positions"],
     "boost": {
-      "feeding": 1.7,
+      "bedding": 1.7,
       "travel": 1.5
     },
-    "explanation": "Peak evening thermal conditions maximize deer activity in feeding zones"
+    "explanation": "Peak evening thermal conditions create optimal hunting opportunities on upper terrain where deer feel secure with downslope scent flow"
   },
   {
     "description": "Early morning feeding advantage during thermal conditions",

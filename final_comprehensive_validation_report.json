@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-26T21:39:35.615216",
+  "timestamp": "2025-09-02T21:05:36.493776",
   "scores": {
     "backend": 100,
     "frontend": 100,
@@ -8,370 +8,624 @@
   },
   "grade": "A (EXCELLENT)",
   "backend_data": {
-    "travel_corridors": {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.2271,
-              43.3027
-            ]
-          },
-          "properties": {
-            "id": "travel_0",
-            "type": "travel",
-            "score": 1.55,
-            "confidence": 0,
-            "description": "Travel area #1 (Score: 1.55)",
-            "marker_index": 0,
-            "corridor_type": "general",
-            "usage_frequency": "moderate"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.2271,
-              43.30936666666667
-            ]
-          },
-          "properties": {
-            "id": "travel_1",
-            "type": "travel",
-            "score": 1.55,
-            "confidence": 0,
-            "description": "Travel area #2 (Score: 1.55)",
-            "marker_index": 1,
-            "corridor_type": "general",
-            "usage_frequency": "moderate"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.22376666666666,
-              43.3027
-            ]
-          },
-          "properties": {
-            "id": "travel_2",
-            "type": "travel",
-            "score": 0.8,
-            "confidence": 0,
-            "description": "Travel area #3 (Score: 0.80)",
-            "marker_index": 2,
-            "corridor_type": "general",
-            "usage_frequency": "moderate"
-          }
-        }
-      ],
-      "properties": {
-        "marker_type": "travel",
-        "total_features": 3,
-        "generated_at": "2025-08-27T01:39:35.693589"
-      }
-    },
-    "bedding_zones": {
-      "type": "FeatureCollection",
-      "features": [],
-      "properties": {
-        "marker_type": "bedding",
-        "total_features": 0,
-        "generated_at": "2025-08-27T01:39:35.693595"
-      }
-    },
-    "feeding_areas": {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.2271,
-              43.3027
-            ]
-          },
-          "properties": {
-            "id": "feeding_0",
-            "type": "feeding",
-            "score": 0.9,
-            "confidence": 0,
-            "description": "Feeding area #1 (Score: 0.90)",
-            "marker_index": 0,
-            "food_type": "natural",
-            "season_availability": "year_round"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.2371,
-              43.31936666666667
-            ]
-          },
-          "properties": {
-            "id": "feeding_1",
-            "type": "feeding",
-            "score": 0.9,
-            "confidence": 0,
-            "description": "Feeding area #2 (Score: 0.90)",
-            "marker_index": 1,
-            "food_type": "natural",
-            "season_availability": "year_round"
-          }
-        },
-        {
-          "type": "Feature",
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              -73.2271,
-              43.31936666666667
-            ]
-          },
-          "properties": {
-            "id": "feeding_2",
-            "type": "feeding",
-            "score": 0.9,
-            "confidence": 0,
-            "description": "Feeding area #3 (Score: 0.90)",
-            "marker_index": 2,
-            "food_type": "natural",
-            "season_availability": "year_round"
-          }
-        }
-      ],
-      "properties": {
-        "marker_type": "feeding",
-        "total_features": 3,
-        "generated_at": "2025-08-27T01:39:35.693600"
-      }
-    },
-    "mature_buck_opportunities": {
-      "viable_location": true,
-      "confidence_summary": {
-        "overall_suitability": 0.0,
-        "movement_confidence": 50,
-        "pressure_tolerance": 15.0
+    "success": true,
+    "data": {
+      "gee_data": {
+        "ndvi_value": 0.565635,
+        "canopy_coverage": 0.6812699999999999,
+        "deciduous_forest_percentage": 0.6812699999999999,
+        "vegetation_health": "good",
+        "data_source": "fallback",
+        "query_success": true,
+        "timestamp": "2025-09-03T01:05:28.530052",
+        "elevation": 321.0,
+        "slope": 29.6949394598612,
+        "aspect": 310.22284328680394,
+        "api_source": "rasterio-dem-analysis-validated",
+        "grid_size": 5,
+        "analysis_method": "gradient_calculation_with_validation"
       },
-      "opportunity_markers": [],
-      "stand_recommendations": [
-        {
-          "coordinates": {
-            "lat": 43.3082,
-            "lon": -73.2271
-          },
-          "confidence": 88.5,
-          "type": "Travel Corridor Stand",
-          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
-        },
-        {
-          "coordinates": {
-            "lat": 43.3102,
-            "lon": -73.22309999999999
-          },
-          "confidence": 95,
-          "type": "Pinch Point Stand",
-          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
-        },
-        {
-          "coordinates": {
-            "lat": 43.3032,
-            "lon": -73.2226
-          },
-          "confidence": 61.00000000000001,
-          "type": "Food Plot Stand",
-          "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
-        }
-      ],
-      "terrain_scores": {
-        "bedding_suitability": 45.7,
-        "escape_route_quality": 57.9,
-        "isolation_score": 95.0,
-        "pressure_resistance": 15.0,
-        "overall_suitability": 0.0
+      "osm_data": {
+        "nearest_road_distance_m": 1000,
+        "road_types_nearby": [],
+        "bedding_security_score": 1.0,
+        "osm_query_success": true,
+        "roads_found": 0
       },
-      "movement_prediction": {
-        "movement_probability": 0.0,
-        "confidence_score": 0.0,
-        "preferred_times": [
-          "Dawn",
-          "Dusk"
+      "weather_data": {
+        "temperature": 65.9,
+        "pressure": 28.915776,
+        "wind_speed": 6.1,
+        "wind_direction": 176,
+        "humidity": 46,
+        "pressure_trend": {
+          "description": "pressure stable",
+          "change_rate": -0.02362399999999809,
+          "trend": "stable",
+          "current_pressure": 28.912823000000003,
+          "six_hour_change": -0.02362399999999809
+        },
+        "wind_trend": {
+          "description": "moderate wind shift (29\u00b0)",
+          "direction_shift": 29,
+          "speed_trend": "stable",
+          "speed_change": 3.9999999999999996,
+          "triggers_movement": false
+        },
+        "api_source": "open-meteo-enhanced-v2",
+        "timestamp": "2025-09-03T01:05:30.210174",
+        "is_cold_front": false,
+        "cold_front_strength": 0.4
+      },
+      "bedding_zones": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -73.2271,
+                43.3145
+              ]
+            },
+            "properties": {
+              "id": "alternative_bedding_0",
+              "type": "bedding",
+              "bedding_type": "alternative_site",
+              "score": 93.54007721489207,
+              "suitability_score": 93.54007721489207,
+              "confidence": 0.75,
+              "description": "Alternative bedding site: 25.1\u00b0 slope, 195\u00b0 aspect",
+              "canopy_coverage": 0.6814500000000002,
+              "slope": 25.10378478399089,
+              "aspect": 194.72138986805712,
+              "road_distance": 1000,
+              "thermal_comfort": "moderate",
+              "wind_protection": "good",
+              "escape_routes": "multiple",
+              "distance_from_primary": 199,
+              "search_reason": "Primary location aspect outside optimal range (135\u00b0-225\u00b0)"
+            }
+          }
         ],
-        "behavioral_notes": [
-          "High activity near bedding areas",
-          "Travel corridors active during temperature drops"
+        "properties": {
+          "marker_type": "bedding",
+          "total_features": 1,
+          "generated_at": "2025-09-03T01:05:35.382361",
+          "search_method": "alternative_site_search",
+          "primary_rejection_reason": "Slope 29.7\u00b0 > 30\u00b0",
+          "biological_note": "Alternative sites found with suitable slopes for mature whitetail bedding",
+          "enhancement_version": "v2.0-fallback-enabled"
+        }
+      },
+      "mature_buck_analysis": {
+        "stand_recommendations": [
+          {
+            "coordinates": {
+              "lat": 43.309262968788026,
+              "lon": -73.22685965936479
+            },
+            "confidence": 95,
+            "type": "Travel Corridor Stand",
+            "reasoning": "Good isolation from disturbance; Low wind conditions favorable",
+            "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          },
+          {
+            "coordinates": {
+              "lat": 43.31388662639221,
+              "lon": -73.22850304767522
+            },
+            "confidence": 95,
+            "type": "Pinch Point Stand",
+            "reasoning": "Good isolation from disturbance; Low wind conditions favorable",
+            "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          },
+          {
+            "coordinates": {
+              "lat": 43.31544962496958,
+              "lon": -73.22729227250815
+            },
+            "confidence": 93.6,
+            "type": "Feeding Area Stand",
+            "reasoning": "Good isolation from disturbance; Low wind conditions favorable",
+            "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          }
         ]
       },
-      "camera_placement": {
-        "lat": 43.3092,
-        "lon": -73.22859999999999,
+      "feeding_areas": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -73.22839388443268,
+                43.313824756577596
+              ]
+            },
+            "properties": {
+              "id": "feeding_0",
+              "type": "feeding",
+              "score": 87.21905,
+              "confidence": 0.8,
+              "description": "Edge habitat feeding area with 68.1% canopy: Natural browse area with 68% edge habitat (terrain aspect: 310\u00b0)",
+              "marker_index": 0,
+              "feeding_type": "Primary Feeding Area",
+              "food_sources": [
+                "Browse",
+                "Mast",
+                "Agricultural edge"
+              ],
+              "access_quality": "Good",
+              "terrain_aspect": 310.22284328680394,
+              "aspect_suitability": "suboptimal",
+              "biological_accuracy": "Aspect 310\u00b0 - 8 point penalty applied"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -73.22617910290636,
+                43.312764395397885
+              ]
+            },
+            "properties": {
+              "id": "feeding_1",
+              "type": "feeding",
+              "score": 79.21905,
+              "confidence": 0.8,
+              "description": "Browse area near protective cover: Natural browse area with 68% edge habitat (terrain aspect: 310\u00b0)",
+              "marker_index": 1,
+              "feeding_type": "Secondary Feeding Area",
+              "food_sources": [
+                "Browse",
+                "Mast",
+                "Agricultural edge"
+              ],
+              "access_quality": "Good",
+              "terrain_aspect": 310.22284328680394,
+              "aspect_suitability": "suboptimal",
+              "biological_accuracy": "Aspect 310\u00b0 - 8 point penalty applied"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -73.22609306071035,
+                43.31184838194202
+              ]
+            },
+            "properties": {
+              "id": "feeding_2",
+              "type": "feeding",
+              "score": 71.21905,
+              "confidence": 0.8,
+              "description": "Water access feeding area: Natural browse area with 68% edge habitat (terrain aspect: 310\u00b0)",
+              "marker_index": 2,
+              "feeding_type": "Emergency Feeding Area",
+              "food_sources": [
+                "Browse",
+                "Mast",
+                "Agricultural edge"
+              ],
+              "access_quality": "Good",
+              "terrain_aspect": 310.22284328680394,
+              "aspect_suitability": "suboptimal",
+              "biological_accuracy": "Aspect 310\u00b0 - 8 point penalty applied"
+            }
+          }
+        ],
+        "properties": {
+          "marker_type": "feeding",
+          "total_areas": 3,
+          "primary_food_type": "Natural browse and mast"
+        }
+      },
+      "optimal_camera_placement": {
+        "coordinates": {
+          "lat": 43.310262968788024,
+          "lon": -73.22835965936478
+        },
+        "confidence": 95,
+        "placement_type": "Travel Route Monitor",
         "distance_from_stand": 45,
         "setup_direction": "NE",
-        "confidence": 92
-      }
-    },
-    "stand_rating": 0.8900000000000001,
-    "notes": "Weather: 15.5\u00b0F, Clear | Mature buck habitat suitability: 0.0% | Camera Placement Confidence: 20.9% | Analysis completed in 28.00s",
-    "terrain_heatmap": "[[0.0, 0.8, 0.8, 1.55, 0.8, 0.8], [0.8, 0.8, 0.75, 0.8, 0.8, 0.75], [0.8, 0.75, 0.8, 1.55, 0.8, 0.8], [0.8, 0.75, 0.0, 0.8, 0.8, 0.0], [0.8, 0.0, 0.8, 0.8, 0.8, 0.8], [0.8, 0.0, 0.0, 0.8, 0.0, 0.0]]",
-    "vegetation_heatmap": "[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]",
-    "travel_score_heatmap": "[[0.0, 0.8, 0.8, 1.55, 0.8, 0.8], [0.8, 0.8, 0.75, 0.8, 0.8, 0.75], [0.8, 0.75, 0.8, 1.55, 0.8, 0.8], [0.8, 0.75, 0.0, 0.8, 0.8, 0.0], [0.8, 0.0, 0.8, 0.8, 0.8, 0.8], [0.8, 0.0, 0.0, 0.8, 0.0, 0.0]]",
-    "bedding_score_heatmap": "[[0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]",
-    "feeding_score_heatmap": "[[0.9, 0.9, 0.9, 0.9, 0.9, 0.9], [0.9, 0.9, 0.85, 0.9, 0.9, 0.85], [0.9, 0.85, 0.9, 0.9, 0.9, 0.9], [0.9, 0.85, 0.85, 0.9, 0.9, 0.85], [0.9, 0.85, 0.9, 0.9, 0.9, 0.9], [0.9, 0.85, 0.85, 0.9, 0.9, 0.9]]",
-    "suggested_spots": [],
-    "stand_recommendations": [
-      {
-        "coordinates": {
-          "lat": 43.3082,
-          "lon": -73.2271
-        },
-        "confidence": 88.5,
-        "type": "Travel Corridor Stand",
-        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+        "setup_height": "12-15 feet",
+        "setup_angle": "Slightly downward for body shots",
+        "expected_photos": "High during dawn/dusk movement",
+        "best_times": [
+          "Dawn (30min before sunrise)",
+          "Dusk (1hr after sunset)"
+        ],
+        "setup_notes": [
+          "Position for side-angle shots of deer movement",
+          "Clear shooting lanes through timber",
+          "Wind direction favorable for scent control"
+        ],
+        "seasonal_effectiveness": "Very High"
       },
-      {
-        "coordinates": {
-          "lat": 43.3102,
-          "lon": -73.22309999999999
-        },
-        "confidence": 95,
-        "type": "Pinch Point Stand",
-        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      "activity_level": "high",
+      "wind_thermal_analysis": {
+        "wind_direction": 176,
+        "wind_speed": 6.1,
+        "wind_protection": "excellent",
+        "thermal_advantage": "moderate",
+        "optimal_wind_alignment": true,
+        "cold_weather_thermal_bonus": false
       },
-      {
-        "coordinates": {
-          "lat": 43.3032,
-          "lon": -73.2226
-        },
-        "confidence": 61.00000000000001,
-        "type": "Food Plot Stand",
-        "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
-      }
-    ],
-    "five_best_stands": [
-      {
-        "coordinates": {
-          "lat": 43.3082,
-          "lon": -73.2271
-        },
-        "confidence": 88.5,
-        "type": "Travel Corridor Stand",
-        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      "movement_direction": {
+        "primary_direction": "feeding_to_bedding",
+        "activity_level": "high",
+        "seasonal_modifier": 1.0,
+        "weather_modifier": 1.0,
+        "movement_confidence": 70.0
       },
-      {
-        "coordinates": {
-          "lat": 43.3102,
-          "lon": -73.22309999999999
-        },
-        "confidence": 95,
-        "type": "Pinch Point Stand",
-        "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
+      "confidence_score": 0.9806202316446762,
+      "analysis_time": 6.852722406387329,
+      "optimization_version": "v3.0-complete-site-generation",
+      "timestamp": "2025-09-03T01:05:35.382767",
+      "thermal_analysis": {
+        "is_active": true,
+        "direction": "downslope",
+        "strength_scale": 0.9898313153287066,
+        "dominant_wind_type": "thermal",
+        "solar_heating_factor": 0.0,
+        "optimal_stand_positions": [
+          "side_drainages",
+          "mid_slopes",
+          "moderate_elevation",
+          "bench_areas",
+          "moderate_thermal_slopes"
+        ],
+        "timing_advantage": "good_morning_thermal",
+        "confidence": 0.8
       },
-      {
-        "coordinates": {
-          "lat": 43.3032,
-          "lon": -73.2226
-        },
-        "confidence": 61.00000000000001,
-        "type": "Food Plot Stand",
-        "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-        "setup_conditions": "Best during early_season season, dawn/dusk activity"
-      }
-    ],
-    "hunt_schedule": [],
-    "mature_buck_analysis": {
-      "viable_location": true,
-      "confidence_summary": {
-        "overall_suitability": 0.0,
-        "movement_confidence": 50,
-        "pressure_tolerance": 15.0
-      },
-      "opportunity_markers": [],
-      "stand_recommendations": [
+      "wind_analyses": [
         {
-          "coordinates": {
-            "lat": 43.3082,
-            "lon": -73.2271
+          "location_type": "bedding",
+          "coordinates": [
+            43.3145,
+            -73.2271
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
           },
-          "confidence": 88.5,
-          "type": "Travel Corridor Stand",
-          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          "position_advantages": [
+            "Leeward slope provides wind protection",
+            "Reduced scent dispersal for bedded deer",
+            "Moderate winds mask approach sounds"
+          ],
+          "position_disadvantages": [],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
         },
         {
-          "coordinates": {
-            "lat": 43.3102,
-            "lon": -73.22309999999999
+          "location_type": "stand",
+          "coordinates": [
+            43.309262968788026,
+            -73.22685965936479
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
           },
-          "confidence": 95,
-          "type": "Pinch Point Stand",
-          "reasoning": "High deer movement corridor; Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          "position_advantages": [
+            "Thermal winds provide predictable scent control",
+            "Optimal wind speed for scent management"
+          ],
+          "position_disadvantages": [
+            "Limited upwind approach options"
+          ],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
         },
         {
-          "coordinates": {
-            "lat": 43.3032,
-            "lon": -73.2226
+          "location_type": "stand",
+          "coordinates": [
+            43.31388662639221,
+            -73.22850304767522
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
           },
-          "confidence": 61.00000000000001,
-          "type": "Food Plot Stand",
-          "reasoning": "Close to feeding zones; Elevated position for visibility; Strategic offset from main area",
-          "setup_conditions": "Best during early_season season, dawn/dusk activity"
+          "position_advantages": [
+            "Thermal winds provide predictable scent control",
+            "Optimal wind speed for scent management"
+          ],
+          "position_disadvantages": [
+            "Limited upwind approach options"
+          ],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
+        },
+        {
+          "location_type": "stand",
+          "coordinates": [
+            43.31544962496958,
+            -73.22729227250815
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
+          },
+          "position_advantages": [
+            "Thermal winds provide predictable scent control",
+            "Optimal wind speed for scent management"
+          ],
+          "position_disadvantages": [
+            "Limited upwind approach options"
+          ],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
+        },
+        {
+          "location_type": "feeding",
+          "coordinates": [
+            43.313824756577596,
+            -73.22839388443268
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
+          },
+          "position_advantages": [
+            "Multiple approach angles with wind advantage"
+          ],
+          "position_disadvantages": [],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
+        },
+        {
+          "location_type": "feeding",
+          "coordinates": [
+            43.312764395397885,
+            -73.22617910290636
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
+          },
+          "position_advantages": [
+            "Multiple approach angles with wind advantage"
+          ],
+          "position_disadvantages": [],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
+        },
+        {
+          "location_type": "feeding",
+          "coordinates": [
+            43.31184838194202,
+            -73.22609306071035
+          ],
+          "wind_analysis": {
+            "prevailing_wind_direction": 176,
+            "prevailing_wind_speed": 6.1,
+            "thermal_wind_active": true,
+            "thermal_wind_direction": "downslope",
+            "thermal_strength": 0.9898313153287066,
+            "effective_wind_direction": 176,
+            "effective_wind_speed": 6.1,
+            "scent_cone_direction": 356,
+            "optimal_approach_bearing": 176,
+            "wind_advantage_rating": 7.5,
+            "recommendations": [
+              "Good wind conditions for hunting",
+              "Moderate thermal activity - useful for scent management",
+              "Primary wind from S"
+            ]
+          },
+          "position_advantages": [
+            "Multiple approach angles with wind advantage"
+          ],
+          "position_disadvantages": [],
+          "optimal_entry_routes": [
+            "Morning approach from upper elevations",
+            "Primary approach from S"
+          ],
+          "scent_management_tips": [
+            "Use thermal patterns to your advantage",
+            "Plan approach timing with thermal wind shifts",
+            "Primary scent cone travels toward N"
+          ],
+          "timing_recommendations": "Best during morning thermal period (5:30-8:00 AM)",
+          "confidence_score": 0.75
         }
       ],
-      "terrain_scores": {
-        "bedding_suitability": 45.7,
-        "escape_route_quality": 57.9,
-        "isolation_score": 95.0,
-        "pressure_resistance": 15.0,
-        "overall_suitability": 0.0
-      },
-      "movement_prediction": {
-        "movement_probability": 0.0,
-        "confidence_score": 0.0,
-        "preferred_times": [
-          "Dawn",
-          "Dusk"
+      "wind_summary": {
+        "overall_wind_conditions": {
+          "prevailing_wind": "S at 6.1 mph",
+          "thermal_activity": true,
+          "effective_wind": "S at 6.1 mph",
+          "hunting_rating": "7.5/10"
+        },
+        "location_summaries": {
+          "bedding": {
+            "advantages": [
+              "Leeward slope provides wind protection",
+              "Reduced scent dispersal for bedded deer",
+              "Moderate winds mask approach sounds"
+            ],
+            "entry_routes": [
+              "Morning approach from upper elevations",
+              "Primary approach from S"
+            ],
+            "timing": "Best during morning thermal period (5:30-8:00 AM)",
+            "confidence": 0.75
+          },
+          "stand": {
+            "advantages": [
+              "Thermal winds provide predictable scent control",
+              "Optimal wind speed for scent management"
+            ],
+            "entry_routes": [
+              "Morning approach from upper elevations",
+              "Primary approach from S"
+            ],
+            "timing": "Best during morning thermal period (5:30-8:00 AM)",
+            "confidence": 0.75
+          },
+          "feeding": {
+            "advantages": [
+              "Multiple approach angles with wind advantage"
+            ],
+            "entry_routes": [
+              "Morning approach from upper elevations",
+              "Primary approach from S"
+            ],
+            "timing": "Best during morning thermal period (5:30-8:00 AM)",
+            "confidence": 0.75
+          }
+        },
+        "tactical_recommendations": [
+          "Use thermal wind patterns for enhanced scent management",
+          "High confidence in wind predictions - execute planned approaches"
         ],
-        "behavioral_notes": [
-          "High activity near bedding areas",
-          "Travel corridors active during temperature drops"
-        ]
-      },
-      "camera_placement": {
-        "lat": 43.3092,
-        "lon": -73.22859999999999,
-        "distance_from_stand": 45,
-        "setup_direction": "NE",
-        "confidence": 92
+        "timing_optimization": {},
+        "confidence_assessment": 0.75
       }
     },
-    "optimal_camera_placement": {
-      "lat": 43.3092,
-      "lon": -73.22859999999999,
-      "distance_from_stand": 45,
-      "setup_direction": "NE",
-      "confidence": 92
-    },
-    "optimized_points": null
+    "error": null
   },
   "deployment_ready": true
 }

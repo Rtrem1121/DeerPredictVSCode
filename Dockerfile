@@ -7,7 +7,12 @@ RUN apt-get update && apt-get install -y \
     gdal-bin \
     libgdal-dev \
     build-essential \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# Set timezone to Eastern (Vermont timezone)
+ENV TZ=America/New_York
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Create app user
 RUN groupadd -r appuser && useradd -r -g appuser appuser && \

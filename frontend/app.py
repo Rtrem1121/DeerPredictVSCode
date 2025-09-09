@@ -1541,18 +1541,59 @@ with tab_predict:
                         st.write(f"• **Deer Approach:** {deer_approach_result['compass']} ({deer_approach_result['bearing']:.0f}°)")
                         st.write(f"• **Movement Pattern:** {deer_approach_result['movement_type']}")
                         
-                        # Calculate optimal wind directions based on corrected deer approach
-                        optimal_wind_1 = (deer_approach_result['bearing'] + 90) % 360
-                        optimal_wind_2 = (deer_approach_result['bearing'] - 90) % 360
-                        directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
-                                    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
-                        wind_dir_1 = directions[int((optimal_wind_1 + 11.25) / 22.5) % 16]
-                        wind_dir_2 = directions[int((optimal_wind_2 + 11.25) / 22.5) % 16]
+                        # Use sophisticated backend wind analysis instead of simple calculations
+                        st.markdown("**🌬️ Real-Time Wind Analysis:**")
                         
-                        st.markdown("**🌬️ Optimal Wind Directions:**")
-                        st.success(f"• **Best Winds:** {wind_dir_1} or {wind_dir_2}")
-                        st.write(f"• **Avoid Wind From:** {deer_approach_result['compass']} (towards deer)")
-                        st.info(f"• **Confidence:** {deer_approach_result['confidence']} - Based on {hunt_period} period movement patterns")
+                        # Get current wind conditions from backend analysis (handle API wrapper)
+                        prediction_data = prediction.get('data', prediction) if 'data' in prediction else prediction
+                        weather_data = prediction_data.get('weather_data', {})
+                        wind_analyses = prediction_data.get('wind_analyses', [])
+                        wind_summary = prediction_data.get('wind_summary', {})
+                        
+                        if weather_data and 'wind_direction' in weather_data:
+                            current_wind_dir = weather_data['wind_direction']
+                            current_wind_speed = weather_data.get('wind_speed', 0)
+                            
+                            # Convert wind direction to compass
+                            directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                                        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+                            current_wind_compass = directions[int((current_wind_dir + 11.25) / 22.5) % 16]
+                            
+                            # Get wind rating from backend analysis
+                            overall_conditions = wind_summary.get('overall_wind_conditions', {})
+                            hunting_rating = overall_conditions.get('hunting_rating', 'N/A')
+                            
+                            # Show current wind status with backend assessment
+                            if hunting_rating != 'N/A':
+                                rating_num = float(hunting_rating.split('/')[0]) if '/' in str(hunting_rating) else 0
+                                if rating_num >= 8:
+                                    st.success(f"• **Current Wind:** {current_wind_compass} at {current_wind_speed:.1f} mph (Rating: {hunting_rating} - Excellent!)")
+                                elif rating_num >= 6:
+                                    st.success(f"• **Current Wind:** {current_wind_compass} at {current_wind_speed:.1f} mph (Rating: {hunting_rating} - Good)")
+                                else:
+                                    st.warning(f"• **Current Wind:** {current_wind_compass} at {current_wind_speed:.1f} mph (Rating: {hunting_rating})")
+                            else:
+                                st.info(f"• **Current Wind:** {current_wind_compass} at {current_wind_speed:.1f} mph")
+                            
+                            # Show tactical recommendations from backend
+                            tactical_recs = wind_summary.get('tactical_recommendations', [])
+                            if tactical_recs:
+                                st.write(f"• **Tactical Advice:** {tactical_recs[0]}")
+                            
+                            # Show thermal activity if active
+                            thermal_active = overall_conditions.get('thermal_activity', False)
+                            if thermal_active:
+                                st.info("• **Thermal Winds Active** - Enhanced scent management opportunities")
+                        else:
+                            # Fallback to simple calculation if backend data unavailable
+                            optimal_wind_1 = (deer_approach_result['bearing'] + 90) % 360
+                            optimal_wind_2 = (deer_approach_result['bearing'] - 90) % 360
+                            wind_dir_1 = directions[int((optimal_wind_1 + 11.25) / 22.5) % 16]
+                            wind_dir_2 = directions[int((optimal_wind_2 + 11.25) / 22.5) % 16]
+                            st.info(f"• **Theoretical Best Winds:** {wind_dir_1} or {wind_dir_2}")
+                            st.write(f"• **Avoid Wind From:** {deer_approach_result['compass']} (towards deer)")
+                        
+                        st.info(f"• **Deer Movement:** {deer_approach_result['movement_type']} ({deer_approach_result['confidence']} confidence)")
                 
                 with detail_col2:
                     st.markdown("**🧠 Algorithm Analysis:**")

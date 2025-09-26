@@ -22,6 +22,54 @@ deer_prediction_config:
     behavioral:
       pressure_sensitivity: 0.8        # How sensitive to hunting pressure (0-1)
       movement_confidence_threshold: 0.7  # Confidence needed for movement (0-1)
+
+  # Stand wind credibility profiles (hunter-configurable)
+  stand_profiles:
+    - id: "ridge_sanctuary"
+      name: "Ridge Sanctuary Bench"
+      strategy_match: "Travel Corridor Stand"
+      preferred_winds:
+        - direction: "NW"
+          tolerance: 20
+        - direction: "W"
+          tolerance: 20
+      max_gust_mph: 18
+      terrain_context: "upper_ridge"
+      notes: "Slip in from logging road below; NW keeps thermals pulling off the backside."
+
+    - id: "creek_bend_pinch"
+      name: "Creek Bend Pinch"
+      strategy_match: "Pinch Point Stand"
+      preferred_winds:
+        - direction: "NE"
+          tolerance: 18
+        - direction: "E"
+          tolerance: 18
+      max_gust_mph: 12
+      terrain_context: "bench_over_creek"
+      notes: "Access from the west edge; easterly winds hold over the creek thermal."
+
+    - id: "cedar_edge_food"
+      name: "Cedar Edge Evening"
+      strategy_match: "Feeding Area Stand"
+      preferred_winds:
+        - direction: "S"
+          tolerance: 22
+        - direction: "SW"
+          tolerance: 22
+      max_gust_mph: 15
+      terrain_context: "low_thermal_draw"
+      notes: "Thermals drop hard after sunset; calm southerly keeps scent in the cedar ditch."
+
+  # Hunt-window predictor tuning
+  hunt_window_settings:
+    cold_front_temp_drop: 10.0          # °F drop required inside 24h
+    pressure_surge_threshold: 0.15      # inHg rise required inside 24h
+    calm_wind_threshold: 5.0            # mph ceiling for "stable" thermals
+    thermal_temp_change_window: 4.0     # °F change tolerance across 3h window
+    direction_tolerance_default: 25     # Degrees if a wind direction omits tolerance
+    priority_boost_base: 8.0            # Points to bump stand priority when all cues align
+    confidence_floor: 0.65              # Minimum confidence for generated hunt windows
       
   # Scoring and Confidence Factors
   scoring_factors:

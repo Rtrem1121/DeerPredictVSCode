@@ -1,0 +1,1 @@
+"""Hunt window prediction package."""

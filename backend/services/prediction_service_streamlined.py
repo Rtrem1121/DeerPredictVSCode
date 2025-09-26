@@ -43,7 +43,15 @@ class PredictionService:
             logger.error(f"❌ Failed to initialize EnhancedBeddingZonePredictor: {e}")
             raise
 
-    async def predict(self, lat: float, lon: float, time_of_day: int, season: str, hunting_pressure: str) -> Dict:
+    async def predict(
+        self,
+        lat: float,
+        lon: float,
+        time_of_day: int,
+        season: str,
+        hunting_pressure: str,
+        target_datetime=None,
+    ) -> Dict:
         """
         Generate comprehensive deer movement prediction using EnhancedBeddingZonePredictor exclusively.
         
@@ -60,7 +68,12 @@ class PredictionService:
         try:
             # Use EnhancedBeddingZonePredictor exclusively
             result = self.predictor.run_enhanced_biological_analysis(
-                lat, lon, time_of_day, season, hunting_pressure
+                lat,
+                lon,
+                time_of_day,
+                season,
+                hunting_pressure,
+                target_datetime=target_datetime,
             )
             
             # Extract bedding zones for logging

@@ -76,32 +76,62 @@ def test_final_satellite_integration():
         # Test 2: Land Cover Analysis
         print("\n🗺️ TESTING LAND COVER ANALYSIS...")
         
-        # Get land cover data
+        # Get land cover data (unmask to ensure values even if pixel missing)
         landcover = ee.Image('USGS/NLCD_RELEASES/2021_REL/NLCD/2021')
-        lc_sample = landcover.sample(point, 30).first()
+        landcover_band = landcover.select('landcover').unmask(-1)
+        lc_sample = landcover_band.sample(point, 30).first()
+
+        lc_value = None
         if lc_sample:
-            lc_value = lc_sample.get('landcover').getInfo()
-            
+            try:
+                lc_dict = lc_sample.toDictionary().getInfo()
+                if lc_dict:
+                    lc_value = lc_dict.get('landcover')
+                    if lc_value == -1:
+                        lc_value = None
+            except Exception:
+                lc_value = None
+        else:
+            # Expand the search slightly around the coordinate (60 m buffer) and try a mode reducer
+            try:
+                buffered_region = point.buffer(120)
+                lc_reduced_info = landcover_band.reduceRegion(
+                    reducer=ee.Reducer.mode(),
+                    geometry=buffered_region,
+                    scale=30,
+                    maxPixels=1e6
+                ).getInfo()
+
+                if lc_reduced_info and 'landcover' in lc_reduced_info:
+                    lc_value = lc_reduced_info['landcover']
+                    if lc_value == -1:
+                        lc_value = None
+            except Exception:
+                lc_value = None
+
+        if lc_value is not None:
             # Land cover interpretation
             lc_types = {
                 11: "Open Water", 21: "Developed, Open Space", 22: "Developed, Low Intensity",
-                23: "Developed, Medium Intensity", 24: "Developed High Intensity", 
+                23: "Developed, Medium Intensity", 24: "Developed High Intensity",
                 31: "Barren Land", 41: "Deciduous Forest", 42: "Evergreen Forest",
                 43: "Mixed Forest", 51: "Dwarf Scrub", 52: "Shrub/Scrub",
                 71: "Grassland/Herbaceous", 72: "Sedge/Herbaceous", 73: "Lichens",
                 74: "Moss", 81: "Pasture/Hay", 82: "Cultivated Crops",
                 90: "Woody Wetlands", 95: "Emergent Herbaceous Wetlands"
             }
-            
+
             land_type = lc_types.get(lc_value, f"Unknown ({lc_value})")
             print(f"   🏞️ Land cover type: {land_type}")
-            
+
             # Hunting suitability assessment
             good_for_hunting = lc_value in [41, 42, 43, 52, 71, 81, 90]  # Forests, shrub, grassland, wetlands
             if good_for_hunting:
                 print(f"   🎯 Hunting suitability: Excellent deer habitat!")
             else:
                 print(f"   🎯 Hunting suitability: May need to scout nearby areas")
+        else:
+            print("   ⚠️ Land cover data unavailable for this point (no valid pixel)")
         
         # Test 3: Elevation Analysis
         print("\n🏔️ TESTING ELEVATION ANALYSIS...")

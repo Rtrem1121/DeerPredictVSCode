@@ -8,6 +8,7 @@ Uses the PredictionService to handle all prediction logic.
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 import logging
+from zoneinfo import ZoneInfo
 
 # Import the prediction service and analyzer
 from backend.services.prediction_service import get_prediction_service
@@ -61,14 +62,17 @@ async def predict_movement(request: PredictionRequest) -> PredictionResponse:
         # Parse datetime and season from request
         from datetime import datetime
         dt = datetime.fromisoformat(request.date_time.replace('Z', '+00:00'))
+        eastern = ZoneInfo("America/New_York")
+        target_dt = dt.astimezone(eastern) if dt.tzinfo else dt.replace(tzinfo=eastern)
         
         # Call the enhanced prediction method
         result = await prediction_service.predict(
             lat=request.lat,
             lon=request.lon, 
-            time_of_day=dt.hour,
+            time_of_day=target_dt.hour,
             season=request.season,
-            hunting_pressure="high"  # Default for now
+            hunting_pressure="high",  # Default for now
+            target_datetime=target_dt
         )
         
         return PredictionResponse(success=True, data=result)
@@ -105,15 +109,18 @@ async def analyze_prediction_detailed(request: PredictionRequest) -> DetailedAna
         # Parse datetime and season from request
         from datetime import datetime
         dt = datetime.fromisoformat(request.date_time.replace('Z', '+00:00'))
+        eastern = ZoneInfo("America/New_York")
+        target_dt = dt.astimezone(eastern) if dt.tzinfo else dt.replace(tzinfo=eastern)
         
         # Call the enhanced prediction method with analysis collection
         result = await prediction_service.predict_with_analysis(
             lat=request.lat,
             lon=request.lon, 
-            time_of_day=dt.hour,
+            time_of_day=target_dt.hour,
             season=request.season,
             hunting_pressure="high",  # Default for now
-            analyzer=analyzer
+            analyzer=analyzer,
+            target_datetime=target_dt
         )
         
         # Get comprehensive analysis

@@ -1,10 +1,11 @@
 # 🛰️ Google Earth Engine Authorization Guide
 
-## Current Status: **READY FOR AUTHORIZATION**
+## Current Status: **SERVICE ACCOUNT AVAILABLE – NEEDS WIRING**
 - ✅ All GEE code is implemented and ready
 - ✅ Fallback system is working (synthetic data)
 - ✅ Docker environment is configured
-- ❌ **Missing: Service account credentials**
+- ✅ Service account JSON on hand
+- 🔄 **Action:** Point local + Docker runtimes to the JSON
 
 ---
 
@@ -87,10 +88,29 @@
 ### Step 4: Install Credentials (1 minute)
 
 9. **Place Credentials File**
-   ```bash
-   # Rename downloaded file to: gee-service-account.json
-   # Copy to: c:\Users\Rich\deer_pred_app\credentials\gee-service-account.json
-   ```
+    ```bash
+    # Rename downloaded file to: gee-service-account.json
+    # Copy to: c:\Users\Rich\deer_pred_app\credentials\gee-service-account.json
+    # (File is .gitignored – keep it out of source control)
+    ```
+
+10. **Set Local Environment Variables (PowerShell)**
+      ```powershell
+      $env:GOOGLE_APPLICATION_CREDENTIALS="C:\\Users\\Rich\\deer_pred_app\\credentials\\gee-service-account.json"
+      $env:GEE_PROJECT_ID="deer-predict-app"
+      ```
+      _Tip: add these to your PowerShell profile or `.env` so every session picks them up._
+
+11. **Configure Docker Runtime**
+      ```yaml
+      # docker-compose.yml (backend service excerpt)
+      environment:
+         - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/gee-service-account.json
+         - GEE_PROJECT_ID=deer-predict-app
+      volumes:
+         - ./credentials:/app/credentials:ro
+      ```
+      _Ensure the credentials folder is mounted read-only so containers authenticate automatically._
 
 ---
 
@@ -98,20 +118,20 @@
 
 ### Step 5: Test Authorization
 
-Run the integration test:
-```bash
-cd c:\Users\Rich\deer_pred_app
-python test_gee_integration.py
+Run the verification script _after_ exporting the env vars:
+```powershell
+cd C:\Users\Rich\deer_pred_app
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\\Users\\Rich\\deer_pred_app\\credentials\\gee-service-account.json"
+$env:GEE_PROJECT_ID="deer-predict-app"
+python final_satellite_verification.py
 ```
 
 **Expected Results After Authorization:**
 ```
-✅ Valid service account credentials found
-✅ GEE authentication successful!
-✅ Real satellite data retrieved!
-✅ Enhanced predictions with satellite data generated!
-
-🎉 FULL REAL DATA INTEGRATION ACTIVE!
+✅ Google Earth Engine authenticated
+✅ Landsat scenes detected (NDVI printed)
+✅ Land-cover + elevation details reported
+🎉 SATELLITE DATA INTEGRATION COMPLETE!
 ```
 
 ### Step 6: Activate in Production
@@ -120,7 +140,7 @@ Once authorization works:
 
 1. **Test in Docker**
    ```bash
-   docker-compose run backend python test_gee_integration.py
+   docker-compose run --rm backend python final_satellite_verification.py
    ```
 
 2. **Run Full Application**
@@ -177,9 +197,9 @@ Once authorization works:
 - ✅ Test framework complete
 
 **You just need:**
-1. 10 minutes to set up Google Cloud
-2. Download 1 JSON file
-3. Place it in the credentials folder
+1. 10 minutes to set up Google Cloud (done!)
+2. Download 1 JSON file (done!)
+3. Export two environment variables + restart the stack
 
 **Then you'll have:**
 - 🛰️ Live satellite vegetation analysis

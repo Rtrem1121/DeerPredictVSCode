@@ -26,6 +26,8 @@ from backend.scouting_prediction_enhancer import get_scouting_enhancer
 from backend.advanced_thermal_analysis import AdvancedThermalAnalyzer
 from backend.analysis.wind_thermal_analyzer import get_wind_thermal_analyzer
 from backend.analysis.prediction_analyzer import PredictionAnalyzer
+from backend.config_manager import get_config
+from backend.hunt_window.hunt_window_predictor import HuntWindowPredictor
 import logging
 import numpy as np
 from typing import Dict, List, Optional
@@ -53,15 +55,26 @@ class PredictionService:
             self.scouting_enhancer = get_scouting_enhancer()
             self.thermal_analyzer = AdvancedThermalAnalyzer()
             self.wind_analyzer = get_wind_thermal_analyzer()
+            self.config = get_config()
+            self.hunt_window_predictor = HuntWindowPredictor.from_config(self.config)
             logger.info("✅ EnhancedBeddingZonePredictor initialized as exclusive prediction engine")
             logger.info("✅ ScoutingPredictionEnhancer initialized for field data integration")
             logger.info("✅ AdvancedThermalAnalyzer initialized for thermal wind analysis")
             logger.info("✅ WindThermalAnalyzer initialized for comprehensive wind analysis")
+            logger.info("✅ HuntWindowPredictor initialized for forecast-triggered stand prioritization")
         except Exception as e:
             logger.error(f"❌ Failed to initialize prediction components: {e}")
             raise
 
-    async def predict(self, lat: float, lon: float, time_of_day: int, season: str, hunting_pressure: str) -> Dict:
+    async def predict(
+        self,
+        lat: float,
+        lon: float,
+        time_of_day: int,
+        season: str,
+        hunting_pressure: str,
+        target_datetime: Optional[datetime] = None,
+    ) -> Dict:
         """
         Generate comprehensive deer movement prediction using EnhancedBeddingZonePredictor exclusively.
         
@@ -71,14 +84,31 @@ class PredictionService:
             time_of_day: Hour of day (0-23)
             season: Season ('spring', 'summer', 'fall', 'winter')
             hunting_pressure: Pressure level ('low', 'medium', 'high')
+            target_datetime: Optional future datetime to align forecast data with
             
         Returns:
             Dict: Enhanced prediction results with comprehensive data integration, wind analysis, and thermal analysis
         """
-        return await self.predict_with_analysis(lat, lon, time_of_day, season, hunting_pressure, analyzer=None)
+        return await self.predict_with_analysis(
+            lat,
+            lon,
+            time_of_day,
+            season,
+            hunting_pressure,
+            analyzer=None,
+            target_datetime=target_datetime,
+        )
     
-    async def predict_with_analysis(self, lat: float, lon: float, time_of_day: int, season: str, 
-                                   hunting_pressure: str, analyzer: Optional[PredictionAnalyzer] = None) -> Dict:
+    async def predict_with_analysis(
+        self,
+        lat: float,
+        lon: float,
+        time_of_day: int,
+        season: str,
+        hunting_pressure: str,
+        analyzer: Optional[PredictionAnalyzer] = None,
+        target_datetime: Optional[datetime] = None,
+    ) -> Dict:
         """
         Generate comprehensive prediction with optional detailed analysis collection.
         
@@ -89,6 +119,7 @@ class PredictionService:
             season: Season ('spring', 'summer', 'fall', 'winter')
             hunting_pressure: Pressure level ('low', 'medium', 'high')
             analyzer: Optional PredictionAnalyzer for detailed analysis collection
+            target_datetime: Optional future datetime to align forecast data and context
             
         Returns:
             Dict: Enhanced prediction results with comprehensive data integration
@@ -96,7 +127,12 @@ class PredictionService:
         try:
             # Use EnhancedBeddingZonePredictor exclusively
             result = self.predictor.run_enhanced_biological_analysis(
-                lat, lon, time_of_day, season, hunting_pressure
+                lat,
+                lon,
+                time_of_day,
+                season,
+                hunting_pressure,
+                target_datetime=target_datetime,
             )
             
             # Extract environmental data for analysis
@@ -209,6 +245,35 @@ class PredictionService:
                 wind_analyses = []
                 wind_summary = {}
             
+            # Forecast-driven hunt window evaluation with stand wind credibility
+            result['hunt_window_predictions'] = []
+            result['stand_priority_overrides'] = {}
+            try:
+                thermal_payload = thermal_analysis.__dict__ if thermal_analysis else None
+                hunt_window_eval = self.hunt_window_predictor.evaluate(
+                    weather_data,
+                    stand_recommendations,
+                    thermal_payload,
+                    current_time=target_datetime,
+                ) if hasattr(self, 'hunt_window_predictor') else None
+
+                if hunt_window_eval:
+                    result['hunt_window_predictions'] = hunt_window_eval.windows_as_dict()
+                    result['stand_priority_overrides'] = hunt_window_eval.stand_status_as_dict()
+
+                    if hunt_window_eval.windows:
+                        primary_window = hunt_window_eval.windows[0]
+                        logger.info(
+                            "🪵 HUNT WINDOW: %s aligned for %s (boost +%.1f)",
+                            primary_window.stand_name,
+                            primary_window.window_start.strftime('%Y-%m-%d %H:%M'),
+                            primary_window.priority_boost,
+                        )
+                else:
+                    logger.info("🪵 Hunt window predictor unavailable; skipping forecast-triggered prioritization")
+            except Exception as e:
+                logger.warning(f"⚠️ Hunt window predictor failed: {e}")
+
             # Apply scouting data enhancements to boost predictions around real field observations
             scouting_enhancement_result = {}
             try:
@@ -307,9 +372,13 @@ class PredictionService:
             
             # Apply real-time hunting context analysis
             try:
-                current_time = datetime.now()
-                logger.info(f"🕐 Applying real-time context analysis for {current_time.strftime('%H:%M')} on {current_time.strftime('%B %d')}")
-                result = create_time_aware_prediction_context(result, current_time)
+                effective_time = target_datetime or datetime.now()
+                logger.info(
+                    "🕐 Applying real-time context analysis for %s on %s",
+                    effective_time.strftime('%H:%M'),
+                    effective_time.strftime('%B %d'),
+                )
+                result = create_time_aware_prediction_context(result, effective_time)
                 logger.info(f"✅ Context applied: {result.get('context_summary', {}).get('situation', 'unknown')}")
             except Exception as e:
                 logger.warning(f"⚠️ Context analysis failed: {e}")

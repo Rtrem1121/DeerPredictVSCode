@@ -14,6 +14,7 @@ import requests
 import logging
 import json
 import time
+import math
 import numpy as np
 import tempfile
 import os
@@ -605,59 +606,61 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Calculate leeward direction (opposite of wind)
         leeward_direction = (wind_direction + 180) % 360
         
-        # Base offset distance - make it vary with environmental factors
-        base_offset = 0.0008 + (slope / 1000)  # Vary with terrain steepness
-        
+        # Base offset distance in meters (keep bedding within hunting distance)
+        slope_factor = max(0.0, min(slope, 30.0))
+        base_distance_m = 90.0 + slope_factor * 4.0  # 90-210m based on slope comfort
+
+        # Adjust spacing with terrain and wind but keep it bounded
+        terrain_multiplier = 1.0 + (slope_factor / 150.0)
+        wind_multiplier = 1.0 + (min(max(wind_speed, 0.0), 25.0) / 120.0)
+        distance_multiplier = terrain_multiplier * wind_multiplier
+
+        def clamp_distance(distance_m: float) -> float:
+            return max(70.0, min(distance_m, 320.0))
+
+        def calculate_offset(distance_m: float, bearing_deg: float) -> Dict[str, float]:
+            lat_rad = math.radians(lat)
+            meters_per_degree_lat = 111_320.0
+            meters_per_degree_lon = max(1.0, 111_320.0 * math.cos(lat_rad))
+            bearing_rad = math.radians(bearing_deg)
+            delta_lat = (distance_m * math.cos(bearing_rad)) / meters_per_degree_lat
+            delta_lon = (distance_m * math.sin(bearing_rad)) / meters_per_degree_lon
+            return {"lat": delta_lat, "lon": delta_lon}
+
         # Position 1: Primary - Leeward slope with thermal advantage
         primary_bearing = leeward_direction
         if temperature < 40:  # Cold weather - favor south-facing thermal slopes
             primary_bearing = (leeward_direction + 180) % 360  # South-facing leeward
-        
-        # Apply actual bearing calculations (not hardcoded!)
-        primary_lat_offset = base_offset * 1.2 * np.cos(np.radians(primary_bearing))
-        primary_lon_offset = base_offset * 1.2 * np.sin(np.radians(primary_bearing))
-        
-        # Position 2: Secondary - Optimal canopy protection  
-        # Position perpendicular to wind for crosswind scent advantage
+
+        primary_distance = clamp_distance(base_distance_m * 1.15 * distance_multiplier)
+        primary_offset = calculate_offset(primary_distance, primary_bearing)
+
+        # Position 2: Secondary - Optimal canopy protection
         secondary_bearing = (wind_direction + 90) % 360
-        secondary_lat_offset = base_offset * 0.8 * np.cos(np.radians(secondary_bearing))
-        secondary_lon_offset = base_offset * 0.8 * np.sin(np.radians(secondary_bearing))
-        
+        secondary_distance = clamp_distance(base_distance_m * 0.85 * distance_multiplier)
+        secondary_offset = calculate_offset(secondary_distance, secondary_bearing)
+
         # Position 3: Escape - Higher elevation with visibility
-        # Position uphill from primary bedding for escape routes
         escape_bearing = aspect  # Use slope aspect for uphill direction
         if slope < 5:  # Flat terrain - use wind protection
             escape_bearing = (leeward_direction + 45) % 360
-            
-        escape_lat_offset = base_offset * 0.6 * np.cos(np.radians(escape_bearing))
-        escape_lon_offset = base_offset * 0.6 * np.sin(np.radians(escape_bearing))
-        
-        # Adjust offsets based on terrain steepness AND wind speed
-        terrain_multiplier = 1.0 + (slope / 100)  # Steeper slopes = larger spacing
-        wind_multiplier = 1.0 + (wind_speed / 50)  # Higher wind = more spacing
-        
+
+        escape_distance = clamp_distance(base_distance_m * 1.0 * distance_multiplier)
+        escape_offset = calculate_offset(escape_distance, escape_bearing)
+
         zone_variations = [
             {
-                "offset": {
-                    "lat": primary_lat_offset * terrain_multiplier * wind_multiplier, 
-                    "lon": primary_lon_offset * terrain_multiplier * wind_multiplier
-                },
+                "offset": primary_offset,
                 "type": "primary",
                 "description": f"Primary bedding: Leeward thermal position ({primary_bearing:.0f}°)"
             },
             {
-                "offset": {
-                    "lat": secondary_lat_offset * terrain_multiplier * wind_multiplier, 
-                    "lon": secondary_lon_offset * terrain_multiplier * wind_multiplier
-                },
+                "offset": secondary_offset,
                 "type": "secondary", 
                 "description": f"Secondary bedding: Crosswind canopy protection ({secondary_bearing:.0f}°)"
             },
             {
-                "offset": {
-                    "lat": escape_lat_offset * terrain_multiplier * wind_multiplier, 
-                    "lon": escape_lon_offset * terrain_multiplier * wind_multiplier
-                },
+                "offset": escape_offset,
                 "type": "escape",
                 "description": f"Escape bedding: Elevated security position ({escape_bearing:.0f}°)"
             }
@@ -903,15 +906,16 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 }
             }
 
-    def run_enhanced_biological_analysis(self, lat: float, lon: float, time_of_day: int, 
-                                        season: str, hunting_pressure: str) -> Dict:
+    def run_enhanced_biological_analysis(self, lat: float, lon: float, time_of_day: int,
+                                        season: str, hunting_pressure: str,
+                                        target_datetime: Optional[datetime] = None) -> Dict:
         """Enhanced biological analysis with comprehensive site generation (bedding, stands, feeding, camera)"""
         start_time = time.time()
         
         # Get enhanced environmental data
         gee_data = self.get_dynamic_gee_data_enhanced(lat, lon)
         osm_data = self.get_osm_road_proximity(lat, lon)
-        weather_data = self.get_enhanced_weather_with_trends(lat, lon)
+        weather_data = self.get_enhanced_weather_with_trends(lat, lon, target_datetime)
         
         # Generate enhanced bedding zones
         bedding_zones = self.generate_enhanced_bedding_zones(lat, lon, gee_data, osm_data, weather_data)
@@ -951,7 +955,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "confidence_score": confidence,
             "analysis_time": analysis_time,
             "optimization_version": "v3.0-complete-site-generation",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "target_prediction_time": target_datetime.isoformat() if target_datetime else None
         }
 
     def calculate_enhanced_confidence(self, gee_data: Dict, osm_data: Dict, 
@@ -996,32 +1001,30 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Base offset distance for stands (200-300 meters)
         base_offset = 0.002  # ~222m at typical latitude
-        
-        # Stand 1: Travel Corridor - Upwind of bedding, on travel routes
-        # Position upwind for scent advantage
-        upwind_bearing = wind_direction
-        travel_lat_offset = base_offset * 1.5 * np.cos(np.radians(upwind_bearing))
-        travel_lon_offset = base_offset * 1.5 * np.sin(np.radians(upwind_bearing))
-        
+
+        # Stand 1: Travel Corridor - Downwind of bedding to keep hunter scent away
+        # Wind direction is the source (meteorological convention), so flip 180°
+        travel_bearing = (wind_direction + 180) % 360
+        travel_lat_offset = base_offset * 1.5 * np.cos(np.radians(travel_bearing))
+        travel_lon_offset = base_offset * 1.5 * np.sin(np.radians(travel_bearing))
+
         # Stand 2: Pinch Point - Use terrain features for funneling
-        # Position on ridges or near water/terrain bottlenecks
-        if slope > 15:  # Steep terrain - use ridge lines
-            pinch_bearing = aspect  # Follow ridgeline direction
-        else:  # Flatter terrain - use wind advantage
+        if slope > 15:  # Steep terrain - use ridgelines
+            pinch_bearing = aspect
+        else:  # Flatter terrain - favor crosswind positioning
             pinch_bearing = (wind_direction + 45) % 360
-            
+
         pinch_lat_offset = base_offset * 0.8 * np.cos(np.radians(pinch_bearing))
         pinch_lon_offset = base_offset * 0.8 * np.sin(np.radians(pinch_bearing))
-        
-        # Stand 3: Feeding Area - Downwind of feeding areas, approach routes
-        # Position for evening movement interception
-        downwind_bearing = (wind_direction + 180) % 360
-        feeding_lat_offset = base_offset * 1.2 * np.cos(np.radians(downwind_bearing))
-        feeding_lon_offset = base_offset * 1.2 * np.sin(np.radians(downwind_bearing))
-        
+
+        # Stand 3: Feeding Area - Downwind of primary movement routes
+        feeding_bearing = travel_bearing
+        feeding_lat_offset = base_offset * 1.2 * np.cos(np.radians(feeding_bearing))
+        feeding_lon_offset = base_offset * 1.2 * np.sin(np.radians(feeding_bearing))
+
         # Terrain adjustments
         terrain_multiplier = 1.0 + (slope / 200)  # Larger spacing on steep terrain
-        
+
         stand_variations = [
             {
                 "offset": {
@@ -1029,14 +1032,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": travel_lon_offset * terrain_multiplier
                 },
                 "type": "Travel Corridor Stand",
-                "description": f"Upwind travel corridor position ({upwind_bearing:.0f}°)"
+                "description": f"Downwind travel corridor position ({travel_bearing:.0f}°)"
             },
             {
                 "offset": {
                     "lat": pinch_lat_offset * terrain_multiplier,
                     "lon": pinch_lon_offset * terrain_multiplier
                 },
-                "type": "Pinch Point Stand", 
+                "type": "Pinch Point Stand",
                 "description": f"Terrain funnel advantage ({pinch_bearing:.0f}°)"
             },
             {
@@ -1045,12 +1048,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": feeding_lon_offset * terrain_multiplier
                 },
                 "type": "Feeding Area Stand",
-                "description": f"Evening feeding approach ({downwind_bearing:.0f}°)"
+                "description": f"Evening feeding approach ({feeding_bearing:.0f}°)"
             }
         ]
-        
-        logger.info(f"🎯 Calculated stand positions: Wind={wind_direction:.0f}°, "
-                   f"Upwind={upwind_bearing:.0f}°, Terrain slope={slope:.1f}°")
+
+        logger.info(
+            f"🎯 Calculated stand positions: Wind={wind_direction:.0f}°, "
+            f"Downwind={travel_bearing:.0f}°, Terrain slope={slope:.1f}°"
+        )
         
         return stand_variations
 
@@ -1093,6 +1098,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         "lat": stand_lat,
                         "lon": stand_lon
                     },
+                    "stand_id": variation["type"].lower().replace(" ", "_"),
                     "confidence": round(confidence, 1),
                     "type": variation["type"],
                     "reasoning": reasoning,
@@ -1519,8 +1525,6 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             search_type = "south-facing slopes (135°-225°)" if require_south_facing else f"slopes ≤{max_slope_limit}°"
             logger.info(f"🎯 ALTERNATIVE BEDDING SEARCH: Multi-tier scanning for {search_type}")
             logger.info(f"   🦌 Target: 2-3 bedding zones for mature whitetail buck movement patterns")
-            
-            # 🎯 EXPANDED SEARCH PATTERNS: Hierarchical distances to find multiple suitable sites
             search_tiers = [
                 # Tier 1: Close alternatives (100-250m) - Preferred bedding distance
                 {
@@ -1569,6 +1573,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             ]
             
             suitable_sites = []
+            suitability_reports = []
             
             # 🎯 HIERARCHICAL ASPECT CRITERIA: Progressive relaxation to ensure multiple bedding zones
             if require_south_facing:
@@ -1690,6 +1695,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                     
                                     if not is_duplicate:
                                         suitable_sites.append(bedding_feature)
+                                        suitability_reports.append({
+                                            "criteria": suitability["criteria"],
+                                            "scores": suitability["scores"].copy(),
+                                            "thresholds": suitability["thresholds"],
+                                            "overall_score": suitability["overall_score"],
+                                            "meets_criteria": suitability["meets_criteria"]
+                                        })
                                         logger.debug(f"   ✅ Added diverse bedding site: {bedding_type} at {distance_m}m, aspect {search_aspect:.0f}°")
                                     else:
                                         logger.debug(f"   ❌ Skipped duplicate site at {distance_m}m")
@@ -1714,6 +1726,84 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 bedding_types = [site["properties"]["bedding_type"] for site in suitable_sites]
                 distances = [site["properties"]["distance_from_primary"] for site in suitable_sites]
                 aspects = [site["properties"]["aspect"] for site in suitable_sites]
+
+                # Determine best-performing site for summary metrics
+                best_index = max(
+                    range(len(suitable_sites)),
+                    key=lambda idx: suitable_sites[idx]["properties"].get("suitability_score", 0)
+                )
+                best_site = suitable_sites[best_index]["properties"]
+                best_report = suitability_reports[best_index] if suitability_reports else None
+
+                scores_list = [site["properties"].get("suitability_score", 0) for site in suitable_sites]
+                best_score = best_site.get("suitability_score", 0)
+                avg_score = sum(scores_list) / len(scores_list)
+                fallback_bonus = 5 if require_south_facing else 3
+                derived_overall_score = min(100, best_score + fallback_bonus)
+
+                # Build suitability analysis summary for frontend display
+                thresholds_template = (best_report["thresholds"].copy()
+                                       if best_report else
+                                       {
+                                           "min_canopy": 0.6,
+                                           "min_road_distance": 200,
+                                           "min_slope": 3,
+                                           "max_slope": 30,
+                                           "optimal_aspect_min": 135,
+                                           "optimal_aspect_max": 225
+                                       })
+
+                criteria_summary = {
+                    "canopy_coverage": best_site.get("canopy_coverage", base_gee_data.get("canopy_coverage", 0.6)),
+                    "road_distance": best_site.get("road_distance", base_osm_data.get("nearest_road_distance_m", 500)),
+                    "slope": best_site.get("slope", base_gee_data.get("slope", 15)),
+                    "aspect": best_site.get("aspect", base_gee_data.get("aspect", 180)),
+                    "wind_direction": base_weather_data.get("wind_direction", 0),
+                    "temperature": base_weather_data.get("temperature", 50)
+                }
+
+                if best_report:
+                    scores_summary = best_report["scores"].copy()
+                else:
+                    # Derive approximate scores using best site criteria
+                    scores_summary = {}
+                    scores_summary["canopy"] = min(100, (criteria_summary["canopy_coverage"] / thresholds_template["min_canopy"]) * 100)
+                    if criteria_summary["road_distance"] >= thresholds_template["min_road_distance"]:
+                        scores_summary["isolation"] = min(100, (criteria_summary["road_distance"] / 500) * 100)
+                    else:
+                        scores_summary["isolation"] = (criteria_summary["road_distance"] / thresholds_template["min_road_distance"]) * 50
+                    if thresholds_template["min_slope"] <= criteria_summary["slope"] <= thresholds_template["max_slope"]:
+                        scores_summary["slope"] = 100
+                    else:
+                        scores_summary["slope"] = max(0, 100 - abs(criteria_summary["slope"] - thresholds_template["max_slope"]) * 10)
+                    optimal_center = (thresholds_template["optimal_aspect_min"] + thresholds_template["optimal_aspect_max"]) / 2
+                    aspect_diff = min(abs(criteria_summary["aspect"] - optimal_center), 360 - abs(criteria_summary["aspect"] - optimal_center))
+                    scores_summary["aspect"] = max(0, 100 - (aspect_diff / 90) * 60)
+                    scores_summary["wind_protection"] = 90
+                    scores_summary["thermal"] = scores_summary["aspect"]
+
+                average_scores = {
+                    key: sum(report["scores"][key] for report in suitability_reports) / len(suitability_reports)
+                    for key in scores_summary.keys()
+                } if suitability_reports else scores_summary
+
+                meets_criteria = (
+                    derived_overall_score >= 70 and
+                    criteria_summary["slope"] <= thresholds_template["max_slope"] and
+                    best_score >= 60
+                )
+
+                suitability_analysis = {
+                    "overall_score": derived_overall_score,
+                    "average_score": avg_score,
+                    "best_site_score": best_score,
+                    "scores": {key: min(100, value) for key, value in average_scores.items()},
+                    "criteria": criteria_summary,
+                    "thresholds": thresholds_template,
+                    "meets_criteria": meets_criteria,
+                    "source": "alternative_site_search",
+                    "notes": "Aggregated from hierarchical alternative bedding site search"
+                }
                 
                 logger.info(f"   🦌 Bedding Zone Types: {', '.join(set(bedding_types))}")
                 logger.info(f"   📏 Distance Range: {min(distances)}-{max(distances)}m (optimal for buck movement)")
@@ -1735,7 +1825,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             "distance_range_m": {"min": min(distances), "max": max(distances)},
                             "aspect_range_deg": {"min": min(aspects), "max": max(aspects)},
                             "thermal_diversity": "high" if max(aspects) - min(aspects) > 30 else "moderate"
-                        }
+                        },
+                        "suitability_analysis": suitability_analysis
                     }
                 }
             else:

@@ -155,7 +155,9 @@ class DeerPredictionConfig:
                     'mature_buck_preferences',
                     'scoring_factors',
                     'seasonal_weights',
-                    'distance_parameters'
+                    'distance_parameters',
+                    'stand_profiles',
+                    'hunt_window_settings'
                 ]
                 
                 deer_config = config_data.get('deer_prediction_config', {})
@@ -547,6 +549,19 @@ class DeerPredictionConfig:
         """Get terrain scoring weights"""
         return self.get('terrain_weights', {})
     
+    def get_stand_profiles(self) -> List[Dict[str, Any]]:
+        """Get configured stand wind profiles"""
+        profiles = self.get('stand_profiles', [])
+        if isinstance(profiles, list):
+            return profiles
+        logger.warning("Stand profiles configuration malformed; expected list, got %s", type(profiles))
+        return []
+
+    def get_hunt_window_settings(self) -> Dict[str, Any]:
+        """Get hunt-window predictor settings"""
+        settings = self.get('hunt_window_settings', {})
+        return settings if isinstance(settings, dict) else {}
+
     def get_api_settings(self) -> Dict[str, Any]:
         """Get API settings configuration"""
         return self.get('api_settings', {})

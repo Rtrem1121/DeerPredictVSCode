@@ -17,10 +17,12 @@ import asyncio
 import aiohttp
 import json
 import logging
+import math
 import requests
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
+from zoneinfo import ZoneInfo
 import numpy as np
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -113,7 +115,7 @@ class OptimizedBiologicalIntegration:
                     ndvi = landsat.normalizedDifference(['SR_B5', 'SR_B4'])
                     
                     # Get canopy cover from Global Forest Cover
-                    canopy = ee.Image('UMD/hansen/global_forest_change_2022_v1_10') \
+                    canopy = ee.Image('UMD/hansen/global_forest_change_2023_v1_11') \
                         .select('treecover2000')
                     
                     # ENHANCED: Get OSM disturbance data integrated with GEE
@@ -280,9 +282,34 @@ class OptimizedBiologicalIntegration:
         
         return c * r
     
-    def get_enhanced_weather_with_trends(self, lat: float, lon: float) -> Dict:
-        """Get enhanced weather data with hourly pressure AND wind trends"""
+    def get_enhanced_weather_with_trends(self, lat: float, lon: float, target_datetime: Optional[datetime] = None) -> Dict:
+        """Get enhanced weather data with hourly pressure AND wind trends.
+
+        Args:
+            lat: Latitude for the weather lookup.
+            lon: Longitude for the weather lookup.
+            target_datetime: Optional future datetime to align forecast values with.
+        """
         try:
+            tz = ZoneInfo("America/New_York")
+            effective_target = None
+            forecast_days = 1
+
+            if target_datetime:
+                effective_target = (
+                    target_datetime if target_datetime.tzinfo
+                    else target_datetime.replace(tzinfo=tz)
+                )
+                now_local = datetime.now(tz)
+
+                # Clamp overly historic requests to the present while allowing tomorrow+ lookups
+                if effective_target < now_local - timedelta(days=1):
+                    effective_target = now_local
+
+                delta_hours = max(0.0, (effective_target - now_local).total_seconds() / 3600.0)
+                if delta_hours > 0:
+                    forecast_days = min(7, max(1, math.ceil(delta_hours / 24.0) + 1))
+
             # Get current and hourly data from Open-Meteo
             url = "https://api.open-meteo.com/v1/forecast"
             params = {
@@ -293,58 +320,215 @@ class OptimizedBiologicalIntegration:
                 "timezone": "America/New_York",
                 "temperature_unit": "fahrenheit",  # FIX: Request Fahrenheit directly
                 "wind_speed_unit": "mph",  # Also fix wind speed units
-                "forecast_days": 1,
+                "forecast_days": forecast_days,
                 "past_days": 1  # Get past 24 hours for trend analysis
             }
-            
+
             response = requests.get(url, params=params, timeout=15)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 current = data.get("current", {})
                 hourly = data.get("hourly", {})
-                
-                # Current conditions
+
+                # Current conditions snapshot
                 current_pressure_hpa = current.get("surface_pressure", 1013.25)
                 current_pressure_inhg = current_pressure_hpa * 0.02953
-                
+                current_snapshot = {
+                    "temperature": current.get("temperature_2m", 50),
+                    "pressure": current_pressure_inhg,
+                    "wind_speed": current.get("wind_speed_10m", 5),
+                    "wind_direction": current.get("wind_direction_10m"),
+                    "humidity": current.get("relative_humidity_2m", 60),
+                    "timestamp": datetime.now(tz).isoformat(),
+                    "source": "open-meteo-current"
+                }
+
+                # Hourly forecast payload (past + future range)
+                hourly_times = hourly.get("time", [])
+                hourly_temps = hourly.get("temperature_2m", [])
+                hourly_pressures_hpa = hourly.get("surface_pressure", [])
+                hourly_pressures_inhg = [p * 0.02953 for p in hourly_pressures_hpa]
+                hourly_wind_speeds = hourly.get("wind_speed_10m", [])
+                hourly_wind_dirs = hourly.get("wind_direction_10m", [])
+
                 # ENHANCED: Pressure AND wind trend analysis
                 pressure_trend = self.analyze_pressure_trend(hourly.get("surface_pressure", []))
                 wind_trend = self.analyze_wind_trend(
                     hourly.get("wind_speed_10m", []),
                     hourly.get("wind_direction_10m", [])
                 )
-                
+
                 weather_data = {
-                    "temperature": current.get("temperature_2m", 50),
-                    "pressure": current_pressure_inhg,
-                    "wind_speed": current.get("wind_speed_10m", 5),
-                    "wind_direction": current.get("wind_direction_10m", 0),
-                    "humidity": current.get("relative_humidity_2m", 60),
+                    "temperature": current_snapshot["temperature"],
+                    "pressure": current_snapshot["pressure"],
+                    "wind_speed": current_snapshot["wind_speed"],
+                    "wind_direction": current_snapshot.get("wind_direction", 0),
+                    "humidity": current_snapshot["humidity"],
                     "pressure_trend": pressure_trend,
                     "wind_trend": wind_trend,  # NEW: Wind trend analysis
                     "api_source": "open-meteo-enhanced-v2",
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now(tz).isoformat(),
+                    "forecast_days_requested": forecast_days,
+                    "hourly_forecast": {
+                        "time": hourly_times,
+                        "temperature_f": hourly_temps,
+                        "pressure_inhg": hourly_pressures_inhg,
+                        "wind_speed_mph": hourly_wind_speeds,
+                        "wind_direction_deg": hourly_wind_dirs
+                    },
+                    "current_snapshot": current_snapshot,
+                    "wind_source": "current"
                 }
-                
+
                 # Enhanced cold front detection with wind trends
                 is_cold_front = self.detect_enhanced_cold_front_with_wind(weather_data)
                 weather_data["is_cold_front"] = is_cold_front
                 weather_data["cold_front_strength"] = self.calculate_cold_front_strength_with_wind(weather_data)
-                
-                self.logger.info(f"✅ Enhanced weather v2: {weather_data['temperature']:.1f}°F, wind trend: {wind_trend['description']}")
+
+                # Align weather snapshot to requested future time when provided
+                if effective_target and hourly_times:
+                    now_local = datetime.now(tz)
+                    def parse_hourly_time(raw_time: str) -> Optional[datetime]:
+                        try:
+                            if raw_time.endswith("Z"):
+                                parsed = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                            else:
+                                parsed = datetime.fromisoformat(raw_time)
+                            if parsed.tzinfo is None:
+                                return parsed.replace(tzinfo=tz)
+                            return parsed.astimezone(tz)
+                        except Exception:
+                            return None
+
+                    hourly_datetimes = [parse_hourly_time(t) for t in hourly_times]
+                    valid_indices = [i for i, dt_val in enumerate(hourly_datetimes) if dt_val is not None]
+
+                    if valid_indices:
+                        closest_index = min(
+                            valid_indices,
+                            key=lambda idx: abs((hourly_datetimes[idx] - effective_target).total_seconds())
+                        )
+                        selected_dt = hourly_datetimes[closest_index]
+
+                        if 0 <= closest_index < len(hourly_temps):
+                            weather_data["temperature"] = hourly_temps[closest_index]
+                        if 0 <= closest_index < len(hourly_pressures_inhg):
+                            weather_data["pressure"] = hourly_pressures_inhg[closest_index]
+                        if 0 <= closest_index < len(hourly_wind_speeds):
+                            weather_data["wind_speed"] = hourly_wind_speeds[closest_index]
+                        if 0 <= closest_index < len(hourly_wind_dirs):
+                            weather_data["wind_direction"] = hourly_wind_dirs[closest_index]
+
+                        weather_data["timestamp"] = selected_dt.isoformat()
+                        weather_data["effective_time"] = selected_dt.isoformat()
+                        weather_data["target_forecast_lookup"] = {
+                            "requested_time": effective_target.isoformat(),
+                            "matched_hour": selected_dt.isoformat(),
+                            "hour_offset": round(
+                                (selected_dt - effective_target).total_seconds() / 3600.0,
+                                2
+                            ),
+                            "forecast_days_requested": forecast_days,
+                            "source": "forecast_aligned",
+                            "status": "matched"
+                        }
+                        weather_data["wind_source"] = "forecast"
+
+                        # If the requested time is within the next 45 minutes, prefer current obs
+                        delta_minutes = abs((effective_target - now_local).total_seconds()) / 60.0
+
+                        def angle_diff(deg_a: Optional[float], deg_b: Optional[float]) -> Optional[float]:
+                            if deg_a is None or deg_b is None:
+                                return None
+                            diff = abs((deg_a - deg_b + 180) % 360 - 180)
+                            return diff
+
+                        if delta_minutes <= 45:
+                            direction_diff = angle_diff(
+                                current_snapshot.get("wind_direction"),
+                                weather_data.get("wind_direction")
+                            )
+
+                            if direction_diff is None or direction_diff >= 20:
+                                weather_data["temperature"] = current_snapshot["temperature"]
+                                weather_data["pressure"] = current_snapshot["pressure"]
+                                weather_data["wind_speed"] = current_snapshot["wind_speed"]
+                                if current_snapshot.get("wind_direction") is not None:
+                                    weather_data["wind_direction"] = current_snapshot["wind_direction"]
+                                weather_data["wind_source"] = "current_override"
+                                weather_data.setdefault("target_forecast_lookup", {})["override_reason"] = (
+                                    "current_conditions_within_45min"
+                                )
+                    else:
+                        weather_data["target_forecast_lookup"] = {
+                            "requested_time": effective_target.isoformat(),
+                            "matched_hour": None,
+                            "hour_offset": None,
+                            "forecast_days_requested": forecast_days,
+                            "status": "unmatched"
+                        }
+                elif target_datetime:
+                    # Log that we attempted a target lookup but lacked hourly data
+                    requested_time = (
+                        effective_target.isoformat() if effective_target else target_datetime.isoformat()
+                    )
+                    weather_data["target_forecast_lookup"] = {
+                        "requested_time": requested_time,
+                        "matched_hour": None,
+                        "hour_offset": None,
+                        "forecast_days_requested": forecast_days,
+                        "status": "unmatched"
+                    }
+                else:
+                    weather_data["target_forecast_lookup"] = {
+                        "requested_time": None,
+                        "matched_hour": None,
+                        "hour_offset": None,
+                        "forecast_days_requested": forecast_days,
+                        "status": "current_only"
+                    }
+
+                if "effective_time" not in weather_data:
+                    weather_data["effective_time"] = weather_data["timestamp"]
+
+                target_note = (
+                    f" targeting {effective_target.strftime('%Y-%m-%d %H:%M')}"
+                    if effective_target else ""
+                )
+                self.logger.info(
+                    f"✅ Enhanced weather v2: {weather_data['temperature']:.1f}°F{target_note}, "
+                    f"wind trend: {wind_trend['description']}"
+                )
                 return weather_data
-                
+
         except Exception as e:
             self.logger.warning(f"⚠️ Enhanced weather fetch failed: {e}")
-        
+
         # Fallback weather
         return {
-            "temperature": 45, "pressure": 29.8, "wind_speed": 8, "wind_direction": 225,
-            "humidity": 65, 
+            "temperature": 45,
+            "pressure": 29.8,
+            "wind_speed": 8,
+            "wind_direction": 225,
+            "humidity": 65,
             "pressure_trend": {"description": "unknown", "change_rate": 0},
             "wind_trend": {"description": "stable", "direction_shift": 0},
-            "api_source": "fallback", "is_cold_front": True, "cold_front_strength": 0.7
+            "api_source": "fallback",
+            "is_cold_front": True,
+            "cold_front_strength": 0.7,
+            "hourly_forecast": {
+                "time": [],
+                "temperature_f": [],
+                "pressure_inhg": [],
+                "wind_speed_mph": [],
+                "wind_direction_deg": []
+            },
+            "target_forecast_lookup": {
+                "requested_time": target_datetime.isoformat() if target_datetime else None,
+                "status": "fallback",
+                "matched_hour": None
+            }
         }
     
     def analyze_pressure_trend(self, pressure_data: List[float]) -> Dict:

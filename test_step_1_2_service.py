@@ -17,7 +17,7 @@ sys.path.insert(0, '/Users/richardtremblay/DeerPredictVSCode')
 
 # Mock the complex dependencies that aren't available in test environment
 class MockEnhancedBeddingZonePredictor:
-    def run_enhanced_biological_analysis(self, lat, lon, time_of_day, season, hunting_pressure):
+    def run_enhanced_biological_analysis(self, lat, lon, time_of_day, season, hunting_pressure, target_datetime=None):
         return {
             'bedding_zones': {
                 'features': [

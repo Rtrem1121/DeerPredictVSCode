@@ -27,6 +27,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+COMPASS_DIRECTIONS = [
+    "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+    "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+]
+
+
+def degrees_to_compass(degrees):
+    """Convert degrees to a compass string."""
+    try:
+        if degrees is None:
+            return "Unknown"
+        deg = float(degrees) % 360
+        return COMPASS_DIRECTIONS[int((deg + 11.25) / 22.5) % 16]
+    except (TypeError, ValueError):
+        return "Unknown"
+
+
+def format_wind_reading(direction_deg, speed_mph):
+    """Format wind direction/speed into a compact string."""
+    compass = degrees_to_compass(direction_deg)
+    try:
+        if speed_mph is None:
+            return compass
+        return f"{compass} at {float(speed_mph):.1f} mph"
+    except (TypeError, ValueError):
+        return f"{compass} at {speed_mph}"
+
 # --- Deer Approach Direction Calculation Functions ---
 def calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type):
     """Calculate deer approach direction based on terrain features when bedding zones aren't available"""
@@ -144,6 +171,48 @@ def calculate_bearing_between_points(lat1, lon1, lat2, lon2):
     bearing = (bearing + 360) % 360
     
     return bearing
+
+
+def _parse_iso_datetime(value):
+    """Safely parse an ISO-formatted datetime string into local time."""
+    if not value:
+        return None
+    try:
+        cleaned = str(value).replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(cleaned)
+        if parsed.tzinfo:
+            return parsed.astimezone()
+        return parsed
+    except Exception:
+        return None
+
+
+def format_local_time(value):
+    """Format an ISO datetime string into a readable local timestamp."""
+    parsed = _parse_iso_datetime(value)
+    if not parsed:
+        return "Unknown"
+    return parsed.strftime("%b %d %I:%M %p")
+
+
+def format_minutes_to_clock(value):
+    """Convert minutes remaining into a readable string."""
+    if value is None:
+        return "Unknown"
+    try:
+        minutes = float(value)
+    except (TypeError, ValueError):
+        return "Unknown"
+    if minutes < 1:
+        return "<1 minute"
+    hours = int(minutes) // 60
+    mins = int(round(minutes - hours * 60))
+    if hours and mins:
+        return f"{hours}h {mins}m"
+    if hours:
+        return f"{hours}h"
+    return f"{mins} minutes"
+
 
 def calculate_time_based_deer_approach(hunt_period, stand_coords, prediction_data):
     """
@@ -474,6 +543,133 @@ if 'map_zoom' not in st.session_state:
 # ==========================================
 with tab_predict:
     st.header("🎯 Hunting Predictions")
+
+    active_prediction_raw = st.session_state.get('prediction_results')
+    active_prediction = None
+    if isinstance(active_prediction_raw, dict):
+        if 'data' in active_prediction_raw and isinstance(active_prediction_raw['data'], dict):
+            active_prediction = active_prediction_raw['data']
+        else:
+            active_prediction = active_prediction_raw
+
+    if active_prediction:
+        context_summary = active_prediction.get('context_summary', {})
+        hunting_context = active_prediction.get('hunting_context', {})
+        recommendations = hunting_context.get('recommendations', {}) if isinstance(hunting_context, dict) else {}
+        primary_guidance = context_summary.get('primary_guidance') or recommendations.get('primary')
+        secondary_guidance = context_summary.get('secondary_guidance') or recommendations.get('secondary')
+        specific_actions = recommendations.get('specific_actions') if isinstance(recommendations.get('specific_actions'), list) else []
+        recommended_action = context_summary.get('recommended_action') or hunting_context.get('action')
+        time_remaining_minutes = hunting_context.get('current_status', {}).get('time_remaining_minutes') if isinstance(hunting_context.get('current_status'), dict) else None
+        time_remaining_label = format_minutes_to_clock(time_remaining_minutes)
+        legal_hours = hunting_context.get('legal_hours', {}) if isinstance(hunting_context.get('legal_hours'), dict) else {}
+        earliest_legal = legal_hours.get('earliest')
+        latest_legal = legal_hours.get('latest')
+
+        severity = 'info'
+        if isinstance(recommended_action, str):
+            lowered = recommended_action.lower()
+            if any(trigger in lowered for trigger in ['last', 'urgent', 'final']):
+                severity = 'warning'
+            elif any(trigger in lowered for trigger in ['stand down', 'hold', 'pause']):
+                severity = 'error'
+
+        summary_lines = []
+        if primary_guidance:
+            summary_lines.append(f"**{primary_guidance}**")
+        if secondary_guidance:
+            summary_lines.append(secondary_guidance)
+        if time_remaining_label != "Unknown":
+            summary_lines.append(f"⏳ Time remaining: {time_remaining_label}")
+        elif context_summary.get('time_remaining'):
+            summary_lines.append(f"⏳ Time remaining: {context_summary['time_remaining']} minutes")
+        if earliest_legal and latest_legal:
+            summary_lines.append(f"🕒 Legal light: {earliest_legal} – {latest_legal}")
+        if specific_actions:
+            bullet_list = "\n".join(f"• {item}" for item in specific_actions[:3])
+            summary_lines.append(f"📝 Focus: \n{bullet_list}")
+
+        message = "\n".join(summary_lines) if summary_lines else "Current conditions loaded."
+        if severity == 'warning':
+            st.warning(message)
+        elif severity == 'error':
+            st.error(message)
+        else:
+            st.info(message)
+
+        hunt_windows = active_prediction.get('hunt_window_predictions') or []
+        if hunt_windows:
+            next_window = hunt_windows[0]
+            start_label = format_local_time(next_window.get('window_start'))
+            end_label = format_local_time(next_window.get('window_end'))
+            wind_label = next_window.get('dominant_wind', 'Unknown wind')
+            confidence_pct = max(0.0, min(100.0, float(next_window.get('confidence', 0)) * 100)) if isinstance(next_window.get('confidence'), (int, float)) else 0
+            boost = next_window.get('priority_boost', 0)
+            trigger_summary = next_window.get('trigger_summary') or []
+            triggers_text = f"Triggers: {', '.join(trigger_summary)}" if trigger_summary else ""
+            st.success(
+                f"🪵 Next hunt window: {start_label} → {end_label} · {wind_label} · Confidence {confidence_pct:.0f}% · Boost +{boost:.1f} {triggers_text}"
+            )
+        else:
+            st.info("🪵 No forecast-aligned hunt window detected in the next 24 hours. Monitor wind shifts for updates.")
+
+        wind_summary = active_prediction.get('wind_summary', {}) if isinstance(active_prediction.get('wind_summary'), dict) else {}
+        weather_snapshot = active_prediction.get('weather_data', {}) if isinstance(active_prediction.get('weather_data'), dict) else {}
+        if wind_summary:
+            overall_conditions = wind_summary.get('overall_wind_conditions', {}) if isinstance(wind_summary.get('overall_wind_conditions'), dict) else {}
+            prevailing = overall_conditions.get('prevailing_wind', 'Unknown wind')
+            effective = overall_conditions.get('effective_wind', 'Unknown effective wind')
+            rating = overall_conditions.get('hunting_rating', 'N/A')
+            thermal_active = overall_conditions.get('thermal_activity')
+
+            wind_source = weather_snapshot.get('wind_source') if isinstance(weather_snapshot, dict) else None
+            source_labels = {
+                'current': 'live obs',
+                'current_override': 'live override',
+                'forecast': 'forecast hour'
+            }
+            prevailing_label = prevailing + (f" ({source_labels.get(wind_source, wind_source)})" if wind_source else "")
+
+            summary_bits = [
+                f"Prevailing: {prevailing_label}",
+                f"Effective: {effective}",
+                f"Rating: {rating}"
+            ]
+
+            current_snapshot = weather_snapshot.get('current_snapshot', {}) if isinstance(weather_snapshot.get('current_snapshot'), dict) else {}
+            if current_snapshot:
+                live_reading = format_wind_reading(
+                    current_snapshot.get('wind_direction'),
+                    current_snapshot.get('wind_speed')
+                )
+                live_label = f"Live: {live_reading}"
+                if live_reading and live_label not in summary_bits:
+                    # Only append when forecast still drives the prevailing label
+                    if wind_source != 'current_override' or live_reading not in prevailing_label:
+                        summary_bits.append(live_label)
+
+            target_lookup = weather_snapshot.get('target_forecast_lookup', {})
+            if isinstance(target_lookup, dict):
+                override_reason = target_lookup.get('override_reason')
+                status = target_lookup.get('status')
+                matched_hour = target_lookup.get('matched_hour')
+                if matched_hour:
+                    matched_label = format_local_time(matched_hour)
+                    summary_bits.append(f"Forecast hour: {matched_label}")
+                elif status == 'current_only':
+                    summary_bits.append("Forecast hour: current conditions")
+                if override_reason:
+                    summary_bits.append("Override: current conditions within 45 min")
+
+            if thermal_active:
+                summary_bits.append("Thermals active")
+
+            st.markdown("**🌬️ Wind Gameplan:** " + " · ".join(summary_bits))
+
+            tactical = wind_summary.get('tactical_recommendations', [])
+            if tactical:
+                for tip in tactical[:3]:
+                    st.caption(f"• {tip}")
     
     # Create two columns for inputs and map
     input_col, map_col = st.columns([1, 2])
@@ -668,12 +864,48 @@ with tab_predict:
                             color = 'purple'
                             icon = 'home'
                             icon_name = '🥉'
-                        
+                        context_tags = rec.get('context_tags', []) or []
+                        wind_credibility = rec.get('wind_credibility', {}) or {}
+                        marker_color = 'green' if 'hunt_window_priority' in context_tags else color
+
+                        popup_lines = [
+                            f"{icon_name} Stand #{i}: {stand_type}",
+                            f"Confidence: {confidence:.0f}%"
+                        ]
+
+                        reasoning = rec.get('reasoning')
+                        if reasoning:
+                            popup_lines.append(reasoning)
+
+                        if wind_credibility:
+                            alignment_pct = wind_credibility.get('alignment_score_now', 0) * 100
+                            status_label = "🟢 Wind Ready" if wind_credibility.get('is_green_now') else "🕒 Setup Soon"
+                            popup_lines.append(f"{status_label} ({alignment_pct:.0f}% alignment)")
+
+                            preferred = wind_credibility.get('preferred_directions') or []
+                            if preferred:
+                                popup_lines.append(f"Preferred Winds: {', '.join(preferred)}")
+
+                            priority_boost = wind_credibility.get('priority_boost', 0)
+                            if priority_boost:
+                                popup_lines.append(f"Priority Boost: +{priority_boost:.1f}")
+
+                            best_alignment = format_local_time(wind_credibility.get('best_alignment_time'))
+                            if best_alignment != "Unknown":
+                                popup_lines.append(f"Best Alignment: {best_alignment}")
+
+                            triggers = wind_credibility.get('triggers_met') or []
+                            if triggers:
+                                popup_lines.append(f"Triggers: {', '.join(triggers)}")
+
+                        popup_html = "<br>".join(popup_lines)
+                        tooltip_suffix = " 🔥" if 'hunt_window_priority' in context_tags else ""
+
                         folium.Marker(
                             [stand_lat, stand_lon],
-                            popup=f"{icon_name} Stand #{i}: {stand_type}<br>Confidence: {confidence:.0f}%<br>{rec.get('reasoning', '')}",
-                            icon=folium.Icon(color=color, icon=icon),
-                            tooltip=f"Stand #{i} - {confidence:.0f}%"
+                            popup=popup_html,
+                            icon=folium.Icon(color=marker_color, icon=icon),
+                            tooltip=f"Stand #{i} - {confidence:.0f}%{tooltip_suffix}"
                         ).add_to(m)
             
             # Add camera placement marker
@@ -773,6 +1005,8 @@ with tab_predict:
             map_key = f"hunt_map_{st.session_state.hunt_location[0]:.4f}_{st.session_state.hunt_location[1]:.4f}_{prediction_hash}"
         
         map_data = st_folium(m, key=map_key, width=700, height=500)
+        if active_prediction:
+            st.caption("Legend: 🟢 green stand marker = forecast priority, 🔥 tooltip badge = hunt-window boost, 🛏️ bedding icons = alternative bedding, 🌾 = alternative feeding, 📷 = optimized camera.")
         
         # Update location if map was clicked
         if map_data['last_clicked']:
@@ -816,6 +1050,37 @@ with tab_predict:
         st.success(f"🗺️ **Map Status:** Displaying {marker_count} prediction markers for location {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
     else:
         st.info("🗺️ **Map Status:** No predictions loaded - click 'Generate Hunting Predictions' to see markers")
+
+    if active_prediction:
+        stand_recommendations = active_prediction.get('mature_buck_analysis', {}).get('stand_recommendations', []) if isinstance(active_prediction.get('mature_buck_analysis'), dict) else []
+        if stand_recommendations:
+            st.markdown("### 🪵 Stand Priority Overview")
+            for idx, stand in enumerate(stand_recommendations, 1):
+                stand_type = stand.get('type', 'Stand')
+                confidence = stand.get('confidence')
+                action_priority = (stand.get('action_priority') or 'unknown').upper()
+                context_note = stand.get('context_note')
+                wind_status = stand.get('wind_credibility', {}) if isinstance(stand.get('wind_credibility'), dict) else {}
+                alignment_score = wind_status.get('alignment_score_now')
+                alignment_pct = f"{alignment_score * 100:.0f}%" if isinstance(alignment_score, (int, float)) else "—"
+                priority_boost = wind_status.get('priority_boost')
+                preferred_list = wind_status.get('preferred_directions') or []
+                summary_line = f"#{idx} {stand_type} · Confidence {confidence:.0f}%" if isinstance(confidence, (int, float)) else f"#{idx} {stand_type}"
+                summary_line += f" · Priority: {action_priority}"
+                st.markdown(f"**{summary_line}**")
+                detail_bits = []
+                if alignment_pct != "—":
+                    detail_bits.append(f"Wind alignment {alignment_pct}")
+                if isinstance(priority_boost, (int, float)) and priority_boost:
+                    detail_bits.append(f"Boost +{priority_boost:.1f}")
+                if preferred_list:
+                    detail_bits.append(f"Preferred winds: {', '.join(preferred_list)}")
+                if detail_bits:
+                    st.caption(" · ".join(detail_bits))
+                if context_note:
+                    st.warning(context_note)
+        else:
+            st.info("No stand recommendations available yet for this prediction.")
     
     # Generate Predictions button - positioned above Advanced Options
     col1, col2 = st.columns([3, 1])
@@ -965,6 +1230,57 @@ with tab_predict:
     # Display detailed hunt information for Stand #1 if prediction results are available
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:
         prediction = st.session_state.prediction_results
+        prediction_data = prediction.get('data', prediction) if isinstance(prediction, dict) and 'data' in prediction else prediction
+        hunt_windows = prediction_data.get('hunt_window_predictions') or []
+        stand_priority_overrides = prediction_data.get('stand_priority_overrides') or {}
+
+        if hunt_windows or stand_priority_overrides:
+            with st.expander("🪵 Forecast Hunt Windows & Wind Credibility", expanded=True):
+                if hunt_windows:
+                    st.markdown("**Upcoming Stand Hunt Windows (next 24 hrs):**")
+                    for window in hunt_windows[:4]:
+                        stand_label = window.get('stand_name') or window.get('stand_id', 'Stand')
+                        start_time = format_local_time(window.get('window_start'))
+                        end_time = format_local_time(window.get('window_end'))
+                        confidence_pct = max(0.0, min(100.0, window.get('confidence', 0) * 100))
+                        priority_boost = window.get('priority_boost', 0)
+                        wind_label = window.get('dominant_wind', 'Unknown')
+                        st.markdown(
+                            f"- **{stand_label}** · {start_time} → {end_time} · {wind_label} wind · Confidence {confidence_pct:.0f}% · Boost +{priority_boost:.1f}"
+                        )
+                        triggers = window.get('trigger_summary') or []
+                        if triggers:
+                            st.caption(f"Triggers: {', '.join(triggers)}")
+                else:
+                    st.info("No forecast-aligned hunt windows detected in the next day.")
+
+                if stand_priority_overrides:
+                    st.markdown("**Stand Wind Credibility Snapshot:**")
+                    for status in list(stand_priority_overrides.values())[:4]:
+                        alignment_pct = max(0.0, min(100.0, status.get('alignment_score_now', 0) * 100))
+                        preferred = ', '.join(status.get('preferred_directions', []))
+                        triggers = ', '.join(status.get('triggers_met', []))
+                        best_alignment = format_local_time(status.get('best_alignment_time'))
+                        is_green = status.get('is_green_now', False)
+
+                        cols = st.columns([3, 1, 1])
+                        with cols[0]:
+                            st.markdown(f"**{status.get('stand_name', status.get('stand_id', 'Stand'))}**")
+                            if preferred:
+                                st.write(f"Preferred Winds: {preferred}")
+                            if triggers:
+                                st.write(f"Triggers: {triggers}")
+                            if best_alignment != "Unknown":
+                                st.write(f"Best Alignment: {best_alignment}")
+                        with cols[1]:
+                            st.markdown("**Alignment**")
+                            st.write(f"{alignment_pct:.0f}%")
+                            st.caption("🟢 Ready" if is_green else "🕒 Warming Up")
+                        with cols[2]:
+                            st.markdown("**Priority Boost**")
+                            st.write(f"+{status.get('priority_boost', 0):.1f}")
+                else:
+                    st.info("No stand wind credibility overrides available yet; configure stand wind profiles to unlock this data.")
         
         # Debug section - Enhanced validation metrics and raw data
         with st.expander("🐛 Debug: Show Enhanced Validation Data"):
@@ -1282,12 +1598,11 @@ with tab_predict:
                                     st.write(f"• {window}")
                         
                         # Thermal Locations
-                        if 'thermal_locations' in thermal:
-                            locations = thermal['thermal_locations']
-                            if locations:
-                                st.markdown("**Active Zones:**")
-                                for loc in locations[:3]:  # Show first 3
-                                    st.write(f"• {loc.replace('_', ' ').title()}")
+                        locations = thermal.get('thermal_locations', [])
+                        if locations:
+                            st.markdown("**Active Zones:**")
+                            for loc in locations[:3]:  # Show first 3
+                                st.write(f"• {loc.replace('_', ' ').title()}")
                 
                 # Data Quality and Scoring
                 st.markdown("---")
@@ -1457,6 +1772,23 @@ with tab_predict:
                 st.markdown("---")
                 st.markdown("### 🎯 **Stand #1 - Detailed Hunt Information**")
                 st.markdown(f"*Primary hunting location with {confidence:.0f}% confidence*")
+                action_priority = (stand_1.get('action_priority') or '').upper()
+                context_note = stand_1.get('context_note')
+                priority_bits = []
+                if action_priority:
+                    priority_bits.append(f"Priority: {action_priority}")
+                if context_note:
+                    priority_bits.append(context_note)
+                if priority_bits:
+                    priority_message = " | ".join(priority_bits)
+                    if action_priority == "HIGH":
+                        st.success(priority_message)
+                    elif action_priority == "MEDIUM":
+                        st.info(priority_message)
+                    elif action_priority == "LOW":
+                        st.warning(priority_message)
+                    else:
+                        st.info(priority_message)
                 
                 # Stand details in enhanced columns layout
                 detail_col1, detail_col2, detail_col3 = st.columns([2, 2, 1])
@@ -1642,6 +1974,32 @@ with tab_predict:
                                     st.write(f"• {note}")
                 
                 with detail_col3:
+                    wind_credibility = stand_1.get('wind_credibility', {})
+                    if wind_credibility:
+                        st.markdown("**🪵 Hunt Window Status:**")
+                        alignment_pct = max(0.0, min(100.0, wind_credibility.get('alignment_score_now', 0) * 100))
+                        st.write(f"Alignment Match: {alignment_pct:.0f}%")
+                        if wind_credibility.get('is_green_now'):
+                            st.success("Green light right now – winds are in your favor.")
+                        else:
+                            st.info("Winds trending into position – monitor approaching window.")
+
+                        preferred = wind_credibility.get('preferred_directions') or []
+                        if preferred:
+                            st.write(f"Preferred Winds: {', '.join(preferred)}")
+
+                        priority_boost = wind_credibility.get('priority_boost', 0)
+                        if priority_boost:
+                            st.write(f"Priority Boost Applied: +{priority_boost:.1f}")
+
+                        best_alignment = format_local_time(wind_credibility.get('best_alignment_time'))
+                        if best_alignment != "Unknown":
+                            st.write(f"Peak Alignment: {best_alignment}")
+
+                        triggers = wind_credibility.get('triggers_met') or []
+                        if triggers:
+                            st.caption(f"Triggers: {', '.join(triggers)}")
+
                     # Wind analysis with current conditions
                     if stand_recommendations and stand_recommendations[0].get('wind_analysis'):
                         wind_analysis = stand_recommendations[0]['wind_analysis']

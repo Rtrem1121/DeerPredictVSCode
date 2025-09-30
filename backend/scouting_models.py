@@ -11,11 +11,16 @@ Version: 1.0.0
 
 from pydantic import BaseModel, Field, validator
 from typing import Dict, List, Optional, Union, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+LEGACY_OBSERVATION_TYPE_MAP = {
+    "Trail Camera Setup": "Trail Camera",
+}
 
 
 class ObservationType(str, Enum):
@@ -23,7 +28,7 @@ class ObservationType(str, Enum):
     FRESH_SCRAPE = "Fresh Scrape"
     RUB_LINE = "Rub Line"
     BEDDING_AREA = "Bedding Area"
-    TRAIL_CAMERA = "Trail Camera Setup"
+    TRAIL_CAMERA = "Trail Camera"
     DEER_TRACKS = "Deer Tracks/Trail"
     FEEDING_SIGN = "Feeding Sign"
     SCAT_DROPPINGS = "Scat/Droppings"
@@ -99,12 +104,19 @@ class BeddingDetails(BaseModel):
 class TrailCameraDetails(BaseModel):
     """Details specific to trail camera observations"""
     camera_brand: Optional[str] = Field(None, description="Camera brand/model")
-    setup_date: datetime = Field(..., description="When camera was set up")
+    setup_date: Optional[datetime] = Field(None, description="When camera was set up")
     total_photos: int = Field(default=0, ge=0, description="Total photos captured")
     deer_photos: int = Field(default=0, ge=0, description="Photos with deer")
     mature_buck_photos: int = Field(default=0, ge=0, description="Photos with mature bucks")
     peak_activity_time: Optional[str] = Field(None, description="Peak activity time if known")
     battery_level: Optional[int] = Field(None, ge=0, le=100, description="Battery percentage")
+    camera_direction: Optional[str] = Field(None, description="Camera facing direction")
+    trail_width_feet: Optional[float] = Field(None, ge=0, description="Approximate trail width in feet")
+    setup_height_feet: Optional[float] = Field(None, ge=0, description="Camera mounting height in feet")
+    detection_zone: Optional[str] = Field(None, description="Description of the detection zone")
+    mature_buck_seen: bool = Field(default=False, description="True if a mature buck was confirmed on this camera")
+    mature_buck_seen_at: Optional[datetime] = Field(None, description="Timestamp of the most recent mature buck capture")
+    mature_buck_notes: Optional[str] = Field(None, description="Additional notes about the mature buck sighting")
     
     @validator('deer_photos')
     def validate_deer_photos(cls, v, values):
@@ -146,7 +158,10 @@ class ScoutingObservation(BaseModel):
     # Common fields
     notes: str = Field(default="", description="Additional notes")
     confidence: int = Field(..., ge=1, le=10, description="Confidence level 1-10")
-    timestamp: datetime = Field(default_factory=datetime.now, description="When observed")
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="When observed"
+    )
     photo_urls: List[str] = Field(default_factory=list, description="URLs to photos")
     weather_conditions: Optional[str] = Field(None, description="Weather when observed")
     
@@ -174,17 +189,52 @@ class ScoutingObservation(BaseModel):
         }
         return detail_map.get(self.observation_type)
     
+    @validator('timestamp', pre=True, always=True)
+    def ensure_timezone(cls, value):
+        if value is None:
+            return datetime.now(timezone.utc)
+        if isinstance(value, str):
+            value = value.replace("Z", "+00:00")
+            parsed = datetime.fromisoformat(value)
+        elif isinstance(value, datetime):
+            parsed = value
+        else:
+            raise ValueError("Invalid timestamp value")
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        else:
+            parsed = parsed.astimezone(timezone.utc)
+        return parsed
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage"""
         data = self.dict()
-        data['timestamp'] = self.timestamp.isoformat()
+        data['timestamp'] = self.timestamp.astimezone(timezone.utc).isoformat()
         return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ScoutingObservation':
         """Create from dictionary"""
-        if isinstance(data.get('timestamp'), str):
-            data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+        obs_type = data.get('observation_type')
+        if isinstance(obs_type, str):
+            normalized_type = LEGACY_OBSERVATION_TYPE_MAP.get(obs_type, obs_type)
+            data['observation_type'] = normalized_type
+
+        timestamp_value = data.get('timestamp')
+        if isinstance(timestamp_value, str):
+            timestamp_value = timestamp_value.replace("Z", "+00:00")
+            parsed_timestamp = datetime.fromisoformat(timestamp_value)
+            if parsed_timestamp.tzinfo is None:
+                parsed_timestamp = parsed_timestamp.replace(tzinfo=timezone.utc)
+            else:
+                parsed_timestamp = parsed_timestamp.astimezone(timezone.utc)
+            data['timestamp'] = parsed_timestamp
+        elif isinstance(timestamp_value, datetime):
+            if timestamp_value.tzinfo is None:
+                data['timestamp'] = timestamp_value.replace(tzinfo=timezone.utc)
+            else:
+                data['timestamp'] = timestamp_value.astimezone(timezone.utc)
         return cls(**data)
 
 

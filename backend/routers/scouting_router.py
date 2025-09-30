@@ -6,7 +6,7 @@ Uses the ScoutingService for business logic.
 """
 
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from backend.services.scouting_service import ScoutingService
 from backend.scouting_models import ScoutingObservation, ScoutingObservationResponse
 
@@ -64,3 +64,22 @@ async def get_scouting_analytics(
 async def get_observation_types() -> Dict[str, Any]:
     """Get list of available observation types with descriptions."""
     return await scouting_service.get_observation_types()
+
+
+@scouting_router.post("/import")
+async def import_scouting_data(
+    file: UploadFile = File(..., description="GPX file containing scouting waypoints"),
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """Import scouting observations from a GPX upload."""
+
+    try:
+        file_bytes = await file.read()
+    except Exception as exc:  # pragma: no cover - defensive I/O guard
+        raise HTTPException(status_code=400, detail=f"Failed to read uploaded file: {exc}")
+
+    return await scouting_service.import_scouting_data(
+        file_bytes,
+        filename=file.filename,
+        dry_run=dry_run,
+    )

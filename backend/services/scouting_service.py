@@ -22,8 +22,10 @@ from backend.scouting_models import (
     BeddingDetails,
     TrailCameraDetails,
 )
+from backend.config_manager import get_config
 from backend.scouting_data_manager import get_scouting_data_manager
 from backend.scouting_prediction_enhancer import get_scouting_enhancer
+from backend.scouting_import.importer import ScoutingImporter
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ class ScoutingService:
         """Initialize the scouting service."""
         self._data_manager = get_scouting_data_manager()
         self._enhancer = get_scouting_enhancer()
+        self._config = get_config()
     
     async def add_observation(self, observation: ScoutingObservation) -> ScoutingObservationResponse:
         """Add a new scouting observation to enhance future predictions."""
@@ -42,15 +45,22 @@ class ScoutingService:
             logger.info(f"Adding scouting observation: {observation.observation_type} at {observation.lat:.5f}, {observation.lon:.5f}")
             
             # Get data manager
-            data_manager = get_scouting_data_manager()
+            data_manager = self._data_manager
             
             # Add observation to database
             observation_id = data_manager.add_observation(observation)
             
             # Calculate confidence boost that will be applied
-            enhancer = get_scouting_enhancer()
-            enhancement_config = enhancer.enhancement_config.get(observation.observation_type, {})
+            enhancement_config = self._enhancer.enhancement_config.get(observation.observation_type, {})
             confidence_boost = enhancement_config.get("base_boost", 0) * (observation.confidence / 10.0)
+
+            if (
+                observation.observation_type == ObservationType.TRAIL_CAMERA
+                and observation.camera_details
+                and getattr(observation.camera_details, "mature_buck_seen", False)
+            ):
+                mature_bonus = enhancement_config.get("mature_buck_bonus", enhancement_config.get("base_boost", 0))
+                confidence_boost += mature_bonus * (observation.confidence / 10.0)
             
             logger.info(f"Successfully added scouting observation {observation_id} with {confidence_boost:.1f}% confidence boost")
             
@@ -99,7 +109,7 @@ class ScoutingService:
             )
             
             # Get observations
-            data_manager = get_scouting_data_manager()
+            data_manager = self._data_manager
             observations = data_manager.get_observations(query)
             
             logger.info(f"Retrieved {len(observations)} scouting observations for area ({lat:.5f}, {lon:.5f})")
@@ -134,8 +144,7 @@ class ScoutingService:
     async def get_observation_by_id(self, observation_id: str) -> Dict[str, Any]:
         """Get a specific scouting observation by ID."""
         try:
-            data_manager = get_scouting_data_manager()
-            observation = data_manager.get_observation_by_id(observation_id)
+            observation = self._data_manager.get_observation_by_id(observation_id)
             
             if not observation:
                 raise HTTPException(status_code=404, detail="Observation not found")
@@ -162,8 +171,7 @@ class ScoutingService:
     async def delete_observation(self, observation_id: str) -> Dict[str, str]:
         """Delete a scouting observation."""
         try:
-            data_manager = get_scouting_data_manager()
-            success = data_manager.delete_observation(observation_id)
+            success = self._data_manager.delete_observation(observation_id)
             
             if not success:
                 raise HTTPException(status_code=404, detail="Observation not found")
@@ -189,12 +197,10 @@ class ScoutingService:
     ) -> Dict[str, Any]:
         """Get analytics for scouting observations in an area."""
         try:
-            data_manager = get_scouting_data_manager()
-            analytics = data_manager.get_analytics(lat, lon, radius_miles)
-            
+            analytics = self._data_manager.get_analytics(lat, lon, radius_miles)
+
             # Get enhancement summary
-            enhancer = get_scouting_enhancer()
-            enhancement_summary = enhancer.get_enhancement_summary(lat, lon)
+            enhancement_summary = self._enhancer.get_enhancement_summary(lat, lon)
             
             # Combine analytics
             result = {
@@ -219,18 +225,19 @@ class ScoutingService:
     async def get_observation_types(self) -> Dict[str, Any]:
         """Get list of available observation types with descriptions."""
         try:
-            enhancer = get_scouting_enhancer()
-            
             types_info = []
             for obs_type in ObservationType:
-                config = enhancer.enhancement_config.get(obs_type, {})
+                config = self._enhancer.enhancement_config.get(obs_type, {})
+                indicator_flag = config.get("mature_buck_indicator", False)
+                if obs_type == ObservationType.TRAIL_CAMERA:
+                    indicator_flag = True  # Cameras can signal mature bucks when a sighting is confirmed
                 
                 types_info.append({
                     "type": obs_type.value,
                     "enum_name": obs_type.name,
                     "base_boost": config.get("base_boost", 0),
                     "influence_radius_yards": config.get("influence_radius_yards", 0),
-                    "mature_buck_indicator": config.get("mature_buck_indicator", False),
+                    "mature_buck_indicator": indicator_flag,
                     "decay_days": config.get("decay_days", 7),
                     "description": self._get_type_description(obs_type)
                 })
@@ -242,7 +249,7 @@ class ScoutingService:
                     "scrape": ["depth", "freshness", "diameter"],
                     "rub": ["tree_diameter", "height", "bark_removed"],
                     "bedding": ["bed_count", "cover_density", "escape_routes"],
-                    "trail_camera": ["photo_count", "buck_sightings", "time_pattern"]
+                    "trail_camera": ["photo_count", "buck_sightings", "time_pattern", "mature_confirmation"]
                 }
             }
             
@@ -267,3 +274,44 @@ class ScoutingService:
             ObservationType.OTHER_SIGN: "Other deer sign and evidence"
         }
         return descriptions.get(obs_type, "Unknown observation type")
+
+    async def import_scouting_data(
+        self,
+        file_bytes: bytes,
+        *,
+        filename: Optional[str] = None,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """Import scouting observations from an uploaded GPX file."""
+
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        import_config = self._config.get("scouting_import", {}) if self._config else {}
+
+        if not import_config.get("enabled", False):
+            raise HTTPException(
+                status_code=503,
+                detail="Scouting import feature is disabled in configuration",
+            )
+
+        importer = ScoutingImporter(
+            self._data_manager,
+            dedupe_radius_miles=import_config.get("dedupe_radius_miles", 0.15),
+            dedupe_time_days=import_config.get("dedupe_time_days", 3650),
+            dedupe_time_window_hours=import_config.get("dedupe_time_window_hours", 48),
+        )
+
+        summary = importer.import_gpx_bytes(
+            file_bytes,
+            filename=filename,
+            dry_run=dry_run,
+        )
+
+        result = summary.to_dict()
+        result["configuration"] = {
+            "dedupe_radius_miles": importer.dedupe_radius_miles,
+            "dedupe_time_days": importer.dedupe_time_days,
+            "dedupe_time_window_hours": importer.dedupe_time_window_hours,
+        }
+        return result

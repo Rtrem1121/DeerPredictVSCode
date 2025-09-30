@@ -8,6 +8,7 @@ import hashlib
 import math
 import logging
 from datetime import datetime, timedelta
+from typing import Any, Dict
 from dotenv import load_dotenv
 from map_config import MAP_SOURCES
 from enhanced_data_validation import (
@@ -434,15 +435,21 @@ def generate_legal_hunting_times(date):
     return hunting_times
 
 # --- Scouting Functions ---
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_observation_types_cached(base_url: str):
+    """Cacheable helper so we don't hammer /scouting/types."""
+    response = requests.get(f"{base_url}/scouting/types", timeout=10)
+    response.raise_for_status()
+    return response.json().get('observation_types', [])
+
+
 def get_observation_types():
-    """Get available scouting observation types from backend"""
+    """Get available scouting observation types from backend with hourly refresh."""
     try:
-        response = requests.get(f"{BACKEND_URL}/scouting/types")
-        if response.status_code == 200:
-            return response.json().get('observation_types', [])
+        return _fetch_observation_types_cached(BACKEND_URL)
     except Exception as e:
         st.error(f"Failed to load observation types: {e}")
-    return []
+        return []
 
 def add_scouting_observation(observation_data):
     """Add a new scouting observation"""
@@ -1918,11 +1925,16 @@ with tab_predict:
                                 st.info("• **Thermal Winds Active** - Enhanced scent management opportunities")
                         else:
                             # Fallback to simple calculation if backend data unavailable
-                            optimal_wind_1 = (deer_approach_result['bearing'] + 90) % 360
-                            optimal_wind_2 = (deer_approach_result['bearing'] - 90) % 360
-                            wind_dir_1 = directions[int((optimal_wind_1 + 11.25) / 22.5) % 16]
-                            wind_dir_2 = directions[int((optimal_wind_2 + 11.25) / 22.5) % 16]
-                            st.info(f"• **Theoretical Best Winds:** {wind_dir_1} or {wind_dir_2}")
+                            crosswind_labels = []
+                            for offset in (
+                                (deer_approach_result['bearing'] + 90) % 360,
+                                (deer_approach_result['bearing'] - 90) % 360,
+                            ):
+                                label = degrees_to_compass(offset)
+                                if label not in crosswind_labels:
+                                    crosswind_labels.append(label)
+                            if crosswind_labels:
+                                st.info(f"• **Theoretical Crosswinds:** {', '.join(crosswind_labels)}")
                             st.write(f"• **Avoid Wind From:** {deer_approach_result['compass']} (towards deer)")
                         
                         st.info(f"• **Deer Movement:** {deer_approach_result['movement_type']} ({deer_approach_result['confidence']} confidence)")
@@ -2000,20 +2012,21 @@ with tab_predict:
                         if triggers:
                             st.caption(f"Triggers: {', '.join(triggers)}")
 
+                    wind_analysis = stand_recommendations[0].get('wind_analysis', {}) if stand_recommendations else {}
+
                     # Wind analysis with current conditions
-                    if stand_recommendations and stand_recommendations[0].get('wind_analysis'):
-                        wind_analysis = stand_recommendations[0]['wind_analysis']
+                    if wind_analysis:
                         wind_direction = wind_analysis.get('wind_direction', 0)
                         wind_speed = wind_analysis.get('wind_speed', 0)
                         wind_consistency = wind_analysis.get('wind_consistency', 'unknown')
                         scent_safety = wind_analysis.get('scent_safety_margin', 0)
-                        
+
                         st.markdown("**🍃 Wind Analysis:**")
                         st.write(f"• **Direction:** {wind_direction:.0f}°")
                         st.write(f"• **Speed:** {wind_speed:.1f} mph")
                         st.write(f"• **Pattern:** {wind_consistency}")
                         st.write(f"• **Safety Margin:** {scent_safety:.0f}m")
-                        
+
                         # Wind quality assessment
                         wind_advantage = wind_analysis.get('wind_advantage_score', 0)
                         if wind_advantage >= 90:
@@ -2054,6 +2067,7 @@ with tab_predict:
                     aspect = 'Unknown'
                     
                     # NEW: Time-based deer approach calculation (FIXED!)
+                    fallback_crosswind_dirs = []
                     if stand_recommendations:
                         first_stand = stand_recommendations[0]
                         stand_coords = (first_stand['coordinates']['lat'], first_stand['coordinates']['lon'])
@@ -2064,6 +2078,19 @@ with tab_predict:
                         # Fallback if no stand recommendations
                         deer_approach_bearing = 135  # Default SE
                         deer_approach_dir = "SE"
+
+                    if deer_approach_bearing is not None:
+                        crosswind_offsets = [
+                            (deer_approach_bearing + 90) % 360,
+                            (deer_approach_bearing - 90) % 360,
+                        ]
+                        for bearing in crosswind_offsets:
+                            compass_label = degrees_to_compass(bearing)
+                            if compass_label not in fallback_crosswind_dirs:
+                                fallback_crosswind_dirs.append(compass_label)
+
+                    preferred_winds_display = []
+                    avoid_winds_display = []
                     
                     if stand_recommendations:
                         first_stand = stand_recommendations[0]
@@ -2156,27 +2183,31 @@ with tab_predict:
                         st.write("• **Thermal winds:** Upslope in morning, downslope in evening")
                         st.write("• **If wind shifts wrong direction:** LEAVE THE STAND")
                         
-                        # Use the deer approach calculations from earlier in the code
+                        preferred_winds_display = []
+                        if wind_credibility:
+                            preferred_winds_display = list(wind_credibility.get('preferred_directions') or [])
+                        if not preferred_winds_display:
+                            preferred_winds_display = fallback_crosswind_dirs.copy()
+
+                        avoid_winds_display = []
+                        if wind_analysis:
+                            scent_cone = wind_analysis.get('scent_cone_direction')
+                            if scent_cone is not None:
+                                avoid_winds_display.append(degrees_to_compass(scent_cone))
+                        if not avoid_winds_display and deer_approach_dir:
+                            avoid_winds_display.append(deer_approach_dir)
+
                         st.markdown("**🧭 SPECIFIC WIND DIRECTIONS FOR THIS STAND:**")
                         st.write(f"• **Deer likely approach from:** {deer_approach_dir} ({deer_approach_bearing:.0f}°)")
-                        
+                        if preferred_winds_display:
+                            st.write(f"• **Preferred winds:** {', '.join(preferred_winds_display)}")
+                        if avoid_winds_display:
+                            st.write(f"• **Avoid winds:** {', '.join(avoid_winds_display)} (pushes scent toward deer)")
+
                         if stand_type in ["Travel Corridor", "General"]:
-                            st.write(f"• **BEST wind directions:** {wind_dir_1} or {wind_dir_2}")
-                            st.write(f"• **WORST wind direction:** {deer_approach_dir} (towards deer)")
-                            
-                        else:  # Bedding/Feeding areas need wind FROM deer TO hunter
-                            optimal_wind = deer_approach_bearing
-                            directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
-                                        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
-                            wind_dir_optimal = directions[int((optimal_wind + 11.25) / 22.5) % 16]
-                            # For worst wind, use opposite of optimal
-                            worst_wind = (optimal_wind + 180) % 360
-                            wind_dir_worst = directions[int((worst_wind + 11.25) / 22.5) % 16]
-                            
-                            st.write(f"• **Deer location:** {deer_approach_dir} direction from stand")
-                            st.write(f"• **BEST wind direction:** {wind_dir_optimal} (FROM deer TO you)")
-                            st.write(f"• **WORST wind direction:** {wind_dir_worst} (FROM you TO deer)")
-                            st.warning("⚠️ **Only hunt this stand with optimal wind!**")
+                            st.write("• **Game plan:** Hold a crosswind so scent drifts off the travel lane")
+                        else:
+                            st.write("• **Game plan:** Keep wind blowing from the deer toward you to guard the approach")
                         
                         st.write(f"• **Recommended Approach:** Come from downwind side")
                         st.write(f"• **Stand Facing:** Position to face crosswind or into wind")
@@ -2189,6 +2220,10 @@ with tab_predict:
                         st.write("• **Wind should blow FROM deer TO you**")
                         st.write("• **Your scent should blow AWAY from deer**")
                         st.write("• **Wrong wind = no deer**")
+                        if fallback_crosswind_dirs:
+                            st.write(f"• **Suggested crosswinds:** {', '.join(fallback_crosswind_dirs)}")
+                        if deer_approach_dir:
+                            st.write(f"• **Avoid winds:** {deer_approach_dir} (puts scent on the approach route)")
                     
                     # Terrain-based setup using available data
                     if elevation != 'Unknown' or slope != 'Unknown':
@@ -2261,13 +2296,21 @@ with tab_predict:
                     # Specific wind setup based on deer approach
                     st.markdown("**💨 WIND SETUP FOR DEER APPROACHES:**")
                     if stand_type in ["Travel Corridor", "General"]:
-                        st.write(f"• **Deer coming from {deer_approach_dir}** - Wind should blow {wind_dir_1} or {wind_dir_2}")
-                        st.write(f"• **This carries your scent AWAY** from deer approach routes")
-                        st.write(f"• **NEVER hunt with wind blowing {deer_approach_dir}** - deer will smell you!")
+                        if preferred_winds_display:
+                            st.write(f"• **Run winds:** {', '.join(preferred_winds_display)} to keep scent off the trail")
+                        else:
+                            st.write("• **Run a crosswind** so scent slides off the travel route")
+                        if avoid_winds_display:
+                            st.write(f"• **Avoid winds:** {', '.join(avoid_winds_display)} (deer will catch your scent)")
+                        st.write("• **Goal:** Push scent past the corridor instead of down it")
                     else:  # Bedding/Feeding areas
-                        st.write(f"• **Deer located {deer_approach_dir} of your stand** - Position downwind of deer activity")
+                        st.write(f"• **Deer located {deer_approach_dir} of your stand** - stay just downwind of bedding/feeding activity")
+                        if preferred_winds_display:
+                            st.write(f"• **Best winds:** {', '.join(preferred_winds_display)} (blow deer-to-hunter)")
+                        if avoid_winds_display:
+                            st.write(f"• **Avoid winds:** {', '.join(avoid_winds_display)} (push scent into deer)")
                         st.write(f"• **Approach from opposite direction** - Come in from the {deer_approach_dir} side")
-                        st.write(f"• **Check wind before hunting** - Never hunt if wind blows toward deer areas")
+                        st.write(f"• **Check wind before hunting** - Abort if it starts drifting toward deer")
                     
                     st.markdown("**🎯 DEER BEHAVIOR EXPECTATIONS:**")
                     if stand_type == "Travel Corridor":
@@ -2386,6 +2429,7 @@ with tab_scout:
                     "Fresh Scrape": "red",
                     "Rub Line": "orange", 
                     "Bedding Area": "green",
+                    "Trail Camera": "blue",
                     "Trail Camera Setup": "blue",
                     "Deer Tracks/Trail": "purple",
                     "Feeding Sign": "lightgreen",
@@ -2421,6 +2465,7 @@ with tab_scout:
                     
                     # Find selected observation type data
                     selected_type_data = next((ot for ot in observation_types if ot['type'] == selected_obs_type), {})
+                    selected_enum = selected_type_data.get('enum_name', '')
                     
                     # Confidence rating
                     confidence = st.slider("📊 Confidence Level", 1, 10, 7, 
@@ -2432,7 +2477,7 @@ with tab_scout:
                     # Type-specific details
                     details = {}
                     
-                    if selected_obs_type == "Fresh Scrape":
+                    if selected_enum == "FRESH_SCRAPE":
                         st.markdown("#### 🦌 Scrape Details")
                         details = {
                             "size": st.selectbox("Size", ["Small", "Medium", "Large", "Huge"]),
@@ -2441,7 +2486,7 @@ with tab_scout:
                             "multiple_scrapes": st.checkbox("Multiple scrapes in area")
                         }
                     
-                    elif selected_obs_type == "Rub Line":
+                    elif selected_enum == "RUB_LINE":
                         st.markdown("#### 🌳 Rub Details")
                         details = {
                             "tree_diameter_inches": st.number_input("Tree Diameter (inches)", 1, 36, 6),
@@ -2452,7 +2497,7 @@ with tab_scout:
                             "multiple_rubs": st.checkbox("Multiple rubs in line")
                         }
                     
-                    elif selected_obs_type == "Bedding Area":
+                    elif selected_enum == "BEDDING_AREA":
                         st.markdown("#### 🛏️ Bedding Details")
                         details = {
                             "number_of_beds": st.number_input("Number of Beds", 1, 20, 1),
@@ -2461,17 +2506,76 @@ with tab_scout:
                             "thermal_advantage": st.checkbox("Good thermal cover")
                         }
                     
-                    elif selected_obs_type == "Trail Camera Setup":
+                    elif selected_enum == "TRAIL_CAMERA":
                         st.markdown("#### 📸 Camera Details")
+                        cam_col1, cam_col2 = st.columns(2)
+                        with cam_col1:
+                            camera_brand = st.text_input("Camera Brand/Model (optional)", key="map_camera_brand")
+                            camera_direction = st.selectbox(
+                                "Camera Facing",
+                                [
+                                    "North", "South", "East", "West",
+                                    "Northeast", "Northwest", "Southeast", "Southwest"
+                                ],
+                                key="map_camera_direction"
+                            )
+                            trail_width_feet = st.number_input("Trail Width (feet)", min_value=1, max_value=30, value=3, key="map_camera_trail_width")
+                        with cam_col2:
+                            include_setup_date = st.checkbox("Include camera setup date", value=True, key="map_camera_use_setup_date")
+                            setup_date_value = None
+                            if include_setup_date:
+                                setup_date_value = st.date_input(
+                                    "Camera Setup Date",
+                                    value=datetime.now().date(),
+                                    key="map_camera_setup_date"
+                                )
+                            setup_height_feet = st.number_input("Camera Height (feet)", min_value=1, max_value=20, value=8, key="map_camera_height")
+                            detection_zone = st.selectbox(
+                                "Detection Zone",
+                                ["Narrow Trail", "Wide Trail", "Intersection", "Food Plot Edge", "Mineral Site", "Mock Scrape"],
+                                key="map_camera_detection_zone"
+                            )
+                        peak_activity = st.text_input("Peak Activity Window (optional)", key="map_camera_peak_activity")
+                        mature_buck_seen = st.checkbox("Captured a mature buck here recently?", key="map_camera_mature_flag")
+                        mature_sighting_iso = None
+                        mature_notes = None
+                        if mature_buck_seen:
+                            sight_col1, sight_col2 = st.columns(2)
+                            with sight_col1:
+                                sighting_date = st.date_input(
+                                    "Mature Buck Capture Date",
+                                    value=datetime.now().date(),
+                                    key="map_camera_sighting_date"
+                                )
+                            with sight_col2:
+                                default_time = datetime.now().replace(second=0, microsecond=0).time()
+                                sighting_time = st.time_input(
+                                    "Capture Time",
+                                    value=default_time,
+                                    key="map_camera_sighting_time"
+                                )
+                            mature_notes = st.text_area(
+                                "Mature Buck Notes (optional)",
+                                placeholder="Antler size, direction of travel, behavior...",
+                                key="map_camera_sighting_notes"
+                            )
+                            mature_sighting_iso = datetime.combine(sighting_date, sighting_time).isoformat()
+
                         details = {
-                            "camera_direction": st.selectbox("Camera Facing", 
-                                                           ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest"]),
-                            "trail_width_feet": st.number_input("Trail Width (feet)", 1, 20, 3),
-                            "setup_height_feet": st.number_input("Camera Height (feet)", 1, 15, 8),
-                            "detection_zone": st.selectbox("Detection Zone", ["Narrow Trail", "Wide Trail", "Intersection", "Food Plot Edge"])
+                            "camera_brand": camera_brand or None,
+                            "camera_direction": camera_direction or None,
+                            "trail_width_feet": float(trail_width_feet) if trail_width_feet else None,
+                            "setup_height_feet": float(setup_height_feet) if setup_height_feet else None,
+                            "detection_zone": detection_zone or None,
+                            "peak_activity_time": peak_activity or None,
+                            "mature_buck_seen": mature_buck_seen,
+                            "mature_buck_seen_at": mature_sighting_iso,
+                            "mature_buck_notes": mature_notes or None
                         }
-                    
-                    elif selected_obs_type == "Deer Tracks/Trail":
+                        if include_setup_date and setup_date_value:
+                            details["setup_date"] = datetime.combine(setup_date_value, datetime.min.time()).isoformat()
+
+                    elif selected_enum == "DEER_TRACKS":
                         st.markdown("#### 🐾 Track Details")
                         details = {
                             "track_size": st.selectbox("Track Size", ["Small (Doe/Fawn)", "Medium (Young Buck)", "Large (Mature Buck)", "Multiple Sizes"]),
@@ -2495,15 +2599,15 @@ with tab_scout:
                         }
                         
                         # Add type-specific details
-                        if selected_obs_type == "Fresh Scrape":
+                        if selected_enum == "FRESH_SCRAPE":
                             observation_data["scrape_details"] = details
-                        elif selected_obs_type == "Rub Line":
+                        elif selected_enum == "RUB_LINE":
                             observation_data["rub_details"] = details
-                        elif selected_obs_type == "Bedding Area":
+                        elif selected_enum == "BEDDING_AREA":
                             observation_data["bedding_details"] = details
-                        elif selected_obs_type == "Trail Camera Setup":
+                        elif selected_enum == "TRAIL_CAMERA":
                             observation_data["camera_details"] = details
-                        elif selected_obs_type == "Deer Tracks/Trail":
+                        elif selected_enum == "DEER_TRACKS":
                             observation_data["tracks_details"] = details
                         
                         # Submit to backend
@@ -2533,8 +2637,80 @@ with tab_scout:
                     obs_type_names = [ot['type'] for ot in observation_types]
                     selected_obs_type = st.selectbox("🔍 Observation Type", obs_type_names)
                     confidence = st.slider("📊 Confidence Level", 1, 10, 7)
+                    selected_type_data = next((ot for ot in observation_types if ot['type'] == selected_obs_type), {})
+                    selected_enum = selected_type_data.get('enum_name', '')
                 
                 notes = st.text_area("📝 Notes", placeholder="Describe what you observed...")
+
+                camera_details_manual: Dict[str, Any] = {}
+                if selected_enum == "TRAIL_CAMERA":
+                    st.markdown("#### 📸 Camera Details")
+                    manual_cam_col1, manual_cam_col2 = st.columns(2)
+                    with manual_cam_col1:
+                        manual_camera_brand = st.text_input("Camera Brand/Model (optional)", key="manual_camera_brand")
+                        manual_camera_direction = st.selectbox(
+                            "Camera Facing",
+                            [
+                                "North", "South", "East", "West",
+                                "Northeast", "Northwest", "Southeast", "Southwest"
+                            ],
+                            key="manual_camera_direction"
+                        )
+                    with manual_cam_col2:
+                        manual_include_setup = st.checkbox("Include camera setup date", value=True, key="manual_camera_use_setup")
+                        manual_setup_date = None
+                        if manual_include_setup:
+                            manual_setup_date = st.date_input(
+                                "Camera Setup Date",
+                                value=datetime.now().date(),
+                                key="manual_camera_setup_date"
+                            )
+                    manual_peak_activity = st.text_input("Peak Activity Window (optional)", key="manual_camera_peak_activity")
+                    manual_trail_width = st.number_input("Trail Width (feet)", min_value=1, max_value=30, value=3, key="manual_camera_trail_width")
+                    manual_setup_height = st.number_input("Camera Height (feet)", min_value=1, max_value=20, value=8, key="manual_camera_height")
+                    manual_detection_zone = st.selectbox(
+                        "Detection Zone",
+                        ["Narrow Trail", "Wide Trail", "Intersection", "Food Plot Edge", "Mineral Site", "Mock Scrape"],
+                        key="manual_camera_detection_zone"
+                    )
+                    manual_mature_buck_seen = st.checkbox("Captured a mature buck here recently?", key="manual_camera_mature_flag")
+                    manual_mature_iso = None
+                    manual_mature_notes = None
+                    if manual_mature_buck_seen:
+                        manual_sighting_col1, manual_sighting_col2 = st.columns(2)
+                        with manual_sighting_col1:
+                            manual_sighting_date = st.date_input(
+                                "Mature Buck Capture Date",
+                                value=datetime.now().date(),
+                                key="manual_camera_sighting_date"
+                            )
+                        with manual_sighting_col2:
+                            manual_default_time = datetime.now().replace(second=0, microsecond=0).time()
+                            manual_sighting_time = st.time_input(
+                                "Capture Time",
+                                value=manual_default_time,
+                                key="manual_camera_sighting_time"
+                            )
+                        manual_mature_notes = st.text_area(
+                            "Mature Buck Notes (optional)",
+                            placeholder="Antler size, behavior, direction...",
+                            key="manual_camera_sighting_notes"
+                        )
+                        manual_mature_iso = datetime.combine(manual_sighting_date, manual_sighting_time).isoformat()
+
+                    camera_details_manual = {
+                        "camera_brand": manual_camera_brand or None,
+                        "camera_direction": manual_camera_direction or None,
+                        "peak_activity_time": manual_peak_activity or None,
+                        "trail_width_feet": float(manual_trail_width) if manual_trail_width else None,
+                        "setup_height_feet": float(manual_setup_height) if manual_setup_height else None,
+                        "detection_zone": manual_detection_zone or None,
+                        "mature_buck_seen": manual_mature_buck_seen,
+                        "mature_buck_seen_at": manual_mature_iso,
+                        "mature_buck_notes": manual_mature_notes or None
+                    }
+                    if manual_include_setup and manual_setup_date:
+                        camera_details_manual["setup_date"] = datetime.combine(manual_setup_date, datetime.min.time()).isoformat()
                 
                 submitted = st.form_submit_button("✅ Add Observation", type="primary")
                 
@@ -2546,6 +2722,9 @@ with tab_scout:
                         "confidence": confidence,
                         "notes": notes
                     }
+
+                    if camera_details_manual:
+                        observation_data["camera_details"] = camera_details_manual
                     
                     result = add_scouting_observation(observation_data)
                     

@@ -200,6 +200,16 @@ deer_prediction_config:
     ensemble_weight: 0.3                # Weight of ML prediction in ensemble
     training_data_min_samples: 100      # Minimum samples for model training
     
+  # Scouting data import controls
+  scouting_import:
+    enabled: false                     # Feature gate for GPX scouting imports
+    dedupe_radius_miles: 0.15          # Radius for duplicate detection
+    dedupe_time_days: 365              # Historical window for duplicate search
+    dedupe_time_window_hours: 48       # Time window for comparing similar notes
+    max_file_size_mb: 10               # Safety cap for uploaded file size
+    supported_formats:
+      - gpx
+
   # Validation and Constraints
   validation:
     confidence_range: [0, 100]         # Valid confidence score range

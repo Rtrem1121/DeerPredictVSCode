@@ -63,7 +63,10 @@ class ScoutingPredictionEnhancer:
                 "travel_boost": 20.0,
                 "bedding_boost": 5.0,
                 "decay_days": 7,        # Camera data is time-sensitive
-                "mature_buck_indicator": False  # Depends on camera data
+                "mature_buck_indicator": False,  # Depends on camera data
+                "mature_buck_bonus": 32.0,      # Bonus when a mature buck is confirmed
+                "recent_sighting_days": 14,     # How long a sighting stays "hot"
+                "default_camera_boost": 6.0     # Small boost for active camera locations
             },
             ObservationType.DEER_TRACKS: {
                 "base_boost": 8.0,
@@ -261,6 +264,10 @@ class ScoutingPredictionEnhancer:
             
             logger.debug(f"Applied enhancement for {obs.observation_type} at grid ({grid_row}, {grid_col}): {total_boost:.1f}% boost")
             
+            mature_indicator = config.get("mature_buck_indicator", False)
+            if obs.observation_type == ObservationType.TRAIL_CAMERA:
+                mature_indicator = self._camera_indicates_mature_buck(obs, config)
+
             return {
                 "observation_id": obs.id,
                 "observation_type": obs.observation_type.value,
@@ -269,7 +276,7 @@ class ScoutingPredictionEnhancer:
                 "confidence_factor": confidence_factor,
                 "age_days": age_days,
                 "grid_position": (grid_row, grid_col),
-                "mature_buck_indicator": config["mature_buck_indicator"]
+                "mature_buck_indicator": mature_indicator
             }
             
         except Exception as e:
@@ -397,19 +404,94 @@ class ScoutingPredictionEnhancer:
     def _apply_trail_camera_enhancement(self, obs: ScoutingObservation, score_maps: Dict[str, np.ndarray], grid_row: int, grid_col: int, radius_cells: float, config: Dict[str, Any], decay_factor: float, confidence_factor: float) -> float:
         """Apply trail-camera-specific enhancements."""
         details = obs.camera_details
-        if not (details and details.mature_buck_photos > 0 and details.deer_photos > 0):
-            return 0
+        if not details:
+            return 0.0
 
-        mature_ratio = details.mature_buck_photos / details.deer_photos
-        mature_bonus = 1.0 + (mature_ratio * 2.0)  # Up to 3x boost
-        
-        enhanced_boost = (config["base_boost"] * mature_bonus * 
-                        decay_factor * confidence_factor)
-        
-        return self._apply_radial_boost(
-            score_maps["travel"], grid_row, grid_col,
-            radius_cells * 0.5, enhanced_boost
-        )
+        if getattr(details, "mature_buck_seen", False):
+            sighting_ts = self._ensure_datetime(getattr(details, "mature_buck_seen_at", None))
+            if sighting_ts is None:
+                sighting_ts = obs.timestamp
+            recency_horizon = config.get("recent_sighting_days", config.get("decay_days", 7))
+            now_ref = self._now_matching(sighting_ts)
+            days_since = self._days_between(sighting_ts, now_ref)
+            recency_factor = 1.0
+            if recency_horizon:
+                recency_factor = max(0.3, 1.0 - (days_since / recency_horizon))
+
+            mature_boost_value = config.get("mature_buck_bonus", config.get("base_boost", 15.0) * 1.5)
+            enhanced_boost = mature_boost_value * decay_factor * confidence_factor * recency_factor
+
+            return self._apply_radial_boost(
+                score_maps["travel"], grid_row, grid_col,
+                radius_cells * 0.5, enhanced_boost
+            )
+
+        # Backward-compatibility: use historical photo ratios when available
+        deer_photos = getattr(details, "deer_photos", 0) or 0
+        mature_photos = getattr(details, "mature_buck_photos", 0) or 0
+        if deer_photos > 0 and mature_photos > 0:
+            mature_ratio = mature_photos / max(deer_photos, 1)
+            mature_bonus = 1.0 + (mature_ratio * 2.0)
+            enhanced_boost = (config.get("base_boost", 15.0) * mature_bonus *
+                              decay_factor * confidence_factor)
+            return self._apply_radial_boost(
+                score_maps["travel"], grid_row, grid_col,
+                radius_cells * 0.5, enhanced_boost
+            )
+
+        return 0.0
+
+    def _camera_indicates_mature_buck(self, obs: ScoutingObservation, config: Dict[str, Any]) -> bool:
+        """Determine if a trail camera observation should count as a mature buck indicator."""
+        details = obs.camera_details
+        if not details:
+            return config.get("mature_buck_indicator", False)
+
+        if getattr(details, "mature_buck_seen", False):
+            sighting_ts = self._ensure_datetime(getattr(details, "mature_buck_seen_at", None))
+            if sighting_ts is None:
+                sighting_ts = obs.timestamp
+            recency_horizon = config.get("recent_sighting_days", config.get("decay_days", 7))
+            now_ref = self._now_matching(sighting_ts)
+            days_since = self._days_between(sighting_ts, now_ref)
+            if recency_horizon:
+                return days_since <= recency_horizon
+            return True
+
+        deer_photos = getattr(details, "deer_photos", 0) or 0
+        mature_photos = getattr(details, "mature_buck_photos", 0) or 0
+        if deer_photos > 0 and mature_photos > 0:
+            mature_ratio = mature_photos / max(deer_photos, 1)
+            return mature_ratio >= 0.3
+
+        return config.get("mature_buck_indicator", False)
+
+    def _ensure_datetime(self, value: Any) -> Optional[datetime]:
+        """Best-effort conversion of a value into a datetime object."""
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                cleaned = value.replace("Z", "+00:00")
+                return datetime.fromisoformat(cleaned)
+            except ValueError:
+                return None
+        return None
+
+    def _now_matching(self, reference: Optional[datetime]) -> datetime:
+        """Return a current timestamp matching the timezone awareness of the reference."""
+        if reference and reference.tzinfo is not None:
+            return datetime.now(timezone.utc)
+        return datetime.now()
+
+    def _days_between(self, start: datetime, end: datetime) -> float:
+        """Calculate fractional days between two timestamps (non-negative)."""
+        if end < start:
+            return 0.0
+        delta = end - start
+        return delta.total_seconds() / 86400.0
     
     def _apply_cumulative_bonus(self, score_maps: Dict[str, np.ndarray], bonus_percent: float) -> None:
         """Apply cumulative bonus for multiple mature buck indicators"""
@@ -466,7 +548,10 @@ class ScoutingPredictionEnhancer:
                     summary["by_type"][obs_type] = summary["by_type"].get(obs_type, 0) + 1
                     
                     config = self.enhancement_config.get(obs.observation_type, {})
-                    if config.get("mature_buck_indicator"):
+                    indicator_flag = config.get("mature_buck_indicator", False)
+                    if obs.observation_type == ObservationType.TRAIL_CAMERA:
+                        indicator_flag = self._camera_indicates_mature_buck(obs, config)
+                    if indicator_flag:
                         summary["mature_buck_indicators"] += 1
                 
                 summary["avg_confidence"] = sum(obs.confidence for obs in observations) / len(observations)

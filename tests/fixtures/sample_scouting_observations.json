@@ -1,0 +1,39 @@
+{
+  "version": "1.0.0",
+  "created": "2025-01-01T12:00:00Z",
+  "observations": [
+    {
+      "lat": 44.26639,
+      "lon": -72.58133,
+      "observation_type": "Fresh Scrape",
+      "notes": "Test scrape observation",
+      "confidence": 8,
+      "timestamp": "2025-08-11T18:21:22.345384",
+      "photo_urls": [],
+      "weather_conditions": null,
+      "scrape_details": {
+        "size": "Large",
+        "freshness": "Very Fresh",
+        "licking_branch": true,
+        "multiple_scrapes": false
+      }
+    },
+    {
+      "lat": 44.5588,
+      "lon": -72.5778,
+      "observation_type": "Rub Line",
+      "notes": "Fresh rub line on mature maple - very promising spot",
+      "confidence": 9,
+      "timestamp": "2025-08-11T22:29:37.251227",
+      "photo_urls": [],
+      "weather_conditions": null,
+      "rub_details": {
+        "tree_diameter_inches": 8,
+        "rub_height_inches": 36,
+        "direction": "North",
+        "tree_species": "maple",
+        "multiple_rubs": true
+      }
+    }
+  ]
+}

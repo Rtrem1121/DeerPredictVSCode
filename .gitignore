@@ -35,3 +35,8 @@ service-account*.json
 
 # Other
 *.sqlite3
+data/scouting_observations.json.backup
+.continue/
+GEE JSON KEY/
+archive/
+response.json

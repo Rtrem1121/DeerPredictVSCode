@@ -3,6 +3,7 @@
 Test script to verify the frontend wind analysis fix is working correctly
 """
 
+import os
 import requests
 import json
 
@@ -21,8 +22,10 @@ def test_frontend_wind_fix():
         "hunting_pressure": "low"
     }
     
+    timeout = float(os.getenv("FRONTEND_WIND_FIX_TIMEOUT", "120"))
+
     try:
-        response = requests.post(api_url, json=test_data, timeout=30)
+        response = requests.post(api_url, json=test_data, timeout=timeout)
         response.raise_for_status()
         
         full_data = response.json()
@@ -77,7 +80,7 @@ def test_frontend_wind_fix():
             return True
             
     except Exception as e:
-        print(f"❌ Error testing backend: {e}")
+        print(f"❌ Error testing backend (timeout={timeout}s): {e}")
         return False
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
-from unittest.mock import Mock, patch
+from datetime import datetime, timedelta
+from unittest.mock import patch
 from backend.scouting_prediction_enhancer import ScoutingPredictionEnhancer
 from backend.scouting_models import ScoutingObservation, ObservationType, ScoutingQuery
 
@@ -28,8 +29,8 @@ class TestScoutingPredictionEnhancer:
             assert isinstance(call_args, ScoutingQuery)
             assert call_args.lat == 44.0
             assert call_args.lon == -72.0
-            assert call_args.radius_miles == 2.0
-            assert call_args.days_back == 60
+            assert call_args.radius_miles == 5.0
+            assert call_args.days_back == 365
 
     def test_prepare_enhanced_maps(self, enhancer, sample_score_maps):
         """Test that _prepare_enhanced_maps creates copies of the score maps."""
@@ -40,7 +41,7 @@ class TestScoutingPredictionEnhancer:
 
     def test_apply_enhancements(self, enhancer, sample_score_maps):
         """Test that _apply_enhancements applies enhancements to the score maps."""
-        obs = ScoutingObservation(lat=44.0, lon=-72.0, observation_type=ObservationType.FRESH_SCRAPE, confidence=8.0)
+        obs = ScoutingObservation(lat=44.0, lon=-72.0, observation_type=ObservationType.FRESH_SCRAPE, confidence=8)
         observations = [obs]
         with patch.object(enhancer, '_apply_observation_enhancement') as mock_apply_enhancement:
             mock_apply_enhancement.return_value = {"boost_applied": 10.0, "mature_buck_indicator": True}
@@ -56,24 +57,66 @@ class TestScoutingPredictionEnhancer:
 
     def test_apply_scrape_enhancement(self, enhancer, sample_score_maps):
         """Test that _apply_scrape_enhancement applies the correct boost."""
-        obs = ScoutingObservation(lat=44.0, lon=-72.0, observation_type=ObservationType.FRESH_SCRAPE, confidence=8.0, scrape_details={'size':'Large', 'freshness':'Fresh', 'licking_branch':True})
+        obs = ScoutingObservation(
+            lat=44.0,
+            lon=-72.0,
+            observation_type=ObservationType.FRESH_SCRAPE,
+            confidence=8,
+            scrape_details={'size': 'Large', 'freshness': 'Fresh', 'licking_branch': True}
+        )
         config = enhancer.enhancement_config[ObservationType.FRESH_SCRAPE]
         boost = enhancer._apply_scrape_enhancement(obs, sample_score_maps, 5, 5, 5, config, 1.0, 0.8)
         assert boost > 0
 
     def test_apply_rub_line_enhancement(self, enhancer, sample_score_maps):
         """Test that _apply_rub_line_enhancement applies the correct boost."""
-        obs = ScoutingObservation(lat=44.0, lon=-72.0, observation_type=ObservationType.RUB_LINE, confidence=8.0, rub_details={'tree_diameter_inches':10, 'rub_height_inches':40, 'direction': 'North'})
+        obs = ScoutingObservation(
+            lat=44.0,
+            lon=-72.0,
+            observation_type=ObservationType.RUB_LINE,
+            confidence=8,
+            rub_details={'tree_diameter_inches': 10, 'rub_height_inches': 40, 'direction': 'North'}
+        )
         config = enhancer.enhancement_config[ObservationType.RUB_LINE]
         boost = enhancer._apply_rub_line_enhancement(obs, sample_score_maps, 5, 5, 5, config, 1.0, 0.8)
         assert boost > 0
 
     def test_apply_trail_camera_enhancement(self, enhancer, sample_score_maps):
         """Test that _apply_trail_camera_enhancement applies the correct boost."""
-        obs = ScoutingObservation(lat=44.0, lon=-72.0, observation_type=ObservationType.TRAIL_CAMERA, confidence=8.0, camera_details={'setup_date': '2023-10-01', 'total_photos': 100, 'deer_photos': 10, 'mature_buck_photos': 2})
+        obs = ScoutingObservation(
+            lat=44.0,
+            lon=-72.0,
+            observation_type=ObservationType.TRAIL_CAMERA,
+            confidence=8,
+            camera_details={
+                'setup_date': '2023-10-01T00:00:00',
+                'total_photos': 100,
+                'deer_photos': 10,
+                'mature_buck_photos': 2
+            }
+        )
         config = enhancer.enhancement_config[ObservationType.TRAIL_CAMERA]
         boost = enhancer._apply_trail_camera_enhancement(obs, sample_score_maps, 5, 5, 5, config, 1.0, 0.8)
         assert boost > 0
+
+    def test_trail_camera_mature_buck_seen_recently(self, enhancer, sample_score_maps):
+        """Trail camera observations with a confirmed mature buck should count as an indicator."""
+        sighting_time = datetime.now() - timedelta(days=2)
+        obs = ScoutingObservation(
+            lat=44.0,
+            lon=-72.0,
+            observation_type=ObservationType.TRAIL_CAMERA,
+            confidence=9,
+            camera_details={
+                'mature_buck_seen': True,
+                'mature_buck_seen_at': sighting_time.isoformat(),
+                'mature_buck_notes': 'Wide 10-pointer on evening pattern'
+            }
+        )
+        config = enhancer.enhancement_config[ObservationType.TRAIL_CAMERA]
+        boost = enhancer._apply_trail_camera_enhancement(obs, sample_score_maps, 5, 5, 5, config, 1.0, 0.9)
+        assert boost > 0
+        assert enhancer._camera_indicates_mature_buck(obs, config) is True
 
     def test_apply_radial_boost(self, enhancer):
         """Test that _apply_radial_boost applies a radial boost to the score map."""

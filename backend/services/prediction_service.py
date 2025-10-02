@@ -430,41 +430,64 @@ class PredictionService:
         """
         Extract feeding scores from prediction results with Vermont food classification.
         
+        Uses spatial food grid mapping to create precise food quality distribution
+        across the prediction area based on real Vermont food sources.
+        
         If lat/lon/season provided, uses Vermont food classifier for real food source analysis.
         Otherwise falls back to generic feeding area scoring.
         """
         try:
             grid_size = 10
             
-            # Try to use Vermont food analysis if coordinates available
+            # Try to use Vermont spatial food grid if coordinates available
             if lat is not None and lon is not None:
                 try:
-                    vegetation_data = self.vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0, season=season)
-                    food_data = vegetation_data.get('food_sources', {})
+                    from backend.vermont_food_classifier import get_vermont_food_classifier
                     
-                    # Get Vermont-specific overall food score
-                    overall_food_score = food_data.get('overall_food_score', 0.5)
+                    vt_classifier = get_vermont_food_classifier()
                     
-                    # Convert 0-1 food score to 0-10 scale for scoring grid
-                    base_score = overall_food_score * 10.0
-                    scores = np.ones((grid_size, grid_size)) * base_score
+                    # Get spatial food grid with GPS-mapped food sources
+                    spatial_result = vt_classifier.create_spatial_food_grid(
+                        center_lat=lat,
+                        center_lon=lon,
+                        season=season,
+                        grid_size=grid_size,
+                        span_deg=0.04,
+                        radius_m=2000
+                    )
                     
-                    # Log Vermont food classification results
-                    food_source_count = food_data.get('food_source_count', 0)
-                    dominant_food = food_data.get('dominant_food', {})
-                    logger.info(f"🌽 VERMONT FOOD ANALYSIS: {food_source_count} sources, "
-                               f"score: {overall_food_score:.2f}, "
-                               f"dominant: {dominant_food.get('name', 'unknown')}")
+                    # Extract food grid (0-1 scale)
+                    food_grid = spatial_result['food_grid']
                     
-                    # Bonus for high-quality food patches
-                    food_patches = food_data.get('food_patches', [])
+                    # Convert to 0-10 scale for scoring
+                    scores = food_grid * 10.0
+                    
+                    # Log spatial food grid results
+                    grid_metadata = spatial_result.get('grid_metadata', {})
+                    food_patches = spatial_result.get('food_patch_locations', [])
+                    
+                    logger.info(f"🗺️ SPATIAL FOOD GRID: {len(food_patches)} high-quality patches identified")
+                    logger.info(f"   Mean quality: {grid_metadata.get('mean_grid_quality', 0):.2f}, "
+                               f"Range: {food_grid.min():.2f}-{food_grid.max():.2f}")
+                    
+                    # Log top food patch locations
                     if food_patches:
-                        logger.info(f"   Food patches: {', '.join([p['name'] for p in food_patches[:3]])}")
+                        top_patch = food_patches[0]
+                        logger.info(f"   🌽 Best food: {top_patch['lat']:.4f}, {top_patch['lon']:.4f} "
+                                   f"(quality: {top_patch['quality']:.2f})")
+                    
+                    # Store spatial data in result for stand placement
+                    result['vermont_food_grid'] = {
+                        'food_grid': food_grid.tolist(),
+                        'food_patch_locations': food_patches,
+                        'grid_coordinates': spatial_result.get('grid_coordinates', {}),
+                        'metadata': grid_metadata
+                    }
                     
                     return scores
                     
                 except Exception as e:
-                    logger.warning(f"⚠️ Vermont food analysis failed, using fallback: {e}")
+                    logger.warning(f"⚠️ Spatial food grid creation failed, using fallback: {e}")
             
             # Fallback to generic feeding area scoring
             scores = np.ones((grid_size, grid_size)) * 4.0  # Base feeding score

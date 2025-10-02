@@ -101,7 +101,7 @@ class VegetationAnalyzer:
             logger.warning(f"GEE initialization failed: {e}")
             return False
 
-    def analyze_hunting_area(self, lat: float, lon: float, radius_km: float = 2.0) -> Dict[str, Any]:
+    def analyze_hunting_area(self, lat: float, lon: float, radius_km: float = 2.0, season: str = 'early_season') -> Dict[str, Any]:
         """
         Comprehensive vegetation analysis for hunting area.
         
@@ -109,6 +109,7 @@ class VegetationAnalyzer:
             lat: Center latitude
             lon: Center longitude
             radius_km: Analysis radius in kilometers
+            season: Hunting season (early_season, rut, late_season) for Vermont food analysis
             
         Returns:
             Dict containing vegetation analysis results
@@ -130,7 +131,7 @@ class VegetationAnalyzer:
             results = {
                 'ndvi_analysis': self._analyze_ndvi_improved(area, start_date, end_date),
                 'land_cover': self._analyze_land_cover(area),
-                'food_sources': self._identify_food_sources(area, start_date, end_date),
+                'food_sources': self._identify_food_sources(area, start_date, end_date, season),  # Vermont-specific!
                 'vegetation_health': self._assess_vegetation_health(area, start_date, end_date),
                 'seasonal_changes': self._detect_seasonal_changes(area),
                 'water_proximity': self._analyze_water_sources(area),
@@ -138,12 +139,13 @@ class VegetationAnalyzer:
                     'center_lat': lat,
                     'center_lon': lon,
                     'radius_km': radius_km,
+                    'season': season,  # Track season used
                     'analysis_date': end_date.isoformat(),
                     'data_source': 'google_earth_engine'
                 }
             }
             
-            logger.info(f"🛰️ Completed GEE vegetation analysis for {lat:.4f}, {lon:.4f}")
+            logger.info(f"🛰️ Completed GEE vegetation analysis for {lat:.4f}, {lon:.4f} ({season})")
             return results
             
         except Exception as e:
@@ -358,10 +360,38 @@ class VegetationAnalyzer:
                 'error': str(e)
             }
     
-    def _identify_food_sources(self, area: ee.Geometry, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
-        """Identify potential deer food sources"""
+    def _identify_food_sources(self, area: ee.Geometry, start_date: datetime, end_date: datetime, season: str = 'early_season') -> Dict[str, Any]:
+        """
+        Identify Vermont-specific deer food sources using real satellite data
+        
+        This replaces the stub implementation with actual crop classification,
+        mast production analysis, and browse availability for Vermont hunting areas.
+        """
         try:
-            # Analyze agricultural areas and mast production
+            # Import Vermont-specific food classifier
+            try:
+                from .vermont_food_classifier import get_vermont_food_classifier
+            except ImportError:
+                from vermont_food_classifier import get_vermont_food_classifier
+            
+            # Get Vermont food classifier
+            vt_classifier = get_vermont_food_classifier()
+            
+            # Perform comprehensive Vermont food analysis
+            vt_food_results = vt_classifier.analyze_vermont_food_sources(
+                area=area,
+                season=season,
+                analysis_year=start_date.year
+            )
+            
+            logger.info(f"✅ Vermont food analysis: {vt_food_results.get('food_source_count', 0)} sources, "
+                       f"overall score: {vt_food_results.get('overall_food_score', 0):.2f}")
+            
+            return vt_food_results
+            
+        except Exception as e:
+            logger.warning(f"Vermont food source analysis failed: {e}, using fallback")
+            # Fallback to basic analysis
             food_analysis = {
                 'agricultural_crops': self._analyze_crop_areas(area),
                 'mast_production': self._analyze_mast_production(area, start_date, end_date),
@@ -375,15 +405,8 @@ class VegetationAnalyzer:
             return {
                 **food_analysis,
                 'overall_food_score': food_score,
-                'food_abundance': 'high' if food_score > 0.7 else 'moderate' if food_score > 0.4 else 'low'
-            }
-            
-        except Exception as e:
-            logger.warning(f"Food source analysis failed: {e}")
-            return {
-                'overall_food_score': 0.5,
-                'food_abundance': 'moderate',
-                'error': str(e)
+                'food_abundance': 'high' if food_score > 0.7 else 'moderate' if food_score > 0.4 else 'low',
+                'fallback': True
             }
     
     def _assess_vegetation_health(self, area: ee.Geometry, start_date: datetime, end_date: datetime) -> Dict[str, Any]:

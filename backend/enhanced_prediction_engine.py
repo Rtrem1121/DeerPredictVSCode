@@ -35,10 +35,10 @@ class EnhancedPredictionEngine:
         self.vegetation_analyzer = get_vegetation_analyzer()
         self.core = core
         
-    def _get_vegetation_analysis(self, lat: float, lon: float) -> Dict[str, Any]:
-        """Get comprehensive vegetation analysis from satellite data"""
+    def _get_vegetation_analysis(self, lat: float, lon: float, season: str = 'early_season') -> Dict[str, Any]:
+        """Get comprehensive vegetation analysis from satellite data with Vermont food classification"""
         try:
-            return self.vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0)
+            return self.vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0, season=season)
         except Exception as e:
             logger.warning(f"Vegetation analysis failed: {e}")
             return {'analysis_metadata': {'data_source': 'fallback'}}

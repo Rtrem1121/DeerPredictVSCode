@@ -136,21 +136,22 @@ class EnhancedPredictionAPI:
                 detail=f"Prediction comparison failed: {str(e)}"
             )
     
-    async def get_vegetation_summary(self, lat: float, lon: float) -> Dict[str, Any]:
+    async def get_vegetation_summary(self, lat: float, lon: float, season: str = 'early_season') -> Dict[str, Any]:
         """
-        Get vegetation analysis summary for hunting area
+        Get vegetation analysis summary for hunting area with Vermont food classification
         
         Args:
             lat: Latitude
             lon: Longitude
+            season: Hunting season ('early_season', 'rut', 'late_season')
             
         Returns:
-            Vegetation analysis summary
+            Vegetation analysis summary with Vermont-specific food sources
         """
         
         try:
             vegetation_analyzer = self.engine.vegetation_analyzer
-            vegetation_data = vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0)
+            vegetation_data = vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0, season=season)
             
             # Create hunter-friendly summary
             summary = {

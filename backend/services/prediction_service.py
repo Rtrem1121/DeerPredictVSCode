@@ -28,6 +28,7 @@ from backend.analysis.wind_thermal_analyzer import get_wind_thermal_analyzer
 from backend.analysis.prediction_analyzer import PredictionAnalyzer
 from backend.config_manager import get_config
 from backend.hunt_window.hunt_window_predictor import HuntWindowPredictor
+from backend.vegetation_analyzer import get_vegetation_analyzer
 import logging
 import numpy as np
 from typing import Dict, List, Optional
@@ -55,12 +56,14 @@ class PredictionService:
             self.scouting_enhancer = get_scouting_enhancer()
             self.thermal_analyzer = AdvancedThermalAnalyzer()
             self.wind_analyzer = get_wind_thermal_analyzer()
+            self.vegetation_analyzer = get_vegetation_analyzer()
             self.config = get_config()
             self.hunt_window_predictor = HuntWindowPredictor.from_config(self.config)
             logger.info("✅ EnhancedBeddingZonePredictor initialized as exclusive prediction engine")
             logger.info("✅ ScoutingPredictionEnhancer initialized for field data integration")
             logger.info("✅ AdvancedThermalAnalyzer initialized for thermal wind analysis")
             logger.info("✅ WindThermalAnalyzer initialized for comprehensive wind analysis")
+            logger.info("✅ VegetationAnalyzer initialized for Vermont food classification")
             logger.info("✅ HuntWindowPredictor initialized for forecast-triggered stand prioritization")
         except Exception as e:
             logger.error(f"❌ Failed to initialize prediction components: {e}")
@@ -278,10 +281,11 @@ class PredictionService:
             scouting_enhancement_result = {}
             try:
                 # Create basic score maps from prediction results for enhancement
+                # Use Vermont food classification for feeding scores
                 score_maps = {
                     "travel": self._extract_travel_scores(result),
                     "bedding": self._extract_bedding_scores(result), 
-                    "feeding": self._extract_feeding_scores(result)
+                    "feeding": self._extract_feeding_scores(result, lat, lon, season)
                 }
                 
                 # Apply scouting enhancements
@@ -422,10 +426,47 @@ class PredictionService:
         except:
             return np.ones((10, 10)) * 5.0
 
-    def _extract_feeding_scores(self, result: Dict) -> np.ndarray:
-        """Extract feeding scores from prediction results."""
+    def _extract_feeding_scores(self, result: Dict, lat: float = None, lon: float = None, season: str = 'early_season') -> np.ndarray:
+        """
+        Extract feeding scores from prediction results with Vermont food classification.
+        
+        If lat/lon/season provided, uses Vermont food classifier for real food source analysis.
+        Otherwise falls back to generic feeding area scoring.
+        """
         try:
             grid_size = 10
+            
+            # Try to use Vermont food analysis if coordinates available
+            if lat is not None and lon is not None:
+                try:
+                    vegetation_data = self.vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0, season=season)
+                    food_data = vegetation_data.get('food_sources', {})
+                    
+                    # Get Vermont-specific overall food score
+                    overall_food_score = food_data.get('overall_food_score', 0.5)
+                    
+                    # Convert 0-1 food score to 0-10 scale for scoring grid
+                    base_score = overall_food_score * 10.0
+                    scores = np.ones((grid_size, grid_size)) * base_score
+                    
+                    # Log Vermont food classification results
+                    food_source_count = food_data.get('food_source_count', 0)
+                    dominant_food = food_data.get('dominant_food', {})
+                    logger.info(f"🌽 VERMONT FOOD ANALYSIS: {food_source_count} sources, "
+                               f"score: {overall_food_score:.2f}, "
+                               f"dominant: {dominant_food.get('name', 'unknown')}")
+                    
+                    # Bonus for high-quality food patches
+                    food_patches = food_data.get('food_patches', [])
+                    if food_patches:
+                        logger.info(f"   Food patches: {', '.join([p['name'] for p in food_patches[:3]])}")
+                    
+                    return scores
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ Vermont food analysis failed, using fallback: {e}")
+            
+            # Fallback to generic feeding area scoring
             scores = np.ones((grid_size, grid_size)) * 4.0  # Base feeding score
             
             # Boost areas around feeding recommendations
@@ -435,7 +476,8 @@ class PredictionService:
                     scores += 0.3
                     
             return scores
-        except:
+        except Exception as e:
+            logger.warning(f"⚠️ Feeding score extraction failed: {e}")
             return np.ones((10, 10)) * 4.0
     
     def _collect_criteria_analysis(self, analyzer: PredictionAnalyzer, result: Dict, 

@@ -1,0 +1,43 @@
+{
+  "environment_vars": {
+    "GOOGLE_APPLICATION_CREDENTIALS": null,
+    "GEE_PROJECT_ID": null,
+    "PYTHONPATH": null
+  },
+  "file_checks": {
+    "credentials/gee-service-account.json": {
+      "exists": true,
+      "readable": true,
+      "valid_json": true,
+      "is_service_account": true,
+      "size": 2387
+    },
+    "/app/credentials/gee-service-account.json": {
+      "exists": false,
+      "readable": false,
+      "valid_json": false,
+      "is_service_account": false,
+      "size": 0
+    },
+    "/app/config/deer-pred-service-account.json": {
+      "exists": false,
+      "readable": false,
+      "valid_json": false,
+      "is_service_account": false,
+      "size": 0
+    }
+  },
+  "credential_validation": {},
+  "gee_initialization": {
+    "import": true,
+    "authenticated": true,
+    "method": "service_account"
+  },
+  "vermont_test": {
+    "using_fallback": false,
+    "success": true
+  },
+  "recommendations": [
+    "Set GOOGLE_APPLICATION_CREDENTIALS environment variable"
+  ]
+}

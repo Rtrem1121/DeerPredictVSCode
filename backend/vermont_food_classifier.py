@@ -15,10 +15,51 @@ Date: October 2, 2025
 import logging
 import ee
 import numpy as np
+import os
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+# Initialize Google Earth Engine once at module load
+_GEE_INITIALIZED = False
+
+def _initialize_gee():
+    """Initialize Google Earth Engine with credentials"""
+    global _GEE_INITIALIZED
+    if _GEE_INITIALIZED:
+        return True
+    
+    try:
+        # Check for service account credentials
+        creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        
+        if not creds_path:
+            # Try default locations
+            for path in ['credentials/gee-service-account.json',
+                        '/app/credentials/gee-service-account.json']:
+                if os.path.exists(path):
+                    creds_path = path
+                    break
+        
+        if creds_path and os.path.exists(creds_path):
+            logger.info(f"🔑 Initializing GEE with service account: {creds_path}")
+            credentials = ee.ServiceAccountCredentials(None, creds_path)
+            ee.Initialize(credentials)
+            logger.info("✅ Google Earth Engine initialized successfully")
+            _GEE_INITIALIZED = True
+            return True
+        else:
+            logger.warning("⚠️  No GEE credentials found, attempting default initialization")
+            ee.Initialize()
+            logger.info("✅ Google Earth Engine initialized with default auth")
+            _GEE_INITIALIZED = True
+            return True
+            
+    except Exception as e:
+        logger.warning(f"⚠️  GEE initialization failed: {e}")
+        logger.warning(f"⚠️  Vermont Food Classifier will use fallback mode")
+        return False
 
 class VermontFoodClassifier:
     """
@@ -34,6 +75,14 @@ class VermontFoodClassifier:
     """
     
     def __init__(self):
+        """Initialize Vermont Food Classifier with GEE support"""
+        # Initialize Google Earth Engine
+        self.gee_available = _initialize_gee()
+        
+        if not self.gee_available:
+            logger.warning("⚠️  Vermont Food Classifier initialized in FALLBACK mode")
+            logger.warning("⚠️  Set up GEE credentials for real satellite data")
+        
         # Vermont-specific crop classifications (USDA CDL codes)
         # These are the crops ACTUALLY found in Vermont
         self.VERMONT_CROPS = {
@@ -589,12 +638,23 @@ class VermontFoodClassifier:
         """
         try:
             logger.info(f"🗺️ Creating spatial food grid: {grid_size}x{grid_size}, span={span_deg:.4f}°")
+            logger.info(f"   📍 Center: {center_lat:.4f}, {center_lon:.4f}")
+            logger.info(f"   📅 Season: {season}")
+            logger.info(f"   📡 Attempting to access Google Earth Engine...")
             
             # Create analysis area
             area = ee.Geometry.Point([center_lon, center_lat]).buffer(radius_m)
             
             # Get Vermont food analysis
-            food_analysis = self.analyze_vermont_food_sources(area, season, datetime.now().year)
+            try:
+                food_analysis = self.analyze_vermont_food_sources(area, season, datetime.now().year)
+                overall_score = food_analysis.get('overall_food_score', 0.5)
+                logger.info(f"   ✅ Vermont food analysis complete (overall: {overall_score:.2f})")
+            except Exception as e:
+                logger.warning(f"   ⚠️  Vermont food analysis failed: {e}")
+                logger.warning(f"   Using fallback overall score of 0.5")
+                overall_score = 0.5
+                food_analysis = {}
             
             # Create grid coordinates (matching prediction service)
             # Grid goes from top-left to bottom-right
@@ -608,18 +668,26 @@ class VermontFoodClassifier:
             # Initialize food quality grid
             food_grid = np.zeros((grid_size, grid_size))
             
-            # Get base overall food score
-            overall_score = food_analysis.get('overall_food_score', 0.5)
+            # NOTE: Don't use overall_score as default - it creates uniform grids
+            # Instead, use crop-specific quality scores from VERMONT_CROPS dictionary
             
             # Strategy: Sample CDL data at each grid point to create spatial variation
             # This creates a realistic food distribution map
             logger.info(f"   Sampling CDL data at {grid_size * grid_size} grid points...")
             
+            # Use most recent available CDL data (2024 or earlier)
+            # Note: CDL data typically lags 1-2 years behind current year
+            current_year = datetime.now().year
+            cdl_year = min(current_year - 1, 2024)  # Use 2024 or one year behind
+            
+            logger.info(f"   📡 Loading USDA CDL for {cdl_year}...")
             cdl_dataset = ee.ImageCollection('USDA/NASS/CDL').filter(
-                ee.Filter.date(f'{datetime.now().year}-01-01', f'{datetime.now().year}-12-31')
+                ee.Filter.date(f'{cdl_year}-01-01', f'{cdl_year}-12-31')
             ).first()
             
             if cdl_dataset:
+                logger.info(f"   ✅ USDA Cropland Data Layer loaded successfully")
+                logger.info(f"   🌽 Using REAL satellite data for food classification")
                 cdl_image = cdl_dataset.select('cropland')
                 
                 # Sample each grid cell
@@ -648,19 +716,32 @@ class VermontFoodClassifier:
                                 season_quality = crop_data['season_quality']
                                 cell_quality = season_quality.get(season, 0.4)
                                 food_grid[i, j] = cell_quality
+                                
+                                # Log first few successful samples for debugging
+                                if i * grid_size + j < 5:
+                                    crop_name = crop_data['name']
+                                    logger.info(f"      Cell [{i},{j}]: {crop_name} (code {cdl_value}) = {cell_quality:.2f}")
                             else:
-                                # Use overall score for unknown crops
-                                food_grid[i, j] = overall_score * 0.8
+                                # Unknown crop - use moderate score
+                                food_grid[i, j] = 0.45
+                                if i * grid_size + j < 5:
+                                    logger.warning(f"      Cell [{i},{j}]: Unknown crop code {cdl_value}, using 0.45")
                                 
                         except Exception as e:
-                            # If sampling fails, use overall score
-                            food_grid[i, j] = overall_score
+                            # If sampling fails, use moderate score (not overall_score)
+                            food_grid[i, j] = 0.50
+                            if i * grid_size + j < 3:
+                                logger.warning(f"      Cell [{i},{j}] sampling failed: {e}")
                 
                 logger.info(f"   ✅ Spatial food grid created with CDL sampling")
             else:
                 # Fallback: Use overall score with some random variation
-                logger.warning("   CDL data unavailable, using uniform distribution")
-                food_grid = np.ones((grid_size, grid_size)) * overall_score
+                logger.warning("   ⚠️  CDL data unavailable, using FALLBACK MODE")
+                logger.warning("   ⚠️  Food scores will be uniform (not based on real satellite data)")
+                logger.warning("   ⚠️  Fix: Set up Google Earth Engine credentials")
+                logger.warning("   📖 See: FIX_GEE_AUTHENTICATION.md for setup instructions")
+                # Use moderate score with variation (don't rely on overall_score which may be 0.55)
+                food_grid = np.ones((grid_size, grid_size)) * 0.50
                 # Add slight variation to simulate spatial differences
                 food_grid += np.random.uniform(-0.1, 0.1, (grid_size, grid_size))
                 food_grid = np.clip(food_grid, 0.0, 1.0)

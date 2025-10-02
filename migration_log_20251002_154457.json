@@ -1,0 +1,685 @@
+{
+  "timestamp": "2025-10-02T15:44:57.298332",
+  "dry_run": true,
+  "successful": [
+    {
+      "source": "backend\\test_analytics_integration.py",
+      "target": "tests\\integration\\test_analytics_integration.py"
+    },
+    {
+      "source": "backend\\test_api_timeouts.py",
+      "target": "tests\\integration\\test_api_timeouts.py"
+    },
+    {
+      "source": "backend\\test_enhanced_terrain.py",
+      "target": "tests\\unit\\test_enhanced_terrain.py"
+    },
+    {
+      "source": "backend\\test_locations.py",
+      "target": "tests\\unit\\test_locations.py"
+    },
+    {
+      "source": "backend\\test_mature_buck_accuracy.py",
+      "target": "tests\\unit\\test_mature_buck_accuracy.py"
+    },
+    {
+      "source": "backend\\test_ml_integration.py",
+      "target": "tests\\integration\\test_ml_integration.py"
+    },
+    {
+      "source": "backend\\test_proximity_scoring.py",
+      "target": "tests\\unit\\test_proximity_scoring.py"
+    },
+    {
+      "source": "backend\\test_simple.py",
+      "target": "tests\\unit\\test_simple.py"
+    },
+    {
+      "source": "backend\\test_wind_integration.py",
+      "target": "tests\\integration\\test_wind_integration.py"
+    },
+    {
+      "source": "comprehensive_integration_test.py",
+      "target": "tests\\integration\\comprehensive_integration_test.py"
+    },
+    {
+      "source": "comprehensive_validation_test.py",
+      "target": "tests\\integration\\comprehensive_validation_test.py"
+    },
+    {
+      "source": "final_comprehensive_test.py",
+      "target": "tests\\unit\\final_comprehensive_test.py"
+    },
+    {
+      "source": "final_validation_test.py",
+      "target": "tests\\integration\\final_validation_test.py"
+    },
+    {
+      "source": "frontend_validation_test.py",
+      "target": "tests\\unit\\frontend_validation_test.py"
+    },
+    {
+      "source": "quick_docker_test.py",
+      "target": "tests\\integration\\quick_docker_test.py"
+    },
+    {
+      "source": "test_708_scenario.py",
+      "target": "tests\\unit\\test_708_scenario.py"
+    },
+    {
+      "source": "test_approach_bearing_fix.py",
+      "target": "tests\\regression\\test_approach_bearing_fix.py"
+    },
+    {
+      "source": "test_aspect_consistency_fix.py",
+      "target": "tests\\regression\\test_aspect_consistency_fix.py"
+    },
+    {
+      "source": "test_aspect_scoring_bug.py",
+      "target": "tests\\regression\\test_aspect_scoring_bug.py"
+    },
+    {
+      "source": "test_backend_frontend_accuracy.py",
+      "target": "tests\\unit\\test_backend_frontend_accuracy.py"
+    },
+    {
+      "source": "test_biological_accuracy_focused.py",
+      "target": "tests\\integration\\test_biological_accuracy_focused.py"
+    },
+    {
+      "source": "test_brainstorm_enhancements.py",
+      "target": "tests\\integration\\test_brainstorm_enhancements.py"
+    },
+    {
+      "source": "test_complete_frontend_display.py",
+      "target": "tests\\integration\\test_complete_frontend_display.py"
+    },
+    {
+      "source": "test_complete_implementation.py",
+      "target": "tests\\integration\\test_complete_implementation.py"
+    },
+    {
+      "source": "test_coordinate_stability.py",
+      "target": "tests\\unit\\test_coordinate_stability.py"
+    },
+    {
+      "source": "test_data_integrity_fix.py",
+      "target": "tests\\regression\\test_data_integrity_fix.py"
+    },
+    {
+      "source": "test_enhanced_bedding_integration.py",
+      "target": "tests\\integration\\test_enhanced_bedding_integration.py"
+    },
+    {
+      "source": "test_enhanced_bedding_zones.py",
+      "target": "tests\\unit\\test_enhanced_bedding_zones.py"
+    },
+    {
+      "source": "test_enhanced_production.py",
+      "target": "tests\\unit\\test_enhanced_production.py"
+    },
+    {
+      "source": "test_evening_thermal_fix.py",
+      "target": "tests\\unit\\test_evening_thermal_fix.py"
+    },
+    {
+      "source": "test_exact_problem.py",
+      "target": "tests\\unit\\test_exact_problem.py"
+    },
+    {
+      "source": "test_feeding_aspect_fallback.py",
+      "target": "tests\\unit\\test_feeding_aspect_fallback.py"
+    },
+    {
+      "source": "test_field_prototype.py",
+      "target": "tests\\integration\\test_field_prototype.py"
+    },
+    {
+      "source": "test_final_implementation.py",
+      "target": "tests\\unit\\test_final_implementation.py"
+    },
+    {
+      "source": "test_fixed_behavioral_analysis.py",
+      "target": "tests\\regression\\test_fixed_behavioral_analysis.py"
+    },
+    {
+      "source": "test_fixed_prediction_service.py",
+      "target": "tests\\regression\\test_fixed_prediction_service.py"
+    },
+    {
+      "source": "test_frontend_bedding_integration.py",
+      "target": "tests\\unit\\test_frontend_bedding_integration.py"
+    },
+    {
+      "source": "test_frontend_display_validation.py",
+      "target": "tests\\integration\\test_frontend_display_validation.py"
+    },
+    {
+      "source": "test_frontend_fix_verification.py",
+      "target": "tests\\unit\\test_frontend_fix_verification.py"
+    },
+    {
+      "source": "test_frontend_map_coordinates.py",
+      "target": "tests\\unit\\test_frontend_map_coordinates.py"
+    },
+    {
+      "source": "test_frontend_playwright.py",
+      "target": "tests\\e2e\\test_frontend_playwright.py"
+    },
+    {
+      "source": "test_frontend_validation.py",
+      "target": "tests\\integration\\test_frontend_validation.py"
+    },
+    {
+      "source": "test_frontend_wind_fix.py",
+      "target": "tests\\unit\\test_frontend_wind_fix.py"
+    },
+    {
+      "source": "test_future_weather.py",
+      "target": "tests\\unit\\test_future_weather.py"
+    },
+    {
+      "source": "test_hunt_coordinates.py",
+      "target": "tests\\unit\\test_hunt_coordinates.py"
+    },
+    {
+      "source": "test_localhost_time.py",
+      "target": "tests\\unit\\test_localhost_time.py"
+    },
+    {
+      "source": "test_multi_tier_bedding.py",
+      "target": "tests\\unit\\test_multi_tier_bedding.py"
+    },
+    {
+      "source": "test_multiple_bedding_zones.py",
+      "target": "tests\\unit\\test_multiple_bedding_zones.py"
+    },
+    {
+      "source": "test_multiple_locations.py",
+      "target": "tests\\unit\\test_multiple_locations.py"
+    },
+    {
+      "source": "test_new_problem.py",
+      "target": "tests\\unit\\test_new_problem.py"
+    },
+    {
+      "source": "test_new_ui.py",
+      "target": "tests\\unit\\test_new_ui.py"
+    },
+    {
+      "source": "test_open_meteo_structure.py",
+      "target": "tests\\unit\\test_open_meteo_structure.py"
+    },
+    {
+      "source": "test_production_api.py",
+      "target": "tests\\integration\\test_production_api.py"
+    },
+    {
+      "source": "test_production_bedding_integration.py",
+      "target": "tests\\integration\\test_production_bedding_integration.py"
+    },
+    {
+      "source": "test_real_app_bedding.py",
+      "target": "tests\\unit\\test_real_app_bedding.py"
+    },
+    {
+      "source": "test_real_data_integration.py",
+      "target": "tests\\integration\\test_real_data_integration.py"
+    },
+    {
+      "source": "test_real_data_success.py",
+      "target": "tests\\integration\\test_real_data_success.py"
+    },
+    {
+      "source": "test_simple_endpoint.py",
+      "target": "tests\\integration\\test_simple_endpoint.py"
+    },
+    {
+      "source": "test_simplified_frontend_validation.py",
+      "target": "tests\\unit\\test_simplified_frontend_validation.py"
+    },
+    {
+      "source": "test_slope_consistency_detailed.py",
+      "target": "tests\\unit\\test_slope_consistency_detailed.py"
+    },
+    {
+      "source": "test_step_1_1_analyzer.py",
+      "target": "tests\\unit\\test_step_1_1_analyzer.py"
+    },
+    {
+      "source": "test_step_1_2_service.py",
+      "target": "tests\\unit\\test_step_1_2_service.py"
+    },
+    {
+      "source": "test_step_2_1_endpoint.py",
+      "target": "tests\\unit\\test_step_2_1_endpoint.py"
+    },
+    {
+      "source": "test_step_2_1_simple.py",
+      "target": "tests\\unit\\test_step_2_1_simple.py"
+    },
+    {
+      "source": "test_step_3_1_wind_component.py",
+      "target": "tests\\unit\\test_step_3_1_wind_component.py"
+    },
+    {
+      "source": "test_step_3_2_thermal_component.py",
+      "target": "tests\\integration\\test_step_3_2_thermal_component.py"
+    },
+    {
+      "source": "test_step_4_1_container.py",
+      "target": "tests\\integration\\test_step_4_1_container.py"
+    },
+    {
+      "source": "test_step_5_1_integration.py",
+      "target": "tests\\integration\\test_step_5_1_integration.py"
+    },
+    {
+      "source": "test_step_5_2_implementation.py",
+      "target": "tests\\unit\\test_step_5_2_implementation.py"
+    },
+    {
+      "source": "test_symmetrical_fallback.py",
+      "target": "tests\\unit\\test_symmetrical_fallback.py"
+    },
+    {
+      "source": "test_threshold_fix_simple.py",
+      "target": "tests\\regression\\test_threshold_fix_simple.py"
+    },
+    {
+      "source": "test_time_bug.py",
+      "target": "tests\\regression\\test_time_bug.py"
+    },
+    {
+      "source": "test_time_context_analysis.py",
+      "target": "tests\\unit\\test_time_context_analysis.py"
+    },
+    {
+      "source": "test_time_periods.py",
+      "target": "tests\\unit\\test_time_periods.py"
+    },
+    {
+      "source": "test_tinmouth_bedding_fix.py",
+      "target": "tests\\unit\\test_tinmouth_bedding_fix.py"
+    },
+    {
+      "source": "test_west_facing_disqualification.py",
+      "target": "tests\\unit\\test_west_facing_disqualification.py"
+    },
+    {
+      "source": "tinmouth_diagnostic_test.py",
+      "target": "tests\\unit\\tinmouth_diagnostic_test.py"
+    }
+  ],
+  "failed": [],
+  "skipped": [
+    {
+      "file": "archive\\tests\\button_positioning_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\comprehensive_final_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\comprehensive_system_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\confidence_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\frontend_display_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\location_variation_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\marker_accuracy_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\mature_buck_display_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\quick_deployment_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\single_debug_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\terrain_scores_test.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_access_protection.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_api_import.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_api_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_api_ml.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_camera_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_camera_placement.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_complete_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_comprehensive_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_comprehensive_terrain_scores.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_configuration_management.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_deer_approach_fix.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_deer_approach_unit_tests.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_detailed_import.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_direct_mature_buck.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_distance_fix.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_mature_buck.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_ndvi.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_predictions.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_scoring_path.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_stand_analysis.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_terrain_scores.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_final_comprehensive.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_fixed_satellite.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_frontend_fix.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_frontend_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_frontend_mature_buck.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_gee_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_gee_minimal.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_gpx_import.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_heatmap_display.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_heatmap_scores.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_hunting_hours.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_improved_ndvi.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_location_variations.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_map_consistency.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_map_fix.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_marker_positions.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_data.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_movement.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_mcp_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_multiple_locations.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_password_protection.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_prediction_logic.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_pressure_calculations.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_real_gpx.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_real_osm_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_remote_mature_buck.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_road_calculations.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_scouting_api.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_simple_map_change.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_simple_variations.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_single_mature_buck.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_terrain_scores_api.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_thermal_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_trail_cameras.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "archive\\tests\\test_vermont_oak_flats.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_config_manager.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_core.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_distance_scorer.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_framework.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_main.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_scouting_data_manager.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "backend\\tests\\test_scouting_prediction_enhancer.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_improved_ndvi.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\e2e\\test_complete_system.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\fixtures\\test_data.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\integration\\test_api_endpoints.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\integration\\test_docker_health.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\integration\\test_refactored_architecture.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\test_frontend_validation.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\test_hunt_window_predictor.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\test_scouting_data_contract.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\test_scouting_import_endpoint.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\unit\\test_camera_placement.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\unit\\test_camera_service.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\unit\\test_configuration_service.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\unit\\test_gee_data_validation.py",
+      "reason": "Already organized or archived"
+    },
+    {
+      "file": "tests\\unit\\test_mature_buck.py",
+      "reason": "Already organized or archived"
+    }
+  ]
+}

@@ -1,18 +1,18 @@
 {
-  "timestamp": "2025-08-26T21:40:24.298167",
+  "timestamp": "2025-10-02T16:52:13.470084",
   "enhancement_score": 0.8,
   "validation_results": {
     "gee_enhanced": true,
     "midday_logic_enhanced": true,
     "wind_trend_enhanced": true,
-    "overall_confidence": 0.9874999999999999,
+    "overall_confidence": 0.9339478250000001,
     "frontend_interactivity": 0.5,
     "bedding_zones_enhanced": true
   },
   "performance_metrics": {
-    "gee_query_time": 0.9905791282653809,
-    "weather_query_time": 0.4972536563873291,
-    "total_integration_time": 1.7209851741790771
+    "gee_query_time": 0.7205097675323486,
+    "weather_query_time": 0.4080827236175537,
+    "total_integration_time": 4.670238733291626
   },
   "recommendation_status": "PARTIAL"
 }

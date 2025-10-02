@@ -1720,6 +1720,45 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             # Return results with enhanced metadata
             if suitable_sites:
+                # 🦌 CRITICAL BIOLOGICAL VALIDATION: Enforce strict south-facing requirement for bedding
+                if require_south_facing:
+                    logger.info(f"🔍 BIOLOGICAL VALIDATION: Enforcing south-facing aspect requirement (135°-225°)")
+                    validated_sites = []
+                    
+                    for site in suitable_sites:
+                        aspect = site["properties"]["aspect"]
+                        
+                        # Strict enforcement: Only accept south-facing aspects (135-225°)
+                        if 135 <= aspect <= 225:
+                            validated_sites.append(site)
+                            logger.debug(f"   ✅ Site validated: aspect {aspect:.0f}° (south-facing)")
+                        else:
+                            logger.warning(f"   🚫 Site rejected: aspect {aspect:.0f}° not south-facing")
+                            logger.warning(f"      Reason: Mature bucks require south-facing slopes for thermal advantage")
+                    
+                    # Update suitable_sites with only validated sites
+                    if not validated_sites:
+                        logger.warning(f"🚫 BIOLOGICAL VALIDATION FAILED: No truly south-facing alternatives found")
+                        logger.warning(f"   Found {len(suitable_sites)} sites, but none met south-facing requirement (135°-225°)")
+                        return {
+                            "type": "FeatureCollection",
+                            "features": [],
+                            "properties": {
+                                "marker_type": "bedding",
+                                "total_features": 0,
+                                "generated_at": datetime.now().isoformat(),
+                                "search_method": "alternative_site_search_with_validation",
+                                "validation_failure": "no_south_facing_alternatives",
+                                "sites_found": len(suitable_sites),
+                                "sites_validated": 0,
+                                "biological_note": "Alternative sites found but rejected due to non-south-facing aspects",
+                                "enhancement_version": "v2.1-strict-aspect-validation"
+                            }
+                        }
+                    
+                    suitable_sites = validated_sites
+                    logger.info(f"✅ BIOLOGICAL VALIDATION PASSED: {len(validated_sites)} of {len(suitable_sites)} sites validated")
+                
                 logger.info(f"🎯 ENHANCED FALLBACK SUCCESS: Found {len(suitable_sites)} alternative bedding sites for mature buck movement patterns")
                 
                 # Log bedding zone diversity for biological validation

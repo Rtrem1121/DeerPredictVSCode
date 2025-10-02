@@ -24,7 +24,7 @@ backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
 # Import analytics components
-from analytics import (
+from backend.analytics import (
     get_analytics_collector, 
     get_performance_monitor,
     record_prediction_analytics,
@@ -34,7 +34,7 @@ from analytics import (
 )
 
 # Import existing system components
-from config_manager import get_config
+from backend.config_manager import get_config
 
 # Import core system (simplified for testing)
 import importlib.util

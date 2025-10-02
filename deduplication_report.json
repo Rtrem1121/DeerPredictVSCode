@@ -1,0 +1,288 @@
+{
+  "timestamp": "2025-10-02",
+  "total_duplicate_groups": 10,
+  "files_to_keep": 10,
+  "files_to_archive": 11,
+  "recommendations": [
+    {
+      "test_name": "test_enhanced_predictions",
+      "total_files": 3,
+      "recommended_keep": "archive\\tests\\test_gee_integration.py",
+      "recommended_archive": [
+        "archive\\tests\\comprehensive_system_test.py",
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_gee_integration.py",
+          "score": 110,
+          "test_count": 3,
+          "location": "organized_other",
+          "category": "integration"
+        },
+        {
+          "file": "archive\\tests\\comprehensive_system_test.py",
+          "score": 95,
+          "test_count": 5,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+          "score": 40,
+          "test_count": 3,
+          "location": "archived",
+          "category": "integration"
+        }
+      ]
+    },
+    {
+      "test_name": "test_frontend_integration",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\comprehensive_system_test.py",
+      "recommended_archive": [
+        "archive\\tests\\test_frontend_integration.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\comprehensive_system_test.py",
+          "score": 95,
+          "test_count": 5,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "archive\\tests\\test_frontend_integration.py",
+          "score": 85,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "frontend"
+        }
+      ]
+    },
+    {
+      "test_name": "test_multiple_locations",
+      "total_files": 6,
+      "recommended_keep": "tests\\integration\\test_api_endpoints.py",
+      "recommended_archive": [
+        "tests\\unit\\test_camera_placement.py",
+        "archive\\tests\\test_camera_placement.py",
+        "archive\\tests\\test_marker_positions.py",
+        "archive\\tests\\test_multiple_locations.py",
+        "test_multiple_locations.py"
+      ],
+      "scores": [
+        {
+          "file": "tests\\integration\\test_api_endpoints.py",
+          "score": 120,
+          "test_count": 16,
+          "location": "organized_integration",
+          "category": "backend"
+        },
+        {
+          "file": "tests\\unit\\test_camera_placement.py",
+          "score": 110,
+          "test_count": 14,
+          "location": "organized_unit",
+          "category": "camera_placement"
+        },
+        {
+          "file": "archive\\tests\\test_camera_placement.py",
+          "score": 75,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "camera_placement"
+        },
+        {
+          "file": "archive\\tests\\test_marker_positions.py",
+          "score": 75,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "archive\\tests\\test_multiple_locations.py",
+          "score": 75,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "test_multiple_locations.py",
+          "score": 25,
+          "test_count": 1,
+          "location": "root_scattered",
+          "category": "other"
+        }
+      ]
+    },
+    {
+      "test_name": "test_mature_buck_integration",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_configuration_management.py",
+      "recommended_archive": [
+        "archive\\tests\\test_mature_buck_integration.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_configuration_management.py",
+          "score": 100,
+          "test_count": 6,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "archive\\tests\\test_mature_buck_integration.py",
+          "score": 85,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "integration"
+        }
+      ]
+    },
+    {
+      "test_name": "test_gee_authentication",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_gee_integration.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_gee_integration.py",
+          "score": 110,
+          "test_count": 3,
+          "location": "organized_other",
+          "category": "integration"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+          "score": 40,
+          "test_count": 3,
+          "location": "archived",
+          "category": "integration"
+        }
+      ]
+    },
+    {
+      "test_name": "test_real_vegetation_analysis",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_gee_integration.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_gee_integration.py",
+          "score": 110,
+          "test_count": 3,
+          "location": "organized_other",
+          "category": "integration"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+          "score": 40,
+          "test_count": 3,
+          "location": "archived",
+          "category": "integration"
+        }
+      ]
+    },
+    {
+      "test_name": "test_improved_ndvi",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_improved_ndvi.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_improved_ndvi.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_improved_ndvi.py",
+          "score": 75,
+          "test_count": 1,
+          "location": "organized_other",
+          "category": "other"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_improved_ndvi.py",
+          "score": 5,
+          "test_count": 1,
+          "location": "archived",
+          "category": "other"
+        }
+      ]
+    },
+    {
+      "test_name": "test_movement_prediction_initialization",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_mature_buck_movement.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_mature_buck_movement.py",
+          "score": 100,
+          "test_count": 7,
+          "location": "organized_other",
+          "category": "mature_buck"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+          "score": 30,
+          "test_count": 7,
+          "location": "archived",
+          "category": "mature_buck"
+        }
+      ]
+    },
+    {
+      "test_name": "test_early_season_patterns",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_mature_buck_movement.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_mature_buck_movement.py",
+          "score": 100,
+          "test_count": 7,
+          "location": "organized_other",
+          "category": "mature_buck"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+          "score": 30,
+          "test_count": 7,
+          "location": "archived",
+          "category": "mature_buck"
+        }
+      ]
+    },
+    {
+      "test_name": "test_rut_season_patterns",
+      "total_files": 2,
+      "recommended_keep": "archive\\tests\\test_mature_buck_movement.py",
+      "recommended_archive": [
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ],
+      "scores": [
+        {
+          "file": "archive\\tests\\test_mature_buck_movement.py",
+          "score": 100,
+          "test_count": 7,
+          "location": "organized_other",
+          "category": "mature_buck"
+        },
+        {
+          "file": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+          "score": 30,
+          "test_count": 7,
+          "location": "archived",
+          "category": "mature_buck"
+        }
+      ]
+    }
+  ]
+}

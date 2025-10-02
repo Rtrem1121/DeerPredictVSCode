@@ -17,6 +17,9 @@ scipy
 networkx
 pytest
 pytest-asyncio
+pytest-cov>=4.1.0
+pytest-xdist>=3.5.0
+pytest-timeout>=2.5.0
 httpx
 aiohttp
 selenium

@@ -11,8 +11,8 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, List
-import mature_buck_predictor
-import scoring_engine
+import backend.mature_buck_predictor as mature_buck_predictor
+import backend.scoring_engine as scoring_engine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -234,7 +234,7 @@ def identify_optimization_opportunities():
     
     # Check configuration optimization
     try:
-        from config_manager import get_config
+        from backend.config_manager import get_config
         config = get_config()
         print("✅ Configuration Management: Active")
         

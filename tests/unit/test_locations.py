@@ -8,10 +8,10 @@ import logging
 from datetime import datetime
 from typing import Dict, Any
 
-from mature_buck_predictor import get_mature_buck_predictor
-from terrain_analyzer import get_terrain_analyzer
-from scoring_engine import get_scoring_engine, ScoringContext
-from config_manager import get_config
+from backend.mature_buck_predictor import get_mature_buck_predictor
+from backend.terrain_analyzer import get_terrain_analyzer
+from backend.scoring_engine import get_scoring_engine, ScoringContext
+from backend.config_manager import get_config
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

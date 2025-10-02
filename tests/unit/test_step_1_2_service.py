@@ -111,7 +111,7 @@ sys.modules['backend.analysis.wind_thermal_analyzer'] = Mock()
 sys.modules['backend.analysis.wind_thermal_analyzer'].get_wind_thermal_analyzer = lambda: MockWindAnalyzer()
 
 # Now import our modules
-from prediction_analyzer import PredictionAnalyzer
+from backend.analysis.prediction_analyzer import PredictionAnalyzer
 
 # Mock the prediction service by creating a minimal version
 class TestPredictionService:

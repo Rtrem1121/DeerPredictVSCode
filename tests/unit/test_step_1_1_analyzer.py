@@ -12,7 +12,7 @@ import os
 # Add the specific path for the analyzer module
 sys.path.insert(0, '/Users/richardtremblay/DeerPredictVSCode/backend/analysis')
 
-from prediction_analyzer import PredictionAnalyzer, create_prediction_analyzer
+from backend.analysis.prediction_analyzer import PredictionAnalyzer, create_prediction_analyzer
 
 def test_analyzer_initialization():
     """Test that analyzer initializes correctly"""

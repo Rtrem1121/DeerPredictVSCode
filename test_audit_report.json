@@ -1,0 +1,5387 @@
+{
+  "summary": {
+    "total_files": 169,
+    "total_test_cases": 466,
+    "organized_files": 9,
+    "scattered_files": 77,
+    "archived_files": 3
+  },
+  "by_location": {
+    "organized_other": 79,
+    "backend_scattered": 9,
+    "root_scattered": 68,
+    "archived": 3,
+    "organized_e2e": 1,
+    "organized_fixtures": 1,
+    "organized_integration": 3,
+    "organized_unit": 5,
+    "backend_organized": 0
+  },
+  "by_category": {
+    "other": 75,
+    "frontend": 19,
+    "validation": 4,
+    "mature_buck": 10,
+    "bugfix": 12,
+    "backend": 11,
+    "integration": 18,
+    "camera_placement": 4,
+    "gee_data": 3,
+    "scouting": 3,
+    "bedding_zones": 5,
+    "wind_thermal": 5
+  },
+  "by_type": {
+    "integration": 23,
+    "unknown": 112,
+    "unit": 32,
+    "e2e": 2
+  },
+  "duplicates": {
+    "count": 20,
+    "examples": {
+      "test_enhanced_predictions": [
+        "archive\\tests\\comprehensive_system_test.py",
+        "archive\\tests\\test_gee_integration.py",
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "test_frontend_integration": [
+        "archive\\tests\\comprehensive_system_test.py",
+        "archive\\tests\\test_frontend_integration.py"
+      ],
+      "test_multiple_locations": [
+        "archive\\tests\\test_camera_placement.py",
+        "archive\\tests\\test_marker_positions.py",
+        "archive\\tests\\test_multiple_locations.py",
+        "test_multiple_locations.py",
+        "tests\\integration\\test_api_endpoints.py",
+        "tests\\unit\\test_camera_placement.py"
+      ],
+      "test_mature_buck_integration": [
+        "archive\\tests\\test_configuration_management.py",
+        "archive\\tests\\test_mature_buck_integration.py"
+      ],
+      "test_gee_authentication": [
+        "archive\\tests\\test_gee_integration.py",
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "test_real_vegetation_analysis": [
+        "archive\\tests\\test_gee_integration.py",
+        "dead_code_backups\\20250826_075437\\test_gee_integration.py"
+      ],
+      "test_improved_ndvi": [
+        "archive\\tests\\test_improved_ndvi.py",
+        "dead_code_backups\\20250826_075437\\test_improved_ndvi.py"
+      ],
+      "test_movement_prediction_initialization": [
+        "archive\\tests\\test_mature_buck_movement.py",
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ],
+      "test_early_season_patterns": [
+        "archive\\tests\\test_mature_buck_movement.py",
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ],
+      "test_rut_season_patterns": [
+        "archive\\tests\\test_mature_buck_movement.py",
+        "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py"
+      ]
+    }
+  },
+  "migration_priority": [
+    {
+      "file": "test_step_5_1_integration.py",
+      "score": 95,
+      "location": "root_scattered",
+      "category": "integration",
+      "test_count": 7
+    },
+    {
+      "file": "test_biological_accuracy_focused.py",
+      "score": 90,
+      "location": "root_scattered",
+      "category": "validation",
+      "test_count": 5
+    },
+    {
+      "file": "test_backend_frontend_accuracy.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 8
+    },
+    {
+      "file": "test_complete_implementation.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 8
+    },
+    {
+      "file": "test_real_data_integration.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "integration",
+      "test_count": 3
+    },
+    {
+      "file": "test_step_2_1_endpoint.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "backend",
+      "test_count": 6
+    },
+    {
+      "file": "test_step_3_1_wind_component.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "wind_thermal",
+      "test_count": 6
+    },
+    {
+      "file": "test_step_3_2_thermal_component.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "wind_thermal",
+      "test_count": 7
+    },
+    {
+      "file": "test_step_4_1_container.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 7
+    },
+    {
+      "file": "test_step_5_2_implementation.py",
+      "score": 80,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 8
+    },
+    {
+      "file": "test_enhanced_bedding_zones.py",
+      "score": 75,
+      "location": "root_scattered",
+      "category": "bedding_zones",
+      "test_count": 2
+    },
+    {
+      "file": "test_step_1_1_analyzer.py",
+      "score": 75,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 5
+    },
+    {
+      "file": "test_step_2_1_simple.py",
+      "score": 75,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 5
+    },
+    {
+      "file": "test_multi_tier_bedding.py",
+      "score": 70,
+      "location": "root_scattered",
+      "category": "bedding_zones",
+      "test_count": 1
+    },
+    {
+      "file": "test_multiple_bedding_zones.py",
+      "score": 70,
+      "location": "root_scattered",
+      "category": "bedding_zones",
+      "test_count": 1
+    },
+    {
+      "file": "test_production_bedding_integration.py",
+      "score": 70,
+      "location": "root_scattered",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "test_real_app_bedding.py",
+      "score": 70,
+      "location": "root_scattered",
+      "category": "bedding_zones",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\test_ml_integration.py",
+      "score": 65,
+      "location": "backend_scattered",
+      "category": "integration",
+      "test_count": 4
+    },
+    {
+      "file": "comprehensive_integration_test.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "integration",
+      "test_count": 0
+    },
+    {
+      "file": "comprehensive_validation_test.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "validation",
+      "test_count": 0
+    },
+    {
+      "file": "final_validation_test.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "validation",
+      "test_count": 0
+    },
+    {
+      "file": "test_brainstorm_enhancements.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 3
+    },
+    {
+      "file": "test_enhanced_bedding_integration.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "integration",
+      "test_count": 0
+    },
+    {
+      "file": "test_time_context_analysis.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 3
+    },
+    {
+      "file": "test_tinmouth_bedding_fix.py",
+      "score": 65,
+      "location": "root_scattered",
+      "category": "bedding_zones",
+      "test_count": 0
+    },
+    {
+      "file": "frontend_validation_test.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 2
+    },
+    {
+      "file": "quick_docker_test.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 2
+    },
+    {
+      "file": "test_708_scenario.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "test_enhanced_production.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "test_field_prototype.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "test_fixed_prediction_service.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 2
+    },
+    {
+      "file": "test_frontend_playwright.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 0
+    },
+    {
+      "file": "test_simplified_frontend_validation.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 0
+    },
+    {
+      "file": "test_time_periods.py",
+      "score": 60,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "test_approach_bearing_fix.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_aspect_consistency_fix.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_aspect_scoring_bug.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_complete_frontend_display.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_coordinate_stability.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_data_integrity_fix.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_evening_thermal_fix.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "wind_thermal",
+      "test_count": 1
+    },
+    {
+      "file": "test_exact_problem.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_feeding_aspect_fallback.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_final_implementation.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_fixed_behavioral_analysis.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_frontend_bedding_integration.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_frontend_display_validation.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_frontend_map_coordinates.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_frontend_wind_fix.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_future_weather.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "wind_thermal",
+      "test_count": 1
+    },
+    {
+      "file": "test_hunt_coordinates.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_localhost_time.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_multiple_locations.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_new_problem.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_new_ui.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "test_open_meteo_structure.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_production_api.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "test_real_data_success.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_simple_endpoint.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "test_slope_consistency_detailed.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_step_1_2_service.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_symmetrical_fallback.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "test_threshold_fix_simple.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_time_bug.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "test_west_facing_disqualification.py",
+      "score": 55,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\test_analytics_integration.py",
+      "score": 50,
+      "location": "backend_scattered",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\test_wind_integration.py",
+      "score": 50,
+      "location": "backend_scattered",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "final_comprehensive_test.py",
+      "score": 50,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "test_frontend_fix_verification.py",
+      "score": 50,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 0
+    },
+    {
+      "file": "test_frontend_validation.py",
+      "score": 50,
+      "location": "root_scattered",
+      "category": "frontend",
+      "test_count": 0
+    },
+    {
+      "file": "tinmouth_diagnostic_test.py",
+      "score": 50,
+      "location": "root_scattered",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "backend\\test_api_timeouts.py",
+      "score": 45,
+      "location": "backend_scattered",
+      "category": "backend",
+      "test_count": 3
+    },
+    {
+      "file": "backend\\test_mature_buck_accuracy.py",
+      "score": 45,
+      "location": "backend_scattered",
+      "category": "mature_buck",
+      "test_count": 3
+    },
+    {
+      "file": "backend\\test_enhanced_terrain.py",
+      "score": 35,
+      "location": "backend_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\test_proximity_scoring.py",
+      "score": 35,
+      "location": "backend_scattered",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\test_locations.py",
+      "score": 30,
+      "location": "backend_scattered",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "backend\\test_simple.py",
+      "score": 30,
+      "location": "backend_scattered",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "tests\\integration\\test_docker_health.py",
+      "score": 5,
+      "location": "organized_integration",
+      "category": "integration",
+      "test_count": 10
+    },
+    {
+      "file": "tests\\unit\\test_gee_data_validation.py",
+      "score": 5,
+      "location": "organized_unit",
+      "category": "gee_data",
+      "test_count": 9
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_movement.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 7
+    },
+    {
+      "file": "backend\\tests\\test_core.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 14
+    },
+    {
+      "file": "backend\\tests\\test_distance_scorer.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 8
+    },
+    {
+      "file": "backend\\tests\\test_framework.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 33
+    },
+    {
+      "file": "backend\\tests\\test_main.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 9
+    },
+    {
+      "file": "backend\\tests\\test_scouting_data_manager.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "scouting",
+      "test_count": 16
+    },
+    {
+      "file": "backend\\tests\\test_scouting_prediction_enhancer.py",
+      "score": -10,
+      "location": "organized_other",
+      "category": "scouting",
+      "test_count": 10
+    },
+    {
+      "file": "tests\\e2e\\test_complete_system.py",
+      "score": -10,
+      "location": "organized_e2e",
+      "category": "other",
+      "test_count": 11
+    },
+    {
+      "file": "tests\\integration\\test_api_endpoints.py",
+      "score": -10,
+      "location": "organized_integration",
+      "category": "backend",
+      "test_count": 16
+    },
+    {
+      "file": "tests\\integration\\test_refactored_architecture.py",
+      "score": -10,
+      "location": "organized_integration",
+      "category": "other",
+      "test_count": 15
+    },
+    {
+      "file": "tests\\unit\\test_camera_placement.py",
+      "score": -10,
+      "location": "organized_unit",
+      "category": "camera_placement",
+      "test_count": 14
+    },
+    {
+      "file": "tests\\unit\\test_camera_service.py",
+      "score": -10,
+      "location": "organized_unit",
+      "category": "camera_placement",
+      "test_count": 14
+    },
+    {
+      "file": "tests\\unit\\test_configuration_service.py",
+      "score": -10,
+      "location": "organized_unit",
+      "category": "other",
+      "test_count": 11
+    },
+    {
+      "file": "tests\\unit\\test_mature_buck.py",
+      "score": -10,
+      "location": "organized_unit",
+      "category": "mature_buck",
+      "test_count": 16
+    },
+    {
+      "file": "archive\\tests\\test_gee_minimal.py",
+      "score": -15,
+      "location": "organized_other",
+      "category": "gee_data",
+      "test_count": 4
+    },
+    {
+      "file": "archive\\tests\\test_comprehensive_integration.py",
+      "score": -20,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 3
+    },
+    {
+      "file": "archive\\tests\\test_configuration_management.py",
+      "score": -20,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 6
+    },
+    {
+      "file": "archive\\tests\\test_gee_integration.py",
+      "score": -20,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 3
+    },
+    {
+      "file": "archive\\tests\\comprehensive_system_test.py",
+      "score": -25,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 5
+    },
+    {
+      "file": "archive\\tests\\test_deer_approach_unit_tests.py",
+      "score": -25,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 5
+    },
+    {
+      "file": "archive\\tests\\test_mcp_integration.py",
+      "score": -25,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_real_osm_integration.py",
+      "score": -25,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 2
+    },
+    {
+      "file": "tests\\test_scouting_data_contract.py",
+      "score": -25,
+      "location": "organized_other",
+      "category": "scouting",
+      "test_count": 3
+    },
+    {
+      "file": "archive\\tests\\marker_accuracy_test.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "validation",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_camera_integration.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_complete_integration.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_fixed_satellite.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "gee_data",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_integration.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_thermal_integration.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "integration",
+      "test_count": 1
+    },
+    {
+      "file": "backend\\tests\\test_config_manager.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "tests\\test_scouting_import_endpoint.py",
+      "score": -30,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_api_ml.py",
+      "score": -35,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 3
+    },
+    {
+      "file": "archive\\tests\\frontend_display_test.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\mature_buck_display_test.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_terrain_scores.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_heatmap_display.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_hunting_hours.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 2
+    },
+    {
+      "file": "archive\\tests\\test_map_fix.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "bugfix",
+      "test_count": 2
+    },
+    {
+      "file": "tests\\test_frontend_validation.py",
+      "score": -40,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\confidence_test.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\location_variation_test.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\quick_deployment_test.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\terrain_scores_test.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_access_protection.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_api_import.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_api_integration.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_camera_placement.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "camera_placement",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_comprehensive_terrain_scores.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_deer_approach_fix.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_detailed_import.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_direct_mature_buck.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_distance_fix.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "bugfix",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_mature_buck.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_scoring_path.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_stand_analysis.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_final_comprehensive.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_frontend_fix.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_frontend_integration.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_frontend_mature_buck.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "frontend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_gpx_import.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_heatmap_scores.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_improved_ndvi.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_location_variations.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_map_consistency.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_marker_positions.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_multiple_locations.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_prediction_logic.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_real_gpx.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_remote_mature_buck.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_road_calculations.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_scouting_api.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_simple_map_change.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_simple_variations.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_single_mature_buck.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_terrain_scores_api.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "backend",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\test_vermont_oak_flats.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 1
+    },
+    {
+      "file": "tests\\test_hunt_window_predictor.py",
+      "score": -45,
+      "location": "organized_other",
+      "category": "wind_thermal",
+      "test_count": 1
+    },
+    {
+      "file": "archive\\tests\\button_positioning_test.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\comprehensive_final_test.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\single_debug_test.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "bugfix",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_ndvi.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_enhanced_predictions.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_mature_buck_data.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "mature_buck",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_password_protection.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_pressure_calculations.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "archive\\tests\\test_trail_cameras.py",
+      "score": -50,
+      "location": "organized_other",
+      "category": "camera_placement",
+      "test_count": 0
+    },
+    {
+      "file": "tests\\fixtures\\test_data.py",
+      "score": -50,
+      "location": "organized_fixtures",
+      "category": "other",
+      "test_count": 0
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+      "score": -60,
+      "location": "archived",
+      "category": "mature_buck",
+      "test_count": 7
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+      "score": -70,
+      "location": "archived",
+      "category": "integration",
+      "test_count": 3
+    },
+    {
+      "file": "dead_code_backups\\20250826_075437\\test_improved_ndvi.py",
+      "score": -95,
+      "location": "archived",
+      "category": "other",
+      "test_count": 1
+    }
+  ],
+  "files": [
+    {
+      "path": "archive\\tests\\button_positioning_test.py",
+      "relative_path": "archive\\tests\\button_positioning_test.py",
+      "name": "button_positioning_test.py",
+      "size": 2235,
+      "lines": 51,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\comprehensive_final_test.py",
+      "relative_path": "archive\\tests\\comprehensive_final_test.py",
+      "name": "comprehensive_final_test.py",
+      "size": 0,
+      "lines": 0,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\comprehensive_system_test.py",
+      "relative_path": "archive\\tests\\comprehensive_system_test.py",
+      "name": "comprehensive_system_test.py",
+      "size": 15535,
+      "lines": 368,
+      "test_functions": [
+        "test_health_endpoints",
+        "test_satellite_data",
+        "test_prediction_engine",
+        "test_enhanced_predictions",
+        "test_frontend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 5,
+      "imports": [
+        "requests",
+        "json",
+        "time",
+        "datetime",
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\confidence_test.py",
+      "relative_path": "archive\\tests\\confidence_test.py",
+      "name": "confidence_test.py",
+      "size": 2599,
+      "lines": 68,
+      "test_functions": [
+        "test_confidence_scores"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\frontend_display_test.py",
+      "relative_path": "archive\\tests\\frontend_display_test.py",
+      "name": "frontend_display_test.py",
+      "size": 10611,
+      "lines": 235,
+      "test_functions": [
+        "test_backend_prediction",
+        "test_frontend_accessibility"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json",
+        "time",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "archive\\tests\\location_variation_test.py",
+      "relative_path": "archive\\tests\\location_variation_test.py",
+      "name": "location_variation_test.py",
+      "size": 4017,
+      "lines": 104,
+      "test_functions": [
+        "test_location_variations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\marker_accuracy_test.py",
+      "relative_path": "archive\\tests\\marker_accuracy_test.py",
+      "name": "marker_accuracy_test.py",
+      "size": 5135,
+      "lines": 111,
+      "test_functions": [
+        "test_marker_accuracy"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "validation"
+    },
+    {
+      "path": "archive\\tests\\mature_buck_display_test.py",
+      "relative_path": "archive\\tests\\mature_buck_display_test.py",
+      "name": "mature_buck_display_test.py",
+      "size": 7170,
+      "lines": 172,
+      "test_functions": [
+        "test_mature_buck_display",
+        "test_frontend_no_errors"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\quick_deployment_test.py",
+      "relative_path": "archive\\tests\\quick_deployment_test.py",
+      "name": "quick_deployment_test.py",
+      "size": 5843,
+      "lines": 145,
+      "test_functions": [
+        "test_deployment_readiness"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "archive\\tests\\single_debug_test.py",
+      "relative_path": "archive\\tests\\single_debug_test.py",
+      "name": "single_debug_test.py",
+      "size": 1388,
+      "lines": 42,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "requests"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "archive\\tests\\terrain_scores_test.py",
+      "relative_path": "archive\\tests\\terrain_scores_test.py",
+      "name": "terrain_scores_test.py",
+      "size": 2884,
+      "lines": 65,
+      "test_functions": [
+        "test_real_terrain_scores"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_access_protection.py",
+      "relative_path": "archive\\tests\\test_access_protection.py",
+      "name": "test_access_protection.py",
+      "size": 1444,
+      "lines": 43,
+      "test_functions": [
+        "test_access_protection"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "sys"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_api_import.py",
+      "relative_path": "archive\\tests\\test_api_import.py",
+      "name": "test_api_import.py",
+      "size": 1230,
+      "lines": 35,
+      "test_functions": [
+        "test_api_import"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "archive\\tests\\test_api_integration.py",
+      "relative_path": "archive\\tests\\test_api_integration.py",
+      "name": "test_api_integration.py",
+      "size": 3580,
+      "lines": 88,
+      "test_functions": [
+        "test_main_api_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "main",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "archive\\tests\\test_api_ml.py",
+      "relative_path": "archive\\tests\\test_api_ml.py",
+      "name": "test_api_ml.py",
+      "size": 7391,
+      "lines": 216,
+      "test_functions": [
+        "test_api_health",
+        "test_ml_enhanced_prediction",
+        "test_standard_prediction"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "requests",
+        "json",
+        "time",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "archive\\tests\\test_camera_integration.py",
+      "relative_path": "archive\\tests\\test_camera_integration.py",
+      "name": "test_camera_integration.py",
+      "size": 4824,
+      "lines": 119,
+      "test_functions": [
+        "test_camera_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_camera_placement.py",
+      "relative_path": "archive\\tests\\test_camera_placement.py",
+      "name": "test_camera_placement.py",
+      "size": 1879,
+      "lines": 50,
+      "test_functions": [
+        "test_multiple_locations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "advanced_camera_placement"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "camera_placement"
+    },
+    {
+      "path": "archive\\tests\\test_complete_integration.py",
+      "relative_path": "archive\\tests\\test_complete_integration.py",
+      "name": "test_complete_integration.py",
+      "size": 7281,
+      "lines": 167,
+      "test_functions": [
+        "test_complete_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_comprehensive_integration.py",
+      "relative_path": "archive\\tests\\test_comprehensive_integration.py",
+      "name": "test_comprehensive_integration.py",
+      "size": 8708,
+      "lines": 248,
+      "test_functions": [
+        "test_end_to_end_prediction",
+        "test_cross_component_data_flow",
+        "test_error_handling_integration"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "sys",
+        "os",
+        "pathlib",
+        "logging",
+        "typing",
+        "time",
+        "backend.config_manager",
+        "backend.mature_buck_predictor",
+        "backend.scoring_engine",
+        "backend.terrain_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_comprehensive_terrain_scores.py",
+      "relative_path": "archive\\tests\\test_comprehensive_terrain_scores.py",
+      "name": "test_comprehensive_terrain_scores.py",
+      "size": 9199,
+      "lines": 240,
+      "test_functions": [
+        "test_specific_location_calculation"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_configuration_management.py",
+      "relative_path": "archive\\tests\\test_configuration_management.py",
+      "name": "test_configuration_management.py",
+      "size": 7912,
+      "lines": 202,
+      "test_functions": [
+        "test_configuration_loading",
+        "test_mature_buck_integration",
+        "test_scoring_engine_integration",
+        "test_distance_scorer_integration",
+        "test_configuration_validation",
+        "test_configuration_updates"
+      ],
+      "test_classes": [],
+      "test_count": 6,
+      "imports": [
+        "sys",
+        "os",
+        "backend.config_manager",
+        "backend.mature_buck_predictor",
+        "backend.scoring_engine",
+        "backend.distance_scorer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_deer_approach_fix.py",
+      "relative_path": "archive\\tests\\test_deer_approach_fix.py",
+      "name": "test_deer_approach_fix.py",
+      "size": 10301,
+      "lines": 245,
+      "test_functions": [
+        "test_deer_approach_calculations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "math",
+        "typing"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "archive\\tests\\test_deer_approach_unit_tests.py",
+      "relative_path": "archive\\tests\\test_deer_approach_unit_tests.py",
+      "name": "test_deer_approach_unit_tests.py",
+      "size": 6359,
+      "lines": 149,
+      "test_functions": [
+        "test_no_more_hardcoded_se_default",
+        "test_bedding_zone_calculation_takes_priority",
+        "test_stand_type_affects_calculation",
+        "test_terrain_type_affects_calculation"
+      ],
+      "test_classes": [
+        "TestDeerApproachFix"
+      ],
+      "test_count": 5,
+      "imports": [
+        "unittest",
+        "test_deer_approach_fix"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_detailed_import.py",
+      "relative_path": "archive\\tests\\test_detailed_import.py",
+      "name": "test_detailed_import.py",
+      "size": 3194,
+      "lines": 91,
+      "test_functions": [
+        "test_detailed_import"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_direct_mature_buck.py",
+      "relative_path": "archive\\tests\\test_direct_mature_buck.py",
+      "name": "test_direct_mature_buck.py",
+      "size": 5675,
+      "lines": 139,
+      "test_functions": [
+        "test_mature_buck_data"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "main",
+        "fastapi.testclient",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_distance_fix.py",
+      "relative_path": "archive\\tests\\test_distance_fix.py",
+      "name": "test_distance_fix.py",
+      "size": 2307,
+      "lines": 58,
+      "test_functions": [
+        "test_distance_calculations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_mature_buck.py",
+      "relative_path": "archive\\tests\\test_enhanced_mature_buck.py",
+      "name": "test_enhanced_mature_buck.py",
+      "size": 7025,
+      "lines": 168,
+      "test_functions": [
+        "test_enhanced_spatial_predictions"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "mature_buck_predictor",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_ndvi.py",
+      "relative_path": "archive\\tests\\test_enhanced_ndvi.py",
+      "name": "test_enhanced_ndvi.py",
+      "size": 1026,
+      "lines": 28,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_predictions.py",
+      "relative_path": "archive\\tests\\test_enhanced_predictions.py",
+      "name": "test_enhanced_predictions.py",
+      "size": 20450,
+      "lines": 494,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "asyncio",
+        "logging",
+        "json",
+        "time",
+        "datetime",
+        "typing",
+        "backend.enhanced_prediction_engine",
+        "backend.enhanced_prediction_api",
+        "backend.vegetation_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_scoring_path.py",
+      "relative_path": "archive\\tests\\test_enhanced_scoring_path.py",
+      "name": "test_enhanced_scoring_path.py",
+      "size": 2584,
+      "lines": 71,
+      "test_functions": [
+        "test_enhanced_scoring"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "backend.enhanced_accuracy"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_stand_analysis.py",
+      "relative_path": "archive\\tests\\test_enhanced_stand_analysis.py",
+      "name": "test_enhanced_stand_analysis.py",
+      "size": 5455,
+      "lines": 128,
+      "test_functions": [
+        "test_enhanced_stand_analysis"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_enhanced_terrain_scores.py",
+      "relative_path": "archive\\tests\\test_enhanced_terrain_scores.py",
+      "name": "test_enhanced_terrain_scores.py",
+      "size": 7838,
+      "lines": 189,
+      "test_functions": [
+        "test_enhanced_road_distance",
+        "test_enhanced_pressure_resistance"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_final_comprehensive.py",
+      "relative_path": "archive\\tests\\test_final_comprehensive.py",
+      "name": "test_final_comprehensive.py",
+      "size": 17116,
+      "lines": 402,
+      "test_functions": [
+        "test_prediction_endpoint"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime",
+        "sys",
+        "os",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_fixed_satellite.py",
+      "relative_path": "archive\\tests\\test_fixed_satellite.py",
+      "name": "test_fixed_satellite.py",
+      "size": 3049,
+      "lines": 75,
+      "test_functions": [
+        "test_satellite_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "gee_data"
+    },
+    {
+      "path": "archive\\tests\\test_frontend_fix.py",
+      "relative_path": "archive\\tests\\test_frontend_fix.py",
+      "name": "test_frontend_fix.py",
+      "size": 5289,
+      "lines": 145,
+      "test_functions": [
+        "test_streamlit_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "streamlit",
+        "math",
+        "test_deer_approach_fix"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "archive\\tests\\test_frontend_integration.py",
+      "relative_path": "archive\\tests\\test_frontend_integration.py",
+      "name": "test_frontend_integration.py",
+      "size": 4808,
+      "lines": 119,
+      "test_functions": [
+        "test_frontend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "archive\\tests\\test_frontend_mature_buck.py",
+      "relative_path": "archive\\tests\\test_frontend_mature_buck.py",
+      "name": "test_frontend_mature_buck.py",
+      "size": 6096,
+      "lines": 130,
+      "test_functions": [
+        "test_mature_buck_frontend_data"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "archive\\tests\\test_gee_integration.py",
+      "relative_path": "archive\\tests\\test_gee_integration.py",
+      "name": "test_gee_integration.py",
+      "size": 7261,
+      "lines": 194,
+      "test_functions": [
+        "test_gee_authentication",
+        "test_real_vegetation_analysis",
+        "test_enhanced_predictions"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "pathlib"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_gee_minimal.py",
+      "relative_path": "archive\\tests\\test_gee_minimal.py",
+      "name": "test_gee_minimal.py",
+      "size": 5160,
+      "lines": 140,
+      "test_functions": [
+        "test_gee_minimal",
+        "test_env_auth",
+        "test_direct_auth",
+        "test_creds_auth"
+      ],
+      "test_classes": [],
+      "test_count": 4,
+      "imports": [
+        "os",
+        "ee",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "gee_data"
+    },
+    {
+      "path": "archive\\tests\\test_gpx_import.py",
+      "relative_path": "archive\\tests\\test_gpx_import.py",
+      "name": "test_gpx_import.py",
+      "size": 3472,
+      "lines": 102,
+      "test_functions": [
+        "test_gpx_import"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_heatmap_display.py",
+      "relative_path": "archive\\tests\\test_heatmap_display.py",
+      "name": "test_heatmap_display.py",
+      "size": 3271,
+      "lines": 87,
+      "test_functions": [
+        "test_heatmap_generation",
+        "test_streamlit_display"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "streamlit",
+        "base64",
+        "io",
+        "PIL"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_heatmap_scores.py",
+      "relative_path": "archive\\tests\\test_heatmap_scores.py",
+      "name": "test_heatmap_scores.py",
+      "size": 2241,
+      "lines": 59,
+      "test_functions": [
+        "test_heatmap_scores"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_hunting_hours.py",
+      "relative_path": "archive\\tests\\test_hunting_hours.py",
+      "name": "test_hunting_hours.py",
+      "size": 3659,
+      "lines": 88,
+      "test_functions": [
+        "test_hunting_hours",
+        "test_current_date"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "sys",
+        "os",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_improved_ndvi.py",
+      "relative_path": "archive\\tests\\test_improved_ndvi.py",
+      "name": "test_improved_ndvi.py",
+      "size": 2924,
+      "lines": 78,
+      "test_functions": [
+        "test_improved_ndvi"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_location_variations.py",
+      "relative_path": "archive\\tests\\test_location_variations.py",
+      "name": "test_location_variations.py",
+      "size": 5460,
+      "lines": 137,
+      "test_functions": [
+        "test_location_specific_predictions"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "main",
+        "fastapi.testclient",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_map_consistency.py",
+      "relative_path": "archive\\tests\\test_map_consistency.py",
+      "name": "test_map_consistency.py",
+      "size": 3674,
+      "lines": 106,
+      "test_functions": [
+        "test_map_creation"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_map_fix.py",
+      "relative_path": "archive\\tests\\test_map_fix.py",
+      "name": "test_map_fix.py",
+      "size": 5129,
+      "lines": 129,
+      "test_functions": [
+        "test_map_consistency_fix",
+        "test_backward_compatibility"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "re"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "archive\\tests\\test_marker_positions.py",
+      "relative_path": "archive\\tests\\test_marker_positions.py",
+      "name": "test_marker_positions.py",
+      "size": 1772,
+      "lines": 49,
+      "test_functions": [
+        "test_multiple_locations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_mature_buck_data.py",
+      "relative_path": "archive\\tests\\test_mature_buck_data.py",
+      "name": "test_mature_buck_data.py",
+      "size": 2325,
+      "lines": 63,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "sys",
+        "main",
+        "backend.core"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_mature_buck_integration.py",
+      "relative_path": "archive\\tests\\test_mature_buck_integration.py",
+      "name": "test_mature_buck_integration.py",
+      "size": 5106,
+      "lines": 110,
+      "test_functions": [
+        "test_mature_buck_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_mature_buck_movement.py",
+      "relative_path": "archive\\tests\\test_mature_buck_movement.py",
+      "name": "test_mature_buck_movement.py",
+      "size": 6098,
+      "lines": 151,
+      "test_functions": [
+        "test_movement_prediction_initialization",
+        "test_early_season_patterns",
+        "test_rut_season_patterns",
+        "test_pressure_adjustments",
+        "test_movement_confidence_calculation",
+        "test_spatial_predictions",
+        "test_full_movement_prediction"
+      ],
+      "test_classes": [],
+      "test_count": 7,
+      "imports": [
+        "pytest",
+        "backend.mature_buck_predictor",
+        "datetime"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_mcp_integration.py",
+      "relative_path": "archive\\tests\\test_mcp_integration.py",
+      "name": "test_mcp_integration.py",
+      "size": 2879,
+      "lines": 88,
+      "test_functions": [
+        "test_file_operations",
+        "test_data_analysis"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "os",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_multiple_locations.py",
+      "relative_path": "archive\\tests\\test_multiple_locations.py",
+      "name": "test_multiple_locations.py",
+      "size": 3210,
+      "lines": 91,
+      "test_functions": [
+        "test_multiple_locations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_password_protection.py",
+      "relative_path": "archive\\tests\\test_password_protection.py",
+      "name": "test_password_protection.py",
+      "size": 2231,
+      "lines": 64,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "streamlit",
+        "hashlib",
+        "sys",
+        "os",
+        "dotenv"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_prediction_logic.py",
+      "relative_path": "archive\\tests\\test_prediction_logic.py",
+      "name": "test_prediction_logic.py",
+      "size": 7968,
+      "lines": 211,
+      "test_functions": [
+        "test_api_endpoint"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime",
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_pressure_calculations.py",
+      "relative_path": "archive\\tests\\test_pressure_calculations.py",
+      "name": "test_pressure_calculations.py",
+      "size": 3287,
+      "lines": 93,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_real_gpx.py",
+      "relative_path": "archive\\tests\\test_real_gpx.py",
+      "name": "test_real_gpx.py",
+      "size": 1347,
+      "lines": 40,
+      "test_functions": [
+        "test_real_gpx"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "backend.gpx_parser",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_real_osm_integration.py",
+      "relative_path": "archive\\tests\\test_real_osm_integration.py",
+      "name": "test_real_osm_integration.py",
+      "size": 8971,
+      "lines": 196,
+      "test_functions": [
+        "test_real_osm_backend_integration",
+        "test_direct_osm_overpass_api"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json",
+        "time",
+        "typing"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_remote_mature_buck.py",
+      "relative_path": "archive\\tests\\test_remote_mature_buck.py",
+      "name": "test_remote_mature_buck.py",
+      "size": 3652,
+      "lines": 84,
+      "test_functions": [
+        "test_remote_location"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_road_calculations.py",
+      "relative_path": "archive\\tests\\test_road_calculations.py",
+      "name": "test_road_calculations.py",
+      "size": 2662,
+      "lines": 64,
+      "test_functions": [
+        "test_road_scores"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_scouting_api.py",
+      "relative_path": "archive\\tests\\test_scouting_api.py",
+      "name": "test_scouting_api.py",
+      "size": 3544,
+      "lines": 81,
+      "test_functions": [
+        "test_scouting_api"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "archive\\tests\\test_simple_map_change.py",
+      "relative_path": "archive\\tests\\test_simple_map_change.py",
+      "name": "test_simple_map_change.py",
+      "size": 2015,
+      "lines": 51,
+      "test_functions": [
+        "test_map_change"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_simple_variations.py",
+      "relative_path": "archive\\tests\\test_simple_variations.py",
+      "name": "test_simple_variations.py",
+      "size": 6348,
+      "lines": 146,
+      "test_functions": [
+        "test_location_variations_simple"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "archive\\tests\\test_single_mature_buck.py",
+      "relative_path": "archive\\tests\\test_single_mature_buck.py",
+      "name": "test_single_mature_buck.py",
+      "size": 5207,
+      "lines": 114,
+      "test_functions": [
+        "test_single_prediction"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "archive\\tests\\test_terrain_scores_api.py",
+      "relative_path": "archive\\tests\\test_terrain_scores_api.py",
+      "name": "test_terrain_scores_api.py",
+      "size": 6704,
+      "lines": 142,
+      "test_functions": [
+        "test_terrain_scores_api"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "archive\\tests\\test_thermal_integration.py",
+      "relative_path": "archive\\tests\\test_thermal_integration.py",
+      "name": "test_thermal_integration.py",
+      "size": 8172,
+      "lines": 202,
+      "test_functions": [
+        "test_thermal_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "logging",
+        "datetime",
+        "backend.advanced_thermal_analysis",
+        "backend.real_wind_deer_analysis"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "integration"
+    },
+    {
+      "path": "archive\\tests\\test_trail_cameras.py",
+      "relative_path": "archive\\tests\\test_trail_cameras.py",
+      "name": "test_trail_cameras.py",
+      "size": 1843,
+      "lines": 44,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "camera_placement"
+    },
+    {
+      "path": "archive\\tests\\test_vermont_oak_flats.py",
+      "relative_path": "archive\\tests\\test_vermont_oak_flats.py",
+      "name": "test_vermont_oak_flats.py",
+      "size": 2848,
+      "lines": 70,
+      "test_functions": [
+        "test_vermont_vegetation"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\test_analytics_integration.py",
+      "relative_path": "backend\\test_analytics_integration.py",
+      "name": "test_analytics_integration.py",
+      "size": 8628,
+      "lines": 244,
+      "test_functions": [
+        "test_analytics_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "time",
+        "json",
+        "asyncio",
+        "logging",
+        "datetime",
+        "pathlib",
+        "analytics",
+        "config_manager"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "backend_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "backend\\test_api_timeouts.py",
+      "relative_path": "backend\\test_api_timeouts.py",
+      "name": "test_api_timeouts.py",
+      "size": 5272,
+      "lines": 133,
+      "test_functions": [
+        "test_weather_api",
+        "test_elevation_api",
+        "test_overpass_api"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "requests",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "backend"
+    },
+    {
+      "path": "backend\\test_enhanced_terrain.py",
+      "relative_path": "backend\\test_enhanced_terrain.py",
+      "name": "test_enhanced_terrain.py",
+      "size": 11798,
+      "lines": 250,
+      "test_functions": [
+        "test_enhanced_terrain_analysis"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "logging",
+        "json",
+        "typing",
+        "numpy"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\test_locations.py",
+      "relative_path": "backend\\test_locations.py",
+      "name": "test_locations.py",
+      "size": 6681,
+      "lines": 163,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "sys",
+        "logging",
+        "datetime",
+        "typing",
+        "mature_buck_predictor",
+        "terrain_analyzer",
+        "scoring_engine",
+        "config_manager"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\test_mature_buck_accuracy.py",
+      "relative_path": "backend\\test_mature_buck_accuracy.py",
+      "name": "test_mature_buck_accuracy.py",
+      "size": 10982,
+      "lines": 300,
+      "test_functions": [
+        "test_terrain_analysis_accuracy",
+        "test_movement_prediction_accuracy",
+        "test_confidence_calibration"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "numpy",
+        "json",
+        "logging",
+        "datetime",
+        "typing",
+        "mature_buck_predictor",
+        "scoring_engine"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "backend\\test_ml_integration.py",
+      "relative_path": "backend\\test_ml_integration.py",
+      "name": "test_ml_integration.py",
+      "size": 6380,
+      "lines": 187,
+      "test_functions": [
+        "test_ml_dependencies",
+        "test_ml_enhanced_predictor",
+        "test_accuracy_framework",
+        "test_api_integration"
+      ],
+      "test_classes": [],
+      "test_count": 4,
+      "imports": [
+        "sys",
+        "os",
+        "logging",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "backend_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "backend\\test_proximity_scoring.py",
+      "relative_path": "backend\\test_proximity_scoring.py",
+      "name": "test_proximity_scoring.py",
+      "size": 7250,
+      "lines": 168,
+      "test_functions": [
+        "test_proximity_scoring"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\test_simple.py",
+      "relative_path": "backend\\test_simple.py",
+      "name": "test_simple.py",
+      "size": 1231,
+      "lines": 43,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "sys",
+        "traceback"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\test_wind_integration.py",
+      "relative_path": "backend\\test_wind_integration.py",
+      "name": "test_wind_integration.py",
+      "size": 5677,
+      "lines": 141,
+      "test_functions": [
+        "test_wind_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "backend_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "backend\\tests\\test_config_manager.py",
+      "relative_path": "backend\\tests\\test_config_manager.py",
+      "name": "test_config_manager.py",
+      "size": 958,
+      "lines": 19,
+      "test_functions": [
+        "test_apply_env_overrides"
+      ],
+      "test_classes": [
+        "TestConfigManager"
+      ],
+      "test_count": 2,
+      "imports": [
+        "pytest",
+        "os",
+        "backend.config_manager"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\tests\\test_core.py",
+      "relative_path": "backend\\tests\\test_core.py",
+      "name": "test_core.py",
+      "size": 5619,
+      "lines": 150,
+      "test_functions": [
+        "test_analyze_terrain_and_vegetation_basic",
+        "test_forest_edge_detection",
+        "test_run_grid_rule_engine_basic",
+        "test_rule_engine_time_filtering",
+        "test_get_time_of_day",
+        "test_generate_zones_insufficient_points",
+        "test_generate_zones_with_high_scores",
+        "test_get_weather_data_success",
+        "test_get_weather_data_api_error"
+      ],
+      "test_classes": [
+        "TestTerrainAnalysis",
+        "TestRuleEngine",
+        "TestTimeUtils",
+        "TestZoneGeneration",
+        "TestExternalAPIs"
+      ],
+      "test_count": 14,
+      "imports": [
+        "pytest",
+        "numpy",
+        "unittest.mock",
+        "backend.core"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\tests\\test_distance_scorer.py",
+      "relative_path": "backend\\tests\\test_distance_scorer.py",
+      "name": "test_distance_scorer.py",
+      "size": 3285,
+      "lines": 62,
+      "test_functions": [
+        "test_calculate_road_impact_score",
+        "test_calculate_agricultural_proximity_score",
+        "test_calculate_stand_placement_score",
+        "test_calculate_escape_route_score",
+        "test_calculate_concealment_score",
+        "test_calculate_water_proximity_score",
+        "test_calculate_terrain_edge_score"
+      ],
+      "test_classes": [
+        "TestDistanceScorer"
+      ],
+      "test_count": 8,
+      "imports": [
+        "pytest",
+        "backend.distance_scorer"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\tests\\test_framework.py",
+      "relative_path": "backend\\tests\\test_framework.py",
+      "name": "test_framework.py",
+      "size": 23114,
+      "lines": 606,
+      "test_functions": [
+        "test_config",
+        "test_database",
+        "test_prediction_service_initialization",
+        "test_terrain_analysis_success",
+        "test_terrain_analysis_failure",
+        "test_weather_data_fallback",
+        "test_score_map_validation",
+        "test_stand_rating_calculation",
+        "test_condition_building",
+        "test_app_exception_creation",
+        "test_user_friendly_message_conversion",
+        "test_error_details_sanitization",
+        "test_status_code_mapping",
+        "test_default_configuration_loading",
+        "test_environment_validation",
+        "test_database_connection_url_generation",
+        "test_configuration_weight_validation",
+        "test_api_key_validation",
+        "test_health_endpoint",
+        "test_rules_endpoint",
+        "test_prediction_endpoint_success",
+        "test_prediction_endpoint_validation_error",
+        "test_prediction_endpoint_missing_fields",
+        "test_prediction_performance",
+        "test_api_endpoint_performance",
+        "test_coordinate_edge_cases",
+        "test_season_variations"
+      ],
+      "test_classes": [
+        "TestPredictionService",
+        "TestErrorHandling",
+        "TestConfiguration",
+        "TestAPIEndpoints",
+        "TestPerformanceBenchmarks",
+        "TestPropertyBasedTesting"
+      ],
+      "test_count": 33,
+      "imports": [
+        "pytest",
+        "asyncio",
+        "json",
+        "os",
+        "pathlib",
+        "typing",
+        "unittest.mock",
+        "datetime",
+        "numpy",
+        "fastapi.testclient"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\tests\\test_main.py",
+      "relative_path": "backend\\tests\\test_main.py",
+      "name": "test_main.py",
+      "size": 4417,
+      "lines": 115,
+      "test_functions": [
+        "test_root_endpoint",
+        "test_rules_endpoint",
+        "test_predict_endpoint_success",
+        "test_predict_endpoint_invalid_data",
+        "test_predict_endpoint_missing_fields",
+        "test_prediction_request_validation",
+        "test_prediction_response_structure"
+      ],
+      "test_classes": [
+        "TestMainAPI",
+        "TestPredictionModels"
+      ],
+      "test_count": 9,
+      "imports": [
+        "pytest",
+        "fastapi.testclient",
+        "unittest.mock",
+        "json",
+        "backend.main"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "other"
+    },
+    {
+      "path": "backend\\tests\\test_scouting_data_manager.py",
+      "relative_path": "backend\\tests\\test_scouting_data_manager.py",
+      "name": "test_scouting_data_manager.py",
+      "size": 7405,
+      "lines": 128,
+      "test_functions": [
+        "test_matches_distance_true",
+        "test_matches_distance_false",
+        "test_matches_type_true",
+        "test_matches_type_false",
+        "test_matches_confidence_true",
+        "test_matches_confidence_false",
+        "test_matches_date_true",
+        "test_matches_date_false",
+        "test_group_observations",
+        "test_calculate_hot_area",
+        "test_calculate_analytics_metrics",
+        "test_add_observation",
+        "test_get_observations",
+        "test_update_observation",
+        "test_delete_observation"
+      ],
+      "test_classes": [
+        "TestScoutingDataManager"
+      ],
+      "test_count": 16,
+      "imports": [
+        "pytest",
+        "datetime",
+        "unittest.mock",
+        "backend.scouting_data_manager",
+        "backend.scouting_models"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "scouting"
+    },
+    {
+      "path": "backend\\tests\\test_scouting_prediction_enhancer.py",
+      "relative_path": "backend\\tests\\test_scouting_prediction_enhancer.py",
+      "name": "test_scouting_prediction_enhancer.py",
+      "size": 6254,
+      "lines": 126,
+      "test_functions": [
+        "test_get_relevant_observations",
+        "test_prepare_enhanced_maps",
+        "test_apply_enhancements",
+        "test_apply_cumulative_bonuses",
+        "test_apply_scrape_enhancement",
+        "test_apply_rub_line_enhancement",
+        "test_apply_trail_camera_enhancement",
+        "test_trail_camera_mature_buck_seen_recently",
+        "test_apply_radial_boost"
+      ],
+      "test_classes": [
+        "TestScoutingPredictionEnhancer"
+      ],
+      "test_count": 10,
+      "imports": [
+        "pytest",
+        "numpy",
+        "datetime",
+        "unittest.mock",
+        "backend.scouting_prediction_enhancer",
+        "backend.scouting_models"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_other",
+      "name_category": "scouting"
+    },
+    {
+      "path": "comprehensive_integration_test.py",
+      "relative_path": "comprehensive_integration_test.py",
+      "name": "comprehensive_integration_test.py",
+      "size": 37799,
+      "lines": 839,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "logging",
+        "asyncio",
+        "json",
+        "time",
+        "sys",
+        "os",
+        "datetime",
+        "typing",
+        "requests",
+        "aiohttp"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "comprehensive_validation_test.py",
+      "relative_path": "comprehensive_validation_test.py",
+      "name": "comprehensive_validation_test.py",
+      "size": 10397,
+      "lines": 240,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "logging",
+        "json",
+        "typing",
+        "datetime",
+        "test_fixed_prediction_service"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "validation"
+    },
+    {
+      "path": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+      "relative_path": "dead_code_backups\\20250826_075437\\test_gee_integration.py",
+      "name": "test_gee_integration.py",
+      "size": 8294,
+      "lines": 220,
+      "test_functions": [
+        "test_gee_authentication",
+        "test_real_vegetation_analysis",
+        "test_enhanced_predictions"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "pathlib"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "archived",
+      "name_category": "integration"
+    },
+    {
+      "path": "dead_code_backups\\20250826_075437\\test_improved_ndvi.py",
+      "relative_path": "dead_code_backups\\20250826_075437\\test_improved_ndvi.py",
+      "name": "test_improved_ndvi.py",
+      "size": 2924,
+      "lines": 78,
+      "test_functions": [
+        "test_improved_ndvi"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "archived",
+      "name_category": "other"
+    },
+    {
+      "path": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+      "relative_path": "dead_code_backups\\20250826_075437\\test_mature_buck_movement.py",
+      "name": "test_mature_buck_movement.py",
+      "size": 6394,
+      "lines": 161,
+      "test_functions": [
+        "test_movement_prediction_initialization",
+        "test_early_season_patterns",
+        "test_rut_season_patterns",
+        "test_pressure_adjustments",
+        "test_movement_confidence_calculation",
+        "test_spatial_predictions",
+        "test_full_movement_prediction"
+      ],
+      "test_classes": [],
+      "test_count": 7,
+      "imports": [
+        "pytest",
+        "backend.mature_buck_predictor",
+        "datetime"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unknown",
+      "location_category": "archived",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "final_comprehensive_test.py",
+      "relative_path": "final_comprehensive_test.py",
+      "name": "final_comprehensive_test.py",
+      "size": 6191,
+      "lines": 152,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "asyncio",
+        "json",
+        "datetime",
+        "typing",
+        "targeted_fixes",
+        "comprehensive_integration_test"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "final_validation_test.py",
+      "relative_path": "final_validation_test.py",
+      "name": "final_validation_test.py",
+      "size": 9246,
+      "lines": 234,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "logging",
+        "json",
+        "sys",
+        "os",
+        "datetime",
+        "typing",
+        "backend.biological_integration"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "validation"
+    },
+    {
+      "path": "frontend_validation_test.py",
+      "relative_path": "frontend_validation_test.py",
+      "name": "frontend_validation_test.py",
+      "size": 14957,
+      "lines": 354,
+      "test_functions": [
+        "test_frontend_data_accuracy",
+        "test_backend_biological_accuracy"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "the",
+        "requests",
+        "time",
+        "json",
+        "re",
+        "selenium",
+        "selenium.webdriver.chrome.options",
+        "selenium.webdriver.common.by",
+        "selenium.webdriver.support.ui",
+        "selenium.webdriver.support"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "e2e",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "quick_docker_test.py",
+      "relative_path": "quick_docker_test.py",
+      "name": "quick_docker_test.py",
+      "size": 4652,
+      "lines": 127,
+      "test_functions": [
+        "test_docker_containers",
+        "test_frontend_container"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_708_scenario.py",
+      "relative_path": "test_708_scenario.py",
+      "name": "test_708_scenario.py",
+      "size": 6403,
+      "lines": 167,
+      "test_functions": [
+        "test_708_am_scenario",
+        "test_all_time_periods"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "math"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_approach_bearing_fix.py",
+      "relative_path": "test_approach_bearing_fix.py",
+      "name": "test_approach_bearing_fix.py",
+      "size": 3788,
+      "lines": 83,
+      "test_functions": [
+        "test_approach_bearing"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_aspect_consistency_fix.py",
+      "relative_path": "test_aspect_consistency_fix.py",
+      "name": "test_aspect_consistency_fix.py",
+      "size": 6061,
+      "lines": 154,
+      "test_functions": [
+        "test_aspect_consistency"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "typing"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_aspect_scoring_bug.py",
+      "relative_path": "test_aspect_scoring_bug.py",
+      "name": "test_aspect_scoring_bug.py",
+      "size": 2412,
+      "lines": 76,
+      "test_functions": [
+        "test_aspect_scoring_bug"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_backend_frontend_accuracy.py",
+      "relative_path": "test_backend_frontend_accuracy.py",
+      "name": "test_backend_frontend_accuracy.py",
+      "size": 29832,
+      "lines": 722,
+      "test_functions": [
+        "test_am_movement_direction",
+        "test_seasonal_food_logic",
+        "test_weather_trigger_logic",
+        "test_thermal_bedding_logic",
+        "test_time_based_behavior",
+        "test_pressure_response_logic",
+        "test_mature_buck_specificity",
+        "test_backend_data_integration"
+      ],
+      "test_classes": [],
+      "test_count": 8,
+      "imports": [
+        "requests",
+        "json",
+        "logging",
+        "datetime",
+        "typing",
+        "sys",
+        "traceback"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_biological_accuracy_focused.py",
+      "relative_path": "test_biological_accuracy_focused.py",
+      "name": "test_biological_accuracy_focused.py",
+      "size": 25240,
+      "lines": 616,
+      "test_functions": [
+        "test_am_movement_critical",
+        "test_basic_prediction_logic",
+        "test_wind_direction_logic",
+        "test_seasonal_behavior_basic",
+        "test_time_activity_patterns"
+      ],
+      "test_classes": [],
+      "test_count": 5,
+      "imports": [
+        "requests",
+        "json",
+        "logging",
+        "datetime",
+        "typing",
+        "sys",
+        "traceback",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "validation"
+    },
+    {
+      "path": "test_brainstorm_enhancements.py",
+      "relative_path": "test_brainstorm_enhancements.py",
+      "name": "test_brainstorm_enhancements.py",
+      "size": 30102,
+      "lines": 681,
+      "test_functions": [
+        "test_all_brainstorm_enhancements",
+        "test_frontend_map_interactivity",
+        "test_bedding_zone_accuracy"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "asyncio",
+        "json",
+        "time",
+        "datetime",
+        "optimized_biological_integration",
+        "selenium",
+        "selenium.webdriver.common.by",
+        "selenium.webdriver.common.action_chains",
+        "selenium.webdriver.support.ui",
+        "selenium.webdriver.support"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_complete_frontend_display.py",
+      "relative_path": "test_complete_frontend_display.py",
+      "name": "test_complete_frontend_display.py",
+      "size": 7076,
+      "lines": 169,
+      "test_functions": [
+        "test_complete_frontend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "sys",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_complete_implementation.py",
+      "relative_path": "test_complete_implementation.py",
+      "name": "test_complete_implementation.py",
+      "size": 18583,
+      "lines": 505,
+      "test_functions": [
+        "test_complete_pipeline",
+        "test_data_flow_compatibility",
+        "test_api_endpoint_structure",
+        "test_frontend_integration_points",
+        "test_error_handling_robustness",
+        "test_user_experience_flow",
+        "test_performance_considerations",
+        "test_implementation_completeness"
+      ],
+      "test_classes": [],
+      "test_count": 8,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_coordinate_stability.py",
+      "relative_path": "test_coordinate_stability.py",
+      "name": "test_coordinate_stability.py",
+      "size": 12758,
+      "lines": 323,
+      "test_functions": [
+        "test_coordinate_stability"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "enhanced_bedding_zone_predictor",
+        "logging"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_data_integrity_fix.py",
+      "relative_path": "test_data_integrity_fix.py",
+      "name": "test_data_integrity_fix.py",
+      "size": 6637,
+      "lines": 135,
+      "test_functions": [
+        "test_data_integrity_fix"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_enhanced_bedding_integration.py",
+      "relative_path": "test_enhanced_bedding_integration.py",
+      "name": "test_enhanced_bedding_integration.py",
+      "size": 6456,
+      "lines": 156,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "sys",
+        "os",
+        "asyncio",
+        "logging"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "test_enhanced_bedding_zones.py",
+      "relative_path": "test_enhanced_bedding_zones.py",
+      "name": "test_enhanced_bedding_zones.py",
+      "size": 9271,
+      "lines": 236,
+      "test_functions": [
+        "test_enhanced_bedding_zones",
+        "test_bedding_zone_validation"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "bedding_zones"
+    },
+    {
+      "path": "test_enhanced_production.py",
+      "relative_path": "test_enhanced_production.py",
+      "name": "test_enhanced_production.py",
+      "size": 7855,
+      "lines": 196,
+      "test_functions": [
+        "test_enhanced_production_integration",
+        "test_validation_endpoints"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "sys",
+        "os",
+        "prediction_service_bedding_fix",
+        "json",
+        "time",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_evening_thermal_fix.py",
+      "relative_path": "test_evening_thermal_fix.py",
+      "name": "test_evening_thermal_fix.py",
+      "size": 5390,
+      "lines": 111,
+      "test_functions": [
+        "test_evening_thermal_fix"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "wind_thermal"
+    },
+    {
+      "path": "test_exact_problem.py",
+      "relative_path": "test_exact_problem.py",
+      "name": "test_exact_problem.py",
+      "size": 5624,
+      "lines": 130,
+      "test_functions": [
+        "test_exact_problem_coordinates"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_feeding_aspect_fallback.py",
+      "relative_path": "test_feeding_aspect_fallback.py",
+      "name": "test_feeding_aspect_fallback.py",
+      "size": 4811,
+      "lines": 106,
+      "test_functions": [
+        "test_feeding_aspect_fallback"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_field_prototype.py",
+      "relative_path": "test_field_prototype.py",
+      "name": "test_field_prototype.py",
+      "size": 4716,
+      "lines": 131,
+      "test_functions": [
+        "test_prototype_api_connection",
+        "test_wind_analysis_logic"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_final_implementation.py",
+      "relative_path": "test_final_implementation.py",
+      "name": "test_final_implementation.py",
+      "size": 5559,
+      "lines": 146,
+      "test_functions": [
+        "test_final_implementation"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "math"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_fixed_behavioral_analysis.py",
+      "relative_path": "test_fixed_behavioral_analysis.py",
+      "name": "test_fixed_behavioral_analysis.py",
+      "size": 14705,
+      "lines": 363,
+      "test_functions": [
+        "test_fixed_behavioral_analysis"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "logging",
+        "typing",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_fixed_prediction_service.py",
+      "relative_path": "test_fixed_prediction_service.py",
+      "name": "test_fixed_prediction_service.py",
+      "size": 12747,
+      "lines": 292,
+      "test_functions": [
+        "test_fixed_prediction_service"
+      ],
+      "test_classes": [
+        "TestPredictionService"
+      ],
+      "test_count": 2,
+      "imports": [
+        "logging",
+        "json",
+        "typing",
+        "datetime",
+        "test_fixed_behavioral_analysis"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_frontend_bedding_integration.py",
+      "relative_path": "test_frontend_bedding_integration.py",
+      "name": "test_frontend_bedding_integration.py",
+      "size": 4418,
+      "lines": 110,
+      "test_functions": [
+        "test_frontend_backend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_display_validation.py",
+      "relative_path": "test_frontend_display_validation.py",
+      "name": "test_frontend_display_validation.py",
+      "size": 7540,
+      "lines": 183,
+      "test_functions": [
+        "test_backend_frontend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "sys",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_fix_verification.py",
+      "relative_path": "test_frontend_fix_verification.py",
+      "name": "test_frontend_fix_verification.py",
+      "size": 5374,
+      "lines": 138,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "time",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_map_coordinates.py",
+      "relative_path": "test_frontend_map_coordinates.py",
+      "name": "test_frontend_map_coordinates.py",
+      "size": 10429,
+      "lines": 258,
+      "test_functions": [
+        "test_frontend_coordinate_flow"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_playwright.py",
+      "relative_path": "test_frontend_playwright.py",
+      "name": "test_frontend_playwright.py",
+      "size": 35663,
+      "lines": 740,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "asyncio",
+        "json",
+        "logging",
+        "datetime",
+        "playwright.async_api",
+        "pytest",
+        "typing"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_validation.py",
+      "relative_path": "test_frontend_validation.py",
+      "name": "test_frontend_validation.py",
+      "size": 14689,
+      "lines": 372,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "asyncio",
+        "logging",
+        "time",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_frontend_wind_fix.py",
+      "relative_path": "test_frontend_wind_fix.py",
+      "name": "test_frontend_wind_fix.py",
+      "size": 3778,
+      "lines": 94,
+      "test_functions": [
+        "test_frontend_wind_fix"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "os",
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_future_weather.py",
+      "relative_path": "test_future_weather.py",
+      "name": "test_future_weather.py",
+      "size": 7730,
+      "lines": 191,
+      "test_functions": [
+        "test_weather_date_functionality"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "wind_thermal"
+    },
+    {
+      "path": "test_hunt_coordinates.py",
+      "relative_path": "test_hunt_coordinates.py",
+      "name": "test_hunt_coordinates.py",
+      "size": 3950,
+      "lines": 97,
+      "test_functions": [
+        "test_hunt_coordinates"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_localhost_time.py",
+      "relative_path": "test_localhost_time.py",
+      "name": "test_localhost_time.py",
+      "size": 3202,
+      "lines": 76,
+      "test_functions": [
+        "test_localhost_time_bug"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_multi_tier_bedding.py",
+      "relative_path": "test_multi_tier_bedding.py",
+      "name": "test_multi_tier_bedding.py",
+      "size": 7484,
+      "lines": 143,
+      "test_functions": [
+        "test_multi_tier_bedding_zones"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bedding_zones"
+    },
+    {
+      "path": "test_multiple_bedding_zones.py",
+      "relative_path": "test_multiple_bedding_zones.py",
+      "name": "test_multiple_bedding_zones.py",
+      "size": 7317,
+      "lines": 158,
+      "test_functions": [
+        "test_multiple_bedding_zones"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bedding_zones"
+    },
+    {
+      "path": "test_multiple_locations.py",
+      "relative_path": "test_multiple_locations.py",
+      "name": "test_multiple_locations.py",
+      "size": 10865,
+      "lines": 249,
+      "test_functions": [
+        "test_multiple_locations"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "enhanced_bedding_zone_predictor",
+        "logging",
+        "time"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_new_problem.py",
+      "relative_path": "test_new_problem.py",
+      "name": "test_new_problem.py",
+      "size": 5615,
+      "lines": 129,
+      "test_functions": [
+        "test_new_problem_coordinates"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_new_ui.py",
+      "relative_path": "test_new_ui.py",
+      "name": "test_new_ui.py",
+      "size": 8055,
+      "lines": 211,
+      "test_functions": [
+        "test_backend_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "streamlit",
+        "math",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_open_meteo_structure.py",
+      "relative_path": "test_open_meteo_structure.py",
+      "name": "test_open_meteo_structure.py",
+      "size": 8156,
+      "lines": 168,
+      "test_functions": [
+        "test_open_meteo_api"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_production_api.py",
+      "relative_path": "test_production_api.py",
+      "name": "test_production_api.py",
+      "size": 8773,
+      "lines": 179,
+      "test_functions": [
+        "test_production_api"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "backend"
+    },
+    {
+      "path": "test_production_bedding_integration.py",
+      "relative_path": "test_production_bedding_integration.py",
+      "name": "test_production_bedding_integration.py",
+      "size": 8406,
+      "lines": 201,
+      "test_functions": [
+        "test_production_bedding_integration"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "logging",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "test_real_app_bedding.py",
+      "relative_path": "test_real_app_bedding.py",
+      "name": "test_real_app_bedding.py",
+      "size": 5066,
+      "lines": 128,
+      "test_functions": [
+        "test_real_app_bedding_zones"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bedding_zones"
+    },
+    {
+      "path": "test_real_data_integration.py",
+      "relative_path": "test_real_data_integration.py",
+      "name": "test_real_data_integration.py",
+      "size": 14768,
+      "lines": 347,
+      "test_functions": [
+        "test_with_real_prediction_data",
+        "test_frontend_with_real_data",
+        "test_real_data_quality"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "time",
+        "datetime",
+        "urllib.request",
+        "urllib.parse",
+        "urllib.error"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "test_real_data_success.py",
+      "relative_path": "test_real_data_success.py",
+      "name": "test_real_data_success.py",
+      "size": 8099,
+      "lines": 179,
+      "test_functions": [
+        "test_real_data_success"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "json",
+        "urllib.request",
+        "urllib.parse",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_simple_endpoint.py",
+      "relative_path": "test_simple_endpoint.py",
+      "name": "test_simple_endpoint.py",
+      "size": 2439,
+      "lines": 60,
+      "test_functions": [
+        "test_simple_endpoint"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "backend"
+    },
+    {
+      "path": "test_simplified_frontend_validation.py",
+      "relative_path": "test_simplified_frontend_validation.py",
+      "name": "test_simplified_frontend_validation.py",
+      "size": 12687,
+      "lines": 298,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "asyncio",
+        "logging",
+        "datetime",
+        "playwright.async_api",
+        "pytest"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "e2e",
+      "location_category": "root_scattered",
+      "name_category": "frontend"
+    },
+    {
+      "path": "test_slope_consistency_detailed.py",
+      "relative_path": "test_slope_consistency_detailed.py",
+      "name": "test_slope_consistency_detailed.py",
+      "size": 5371,
+      "lines": 140,
+      "test_functions": [
+        "test_slope_consistency"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_step_1_1_analyzer.py",
+      "relative_path": "test_step_1_1_analyzer.py",
+      "name": "test_step_1_1_analyzer.py",
+      "size": 4914,
+      "lines": 147,
+      "test_functions": [
+        "test_analyzer_initialization",
+        "test_criteria_collection",
+        "test_data_source_collection",
+        "test_comprehensive_analysis",
+        "test_error_handling"
+      ],
+      "test_classes": [],
+      "test_count": 5,
+      "imports": [
+        "sys",
+        "os",
+        "prediction_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_step_1_2_service.py",
+      "relative_path": "test_step_1_2_service.py",
+      "name": "test_step_1_2_service.py",
+      "size": 11096,
+      "lines": 277,
+      "test_functions": [],
+      "test_classes": [
+        "TestPredictionService"
+      ],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os",
+        "asyncio",
+        "unittest.mock",
+        "prediction_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_step_2_1_endpoint.py",
+      "relative_path": "test_step_2_1_endpoint.py",
+      "name": "test_step_2_1_endpoint.py",
+      "size": 6918,
+      "lines": 208,
+      "test_functions": [
+        "test_request_model",
+        "test_analyzer_integration",
+        "test_endpoint_response_structure",
+        "test_error_handling",
+        "test_datetime_parsing",
+        "test_json_serialization"
+      ],
+      "test_classes": [],
+      "test_count": 6,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "unittest.mock",
+        "prediction_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "backend"
+    },
+    {
+      "path": "test_step_2_1_simple.py",
+      "relative_path": "test_step_2_1_simple.py",
+      "name": "test_step_2_1_simple.py",
+      "size": 7880,
+      "lines": 225,
+      "test_functions": [
+        "test_analyzer_api_compatibility",
+        "test_response_structure_mock",
+        "test_error_response_structure",
+        "test_analysis_completeness",
+        "test_large_dataset_handling"
+      ],
+      "test_classes": [],
+      "test_count": 5,
+      "imports": [
+        "sys",
+        "os",
+        "json",
+        "prediction_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_step_3_1_wind_component.py",
+      "relative_path": "test_step_3_1_wind_component.py",
+      "name": "test_step_3_1_wind_component.py",
+      "size": 11632,
+      "lines": 299,
+      "test_functions": [
+        "test_wind_analysis_component_structure",
+        "test_component_rating_logic",
+        "test_wind_direction_formatting",
+        "test_location_icon_mapping",
+        "test_component_props_handling",
+        "test_json_serialization"
+      ],
+      "test_classes": [],
+      "test_count": 6,
+      "imports": [
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "wind_thermal"
+    },
+    {
+      "path": "test_step_3_2_thermal_component.py",
+      "relative_path": "test_step_3_2_thermal_component.py",
+      "name": "test_step_3_2_thermal_component.py",
+      "size": 14637,
+      "lines": 379,
+      "test_functions": [
+        "test_thermal_analysis_component_structure",
+        "test_thermal_status_logic",
+        "test_timing_rating_logic",
+        "test_formatting_functions",
+        "test_component_props_handling",
+        "test_thermal_data_validation",
+        "test_json_serialization"
+      ],
+      "test_classes": [],
+      "test_count": 7,
+      "imports": [
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "wind_thermal"
+    },
+    {
+      "path": "test_step_4_1_container.py",
+      "relative_path": "test_step_4_1_container.py",
+      "name": "test_step_4_1_container.py",
+      "size": 18771,
+      "lines": 513,
+      "test_functions": [
+        "test_analysis_container_structure",
+        "test_container_state_logic",
+        "test_timestamp_formatting",
+        "test_component_integration",
+        "test_tab_structure",
+        "test_props_handling",
+        "test_json_serialization"
+      ],
+      "test_classes": [],
+      "test_count": 7,
+      "imports": [
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_step_5_1_integration.py",
+      "relative_path": "test_step_5_1_integration.py",
+      "name": "test_step_5_1_integration.py",
+      "size": 18141,
+      "lines": 472,
+      "test_functions": [
+        "test_streamlit_integration_structure",
+        "test_streamlit_display_functions",
+        "test_streamlit_component_integration",
+        "test_expandable_sections",
+        "test_api_response_handling",
+        "test_session_state_integration",
+        "test_error_handling"
+      ],
+      "test_classes": [],
+      "test_count": 7,
+      "imports": [
+        "json",
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "integration"
+    },
+    {
+      "path": "test_step_5_2_implementation.py",
+      "relative_path": "test_step_5_2_implementation.py",
+      "name": "test_step_5_2_implementation.py",
+      "size": 14339,
+      "lines": 403,
+      "test_functions": [
+        "test_frontend_integration_implementation",
+        "test_streamlit_component_structure",
+        "test_analysis_display_sections",
+        "test_error_handling_implementation",
+        "test_api_endpoint_integration",
+        "test_conditional_display_logic",
+        "test_user_feedback_messages",
+        "test_integration_completeness"
+      ],
+      "test_classes": [],
+      "test_count": 8,
+      "imports": [
+        "json",
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_symmetrical_fallback.py",
+      "relative_path": "test_symmetrical_fallback.py",
+      "name": "test_symmetrical_fallback.py",
+      "size": 6335,
+      "lines": 133,
+      "test_functions": [
+        "test_symmetrical_aspect_fallback"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "json",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_threshold_fix_simple.py",
+      "relative_path": "test_threshold_fix_simple.py",
+      "name": "test_threshold_fix_simple.py",
+      "size": 7368,
+      "lines": 173,
+      "test_functions": [
+        "test_threshold_fix"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_time_bug.py",
+      "relative_path": "test_time_bug.py",
+      "name": "test_time_bug.py",
+      "size": 4007,
+      "lines": 90,
+      "test_functions": [
+        "test_time_context_issue"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bugfix"
+    },
+    {
+      "path": "test_time_context_analysis.py",
+      "relative_path": "test_time_context_analysis.py",
+      "name": "test_time_context_analysis.py",
+      "size": 6380,
+      "lines": 147,
+      "test_functions": [
+        "test_evening_context_analysis",
+        "test_api_with_context",
+        "test_different_times"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "requests",
+        "datetime",
+        "backend.hunting_context_analyzer"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_time_periods.py",
+      "relative_path": "test_time_periods.py",
+      "name": "test_time_periods.py",
+      "size": 8199,
+      "lines": 218,
+      "test_functions": [
+        "test_deer_approach_scenarios",
+        "test_with_real_backend_data"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "math",
+        "datetime"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "test_tinmouth_bedding_fix.py",
+      "relative_path": "test_tinmouth_bedding_fix.py",
+      "name": "test_tinmouth_bedding_fix.py",
+      "size": 14686,
+      "lines": 320,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "sys",
+        "os",
+        "asyncio",
+        "logging"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "bedding_zones"
+    },
+    {
+      "path": "test_west_facing_disqualification.py",
+      "relative_path": "test_west_facing_disqualification.py",
+      "name": "test_west_facing_disqualification.py",
+      "size": 5064,
+      "lines": 126,
+      "test_functions": [
+        "test_west_facing_disqualification"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "requests",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    },
+    {
+      "path": "tests\\e2e\\test_complete_system.py",
+      "relative_path": "tests\\e2e\\test_complete_system.py",
+      "name": "test_complete_system.py",
+      "size": 20568,
+      "lines": 516,
+      "test_functions": [
+        "test_complete_prediction_workflow",
+        "test_camera_placement_workflow",
+        "test_scouting_workflow",
+        "test_configuration_workflow",
+        "test_system_resilience",
+        "test_performance_under_load",
+        "test_data_consistency",
+        "test_service_layer_integration",
+        "test_router_layer_integration"
+      ],
+      "test_classes": [
+        "TestEndToEndSystem",
+        "TestSystemIntegration"
+      ],
+      "test_count": 11,
+      "imports": [
+        "the",
+        "pytest",
+        "sys",
+        "os",
+        "requests",
+        "time",
+        "subprocess",
+        "threading",
+        "signal",
+        "typing"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_e2e",
+      "name_category": "other"
+    },
+    {
+      "path": "tests\\fixtures\\test_data.py",
+      "relative_path": "tests\\fixtures\\test_data.py",
+      "name": "test_data.py",
+      "size": 6604,
+      "lines": 178,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "typing",
+        "datetime",
+        "json"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_fixtures",
+      "name_category": "other"
+    },
+    {
+      "path": "tests\\integration\\test_api_endpoints.py",
+      "relative_path": "tests\\integration\\test_api_endpoints.py",
+      "name": "test_api_endpoints.py",
+      "size": 15415,
+      "lines": 383,
+      "test_functions": [
+        "test_backend_health",
+        "test_prediction_endpoint_basic",
+        "test_golden_location_prediction",
+        "test_mature_buck_analysis",
+        "test_multiple_locations",
+        "test_prediction_with_date",
+        "test_invalid_coordinates",
+        "test_missing_required_fields",
+        "test_malformed_json",
+        "test_prediction_response_time",
+        "test_concurrent_requests",
+        "test_preserve_api_contract"
+      ],
+      "test_classes": [
+        "TestPredictionAPI",
+        "TestAPIErrorHandling",
+        "TestAPIPerformance",
+        "TestAPIRegression"
+      ],
+      "test_count": 16,
+      "imports": [
+        "pytest",
+        "requests",
+        "json",
+        "time",
+        "typing",
+        "sys",
+        "os",
+        "tests.fixtures.test_data"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_integration",
+      "name_category": "backend"
+    },
+    {
+      "path": "tests\\integration\\test_docker_health.py",
+      "relative_path": "tests\\integration\\test_docker_health.py",
+      "name": "test_docker_health.py",
+      "size": 7801,
+      "lines": 201,
+      "test_functions": [
+        "test_backend_health_endpoint",
+        "test_backend_api_docs_available",
+        "test_frontend_health_endpoint",
+        "test_backend_frontend_connectivity",
+        "test_redis_connectivity",
+        "test_prediction_endpoint_available",
+        "test_rules_endpoint_available",
+        "test_api_error_handling"
+      ],
+      "test_classes": [
+        "TestDockerHealth",
+        "TestAPIEndpoints"
+      ],
+      "test_count": 10,
+      "imports": [
+        "pytest",
+        "requests",
+        "time",
+        "json"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "integration",
+      "location_category": "organized_integration",
+      "name_category": "integration"
+    },
+    {
+      "path": "tests\\integration\\test_refactored_architecture.py",
+      "relative_path": "tests\\integration\\test_refactored_architecture.py",
+      "name": "test_refactored_architecture.py",
+      "size": 14975,
+      "lines": 376,
+      "test_functions": [
+        "test_api_health_endpoint",
+        "test_api_root_endpoint",
+        "test_prediction_endpoint_functionality",
+        "test_configuration_endpoints",
+        "test_camera_endpoints",
+        "test_scouting_endpoints",
+        "test_rules_endpoint_preserved",
+        "test_enhanced_endpoints_availability",
+        "test_prediction_performance_maintained",
+        "test_concurrent_requests_handling",
+        "test_api_response_format_unchanged",
+        "test_camera_confidence_preservation"
+      ],
+      "test_classes": [
+        "TestRefactoredArchitecture",
+        "TestArchitecturePerformance",
+        "TestBackwardCompatibility"
+      ],
+      "test_count": 15,
+      "imports": [
+        "pytest",
+        "sys",
+        "os",
+        "requests",
+        "time",
+        "typing",
+        "tests.fixtures.test_data"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "unit",
+      "location_category": "organized_integration",
+      "name_category": "other"
+    },
+    {
+      "path": "tests\\test_frontend_validation.py",
+      "relative_path": "tests\\test_frontend_validation.py",
+      "name": "test_frontend_validation.py",
+      "size": 12457,
+      "lines": 263,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "playwright.async_api",
+        "pytest",
+        "logging",
+        "asyncio",
+        "typing"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "integration",
+      "location_category": "organized_other",
+      "name_category": "frontend"
+    },
+    {
+      "path": "tests\\test_hunt_window_predictor.py",
+      "relative_path": "tests\\test_hunt_window_predictor.py",
+      "name": "test_hunt_window_predictor.py",
+      "size": 2499,
+      "lines": 67,
+      "test_functions": [
+        "test_hunt_window_predictor_identifies_priority_window"
+      ],
+      "test_classes": [],
+      "test_count": 1,
+      "imports": [
+        "datetime",
+        "backend.hunt_window.hunt_window_predictor"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "wind_thermal"
+    },
+    {
+      "path": "tests\\test_scouting_data_contract.py",
+      "relative_path": "tests\\test_scouting_data_contract.py",
+      "name": "test_scouting_data_contract.py",
+      "size": 2887,
+      "lines": 78,
+      "test_functions": [
+        "test_sample_json_matches_observation_schema",
+        "test_gpx_waypoints_parse_into_records",
+        "test_canonical_payload_produces_valid_observations"
+      ],
+      "test_classes": [],
+      "test_count": 3,
+      "imports": [
+        "__future__",
+        "json",
+        "datetime",
+        "pathlib",
+        "pytest",
+        "backend.scouting_import",
+        "backend.scouting_models"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "scouting"
+    },
+    {
+      "path": "tests\\test_scouting_import_endpoint.py",
+      "relative_path": "tests\\test_scouting_import_endpoint.py",
+      "name": "test_scouting_import_endpoint.py",
+      "size": 2315,
+      "lines": 73,
+      "test_functions": [
+        "test_import_endpoint_accepts_gpx_dry_run",
+        "test_import_endpoint_respects_feature_flag"
+      ],
+      "test_classes": [],
+      "test_count": 2,
+      "imports": [
+        "__future__",
+        "pathlib",
+        "pytest",
+        "fastapi.testclient",
+        "backend.config_manager",
+        "backend.main",
+        "backend.routers",
+        "backend.services.scouting_service"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unknown",
+      "location_category": "organized_other",
+      "name_category": "backend"
+    },
+    {
+      "path": "tests\\unit\\test_camera_placement.py",
+      "relative_path": "tests\\unit\\test_camera_placement.py",
+      "name": "test_camera_placement.py",
+      "size": 12018,
+      "lines": 263,
+      "test_functions": [
+        "test_camera_service_availability",
+        "test_camera_module_availability",
+        "test_golden_location_camera_confidence_service",
+        "test_golden_location_camera_confidence",
+        "test_camera_placement_structure",
+        "test_camera_distance_calculation",
+        "test_multiple_locations",
+        "test_edge_case_coordinates",
+        "test_invalid_coordinates",
+        "test_camera_placement_response_time",
+        "test_preserve_golden_metrics"
+      ],
+      "test_classes": [
+        "TestCameraPlacement",
+        "TestCameraPlacementPerformance",
+        "TestCameraPlacementRegression"
+      ],
+      "test_count": 14,
+      "imports": [
+        "pytest",
+        "sys",
+        "os",
+        "unittest.mock",
+        "typing",
+        "tests.fixtures.test_data"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_unit",
+      "name_category": "camera_placement"
+    },
+    {
+      "path": "tests\\unit\\test_camera_service.py",
+      "relative_path": "tests\\unit\\test_camera_service.py",
+      "name": "test_camera_service.py",
+      "size": 10557,
+      "lines": 252,
+      "test_functions": [
+        "test_service_initialization",
+        "test_trail_camera_placements_success",
+        "test_optimal_camera_placement_success",
+        "test_camera_placement_confidence_target",
+        "test_trail_camera_error_handling",
+        "test_optimal_camera_error_handling",
+        "test_trail_camera_request_validation",
+        "test_camera_placement_request_validation",
+        "test_feature_geojson_structure",
+        "test_camera_service_response_time",
+        "test_real_terrain_integration"
+      ],
+      "test_classes": [
+        "TestCameraService",
+        "TestCameraServicePerformance",
+        "TestCameraServiceIntegration"
+      ],
+      "test_count": 14,
+      "imports": [
+        "pytest",
+        "sys",
+        "os",
+        "unittest.mock",
+        "typing",
+        "tests.fixtures.test_data"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_unit",
+      "name_category": "camera_placement"
+    },
+    {
+      "path": "tests\\unit\\test_configuration_service.py",
+      "relative_path": "tests\\unit\\test_configuration_service.py",
+      "name": "test_configuration_service.py",
+      "size": 7021,
+      "lines": 171,
+      "test_functions": [
+        "test_service_initialization",
+        "test_get_status_success",
+        "test_get_parameters_success",
+        "test_reload_configuration_success",
+        "test_update_parameter_success",
+        "test_get_status_error_handling",
+        "test_update_parameter_error_handling",
+        "test_get_config_instance",
+        "test_real_config_integration"
+      ],
+      "test_classes": [
+        "TestConfigurationService",
+        "TestConfigurationServiceIntegration"
+      ],
+      "test_count": 11,
+      "imports": [
+        "pytest",
+        "sys",
+        "os",
+        "unittest.mock",
+        "typing"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_unit",
+      "name_category": "other"
+    },
+    {
+      "path": "tests\\unit\\test_gee_data_validation.py",
+      "relative_path": "tests\\unit\\test_gee_data_validation.py",
+      "name": "test_gee_data_validation.py",
+      "size": 11312,
+      "lines": 257,
+      "test_functions": [
+        "test_hansen_canopy_vs_sentinel2_temporal_consistency",
+        "test_known_false_positive_location_rejection",
+        "test_known_true_positive_location_validation",
+        "test_gee_data_source_tracking",
+        "test_grass_field_ndvi_pattern_detection",
+        "test_gee_data_required_fields",
+        "test_bedding_zone_response_schema"
+      ],
+      "test_classes": [
+        "TestGEEDataValidation",
+        "TestDataIntegrity"
+      ],
+      "test_count": 9,
+      "imports": [
+        "pytest",
+        "optimized_biological_integration",
+        "enhanced_bedding_zone_predictor"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_unit",
+      "name_category": "gee_data"
+    },
+    {
+      "path": "tests\\unit\\test_mature_buck.py",
+      "relative_path": "tests\\unit\\test_mature_buck.py",
+      "name": "test_mature_buck.py",
+      "size": 12431,
+      "lines": 262,
+      "test_functions": [
+        "test_mature_buck_module_availability",
+        "test_preferences_initialization",
+        "test_preferences_from_config",
+        "test_rut_season_behavior",
+        "test_early_season_behavior",
+        "test_behavioral_patterns",
+        "test_complete_analysis_pipeline",
+        "test_confidence_scoring",
+        "test_analysis_performance",
+        "test_preserve_rut_behavior",
+        "test_preserve_stand_recommendations"
+      ],
+      "test_classes": [
+        "TestMatureBuckPreferences",
+        "TestMatureBuckBehaviorModel",
+        "TestMatureBuckIntegration",
+        "TestMatureBuckPerformance",
+        "TestMatureBuckRegression"
+      ],
+      "test_count": 16,
+      "imports": [
+        "pytest",
+        "sys",
+        "os",
+        "unittest.mock",
+        "datetime",
+        "typing",
+        "tests.fixtures.test_data"
+      ],
+      "uses_pytest": true,
+      "has_fixtures": true,
+      "test_type": "unit",
+      "location_category": "organized_unit",
+      "name_category": "mature_buck"
+    },
+    {
+      "path": "tinmouth_diagnostic_test.py",
+      "relative_path": "tinmouth_diagnostic_test.py",
+      "name": "tinmouth_diagnostic_test.py",
+      "size": 18618,
+      "lines": 446,
+      "test_functions": [],
+      "test_classes": [],
+      "test_count": 0,
+      "imports": [
+        "logging",
+        "requests",
+        "numpy",
+        "datetime",
+        "typing",
+        "json",
+        "sys",
+        "os"
+      ],
+      "uses_pytest": false,
+      "has_fixtures": false,
+      "test_type": "unknown",
+      "location_category": "root_scattered",
+      "name_category": "other"
+    }
+  ]
+}

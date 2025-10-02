@@ -16,7 +16,7 @@ sys.path.insert(0, '/Users/richardtremblay/DeerPredictVSCode/backend/analysis')
 sys.path.insert(0, '/Users/richardtremblay/DeerPredictVSCode')
 
 # Import test modules
-from prediction_analyzer import PredictionAnalyzer
+from backend.analysis.prediction_analyzer import PredictionAnalyzer
 
 def test_request_model():
     """Test that request models work correctly"""

@@ -12,7 +12,7 @@ import json
 # Add paths for imports  
 sys.path.insert(0, '/Users/richardtremblay/DeerPredictVSCode/backend/analysis')
 
-from prediction_analyzer import PredictionAnalyzer
+from backend.analysis.prediction_analyzer import PredictionAnalyzer
 
 def test_analyzer_api_compatibility():
     """Test that analyzer output is compatible with API responses"""

@@ -146,9 +146,23 @@ def health_check():
 
 @app.get("/rules", summary="Get all prediction rules", response_model=List[Dict[str, Any]], tags=["rules"])
 def get_rules():
-    """Get prediction rules - preserved from original implementation."""
-    prediction_service = get_prediction_service()
-    return prediction_service.load_rules()
+    """Get prediction rules from data/rules.json file."""
+    import json
+    from pathlib import Path
+    
+    # Load rules from data directory
+    rules_path = Path(__file__).parent.parent / "data" / "rules.json"
+    
+    try:
+        with open(rules_path, 'r') as f:
+            rules = json.load(f)
+        return rules
+    except FileNotFoundError:
+        logger.error(f"Rules file not found at {rules_path}")
+        raise HTTPException(status_code=500, detail="Rules file not found")
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in rules file: {e}")
+        raise HTTPException(status_code=500, detail="Invalid rules file format")
 
 
 # Preserve any remaining functionality from original main.py that hasn't been moved to routers yet

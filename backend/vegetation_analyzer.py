@@ -50,9 +50,20 @@ class VegetationAnalyzer:
             except:
                 pass
             
-            # Initialize directly with service account
-            credentials_path = '/app/credentials/gee-service-account.json'
-            if os.path.exists(credentials_path):
+            # Search for credentials in multiple paths
+            credential_paths = [
+                'credentials/gee-service-account.json',  # Local path (development)
+                '/app/credentials/gee-service-account.json',  # Docker path (production)
+            ]
+            
+            credentials_path = None
+            for path in credential_paths:
+                if os.path.exists(path):
+                    credentials_path = path
+                    logger.info(f"🔑 Found GEE credentials: {path}")
+                    break
+            
+            if credentials_path:
                 service_credentials = ee.ServiceAccountCredentials(None, credentials_path)
                 ee.Initialize(service_credentials)
                 
@@ -63,7 +74,7 @@ class VegetationAnalyzer:
                 logger.info("✅ GEE Vegetation Analyzer initialized with direct authentication")
                 return True
             else:
-                logger.warning(f"Service account file not found: {credentials_path}")
+                logger.warning(f"Service account file not found in: {credential_paths}")
                 return False
                 
         except Exception as e:
@@ -83,9 +94,19 @@ class VegetationAnalyzer:
             except:
                 pass
             
-            # Initialize directly with service account
-            credentials_path = '/app/credentials/gee-service-account.json'
-            if os.path.exists(credentials_path):
+            # Search for credentials in multiple paths
+            credential_paths = [
+                'credentials/gee-service-account.json',  # Local path (development)
+                '/app/credentials/gee-service-account.json',  # Docker path (production)
+            ]
+            
+            credentials_path = None
+            for path in credential_paths:
+                if os.path.exists(path):
+                    credentials_path = path
+                    break
+            
+            if credentials_path:
                 service_credentials = ee.ServiceAccountCredentials(None, credentials_path)
                 ee.Initialize(service_credentials)
                 
@@ -94,7 +115,7 @@ class VegetationAnalyzer:
                 logger.info("🛰️ GEE initialized successfully")
                 return True
             else:
-                logger.warning(f"Service account file not found: {credentials_path}")
+                logger.warning(f"Service account file not found in: {credential_paths}")
                 return False
                 
         except Exception as e:
@@ -131,6 +152,7 @@ class VegetationAnalyzer:
             results = {
                 'ndvi_analysis': self._analyze_ndvi_improved(area, start_date, end_date),
                 'land_cover': self._analyze_land_cover(area),
+                'canopy_coverage_analysis': self._analyze_canopy_coverage(lat, lon, radius_km * 1000),  # NEW: Real canopy!
                 'food_sources': self._identify_food_sources(area, start_date, end_date, season),  # Vermont-specific!
                 'vegetation_health': self._assess_vegetation_health(area, start_date, end_date),
                 'seasonal_changes': self._detect_seasonal_changes(area),
@@ -293,6 +315,364 @@ class VegetationAnalyzer:
                 'health_description': 'Unable to analyze current vegetation health',
                 'error': str(e)
             }
+    
+    def _analyze_canopy_coverage(self, center_lat: float, center_lon: float, radius_m: float = 914) -> Dict[str, Any]:
+        """Analyze canopy coverage using real satellite data with spatial grid
+        
+        Args:
+            center_lat: Center latitude
+            center_lon: Center longitude  
+            radius_m: Search radius in meters (default 914m = 1000 yards)
+            
+        Returns:
+            Dict containing:
+            - canopy_coverage: Overall canopy percentage (0-1)
+            - canopy_grid: 30x30 spatial grid of canopy values
+            - grid_coordinates: Lat/lon for each grid cell
+            - thermal_cover_type: 'conifer', 'hardwood', 'mixed'
+            - conifer_percentage: Percentage of conifer coverage
+            - data_source: 'sentinel2', 'landsat8', or 'fallback'
+        """
+        try:
+            if not self._ensure_gee_initialized():
+                logger.warning("GEE not initialized, using fallback canopy")
+                return self._fallback_canopy_coverage(center_lat, center_lon, radius_m)
+            
+            logger.info(f"🌲 Analyzing canopy coverage: {center_lat:.4f}, {center_lon:.4f} (radius: {radius_m}m)")
+            
+            # Create analysis area
+            point = ee.Geometry.Point([center_lon, center_lat])
+            area = point.buffer(radius_m)
+            
+            # Try Sentinel-2 first (10m resolution, best for canopy)
+            canopy_data = self._get_sentinel2_canopy(area, center_lat, center_lon, radius_m)
+            
+            if canopy_data is None:
+                # Fallback to Landsat 8 (30m resolution)
+                logger.info("📡 Sentinel-2 unavailable, trying Landsat 8...")
+                canopy_data = self._get_landsat8_canopy(area, center_lat, center_lon, radius_m)
+            
+            if canopy_data is None:
+                logger.warning("⚠️ No satellite imagery available, using fallback")
+                return self._fallback_canopy_coverage(center_lat, center_lon, radius_m)
+            
+            # Get thermal cover type (conifer vs hardwood)
+            thermal_cover = self._analyze_thermal_cover(area)
+            canopy_data['thermal_cover_type'] = thermal_cover['dominant_type']
+            canopy_data['conifer_percentage'] = thermal_cover['conifer_percentage']
+            canopy_data['hardwood_percentage'] = thermal_cover['hardwood_percentage']
+            
+            logger.info(f"✅ Canopy analysis complete: {canopy_data['canopy_coverage']:.1%} coverage, "
+                       f"{thermal_cover['dominant_type']} dominant")
+            
+            return canopy_data
+            
+        except Exception as e:
+            logger.error(f"Canopy coverage analysis failed: {e}")
+            return self._fallback_canopy_coverage(center_lat, center_lon, radius_m)
+    
+    def _get_sentinel2_canopy(self, area: ee.Geometry, center_lat: float, center_lon: float, radius_m: float) -> Optional[Dict[str, Any]]:
+        """Get canopy coverage from Sentinel-2 (10m resolution)"""
+        try:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=90)  # Recent 3 months
+            
+            # Sentinel-2 Surface Reflectance
+            collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+                .filterBounds(area) \
+                .filterDate(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+                .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
+            
+            if collection.size().getInfo() == 0:
+                return None
+            
+            logger.info(f"🛰️ Found {collection.size().getInfo()} Sentinel-2 images")
+            
+            # Calculate NDVI (higher NDVI = more vegetation/canopy)
+            def add_ndvi(image):
+                ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI')
+                return image.addBands(ndvi)
+            
+            ndvi_collection = collection.map(add_ndvi)
+            median_ndvi = ndvi_collection.select('NDVI').median()
+            
+            # Canopy threshold: NDVI > 0.4 indicates significant canopy
+            canopy_mask = median_ndvi.gt(0.4)
+            
+            # Calculate overall canopy percentage
+            canopy_stats = canopy_mask.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=area,
+                scale=10,  # 10m resolution
+                maxPixels=1e9
+            ).getInfo()
+            
+            canopy_coverage = canopy_stats.get('NDVI', 0)
+            
+            # Create spatial grid (30x30) for bedding zone search
+            canopy_grid = self._create_canopy_grid(median_ndvi, center_lat, center_lon, radius_m, scale=10)
+            
+            return {
+                'canopy_coverage': canopy_coverage,
+                'canopy_grid': canopy_grid['grid'],
+                'grid_coordinates': canopy_grid['coordinates'],
+                'grid_size': canopy_grid['grid_size'],
+                'mean_ndvi': median_ndvi.reduceRegion(
+                    reducer=ee.Reducer.mean(),
+                    geometry=area,
+                    scale=10,
+                    maxPixels=1e9
+                ).getInfo().get('NDVI', 0),
+                'data_source': 'sentinel2',
+                'image_count': collection.size().getInfo(),
+                'resolution_m': 10
+            }
+            
+        except Exception as e:
+            logger.warning(f"Sentinel-2 canopy extraction failed: {e}")
+            return None
+    
+    def _get_landsat8_canopy(self, area: ee.Geometry, center_lat: float, center_lon: float, radius_m: float) -> Optional[Dict[str, Any]]:
+        """Get canopy coverage from Landsat 8 (30m resolution)"""
+        try:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=180)  # Extended 6 months for Landsat
+            
+            collection = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2') \
+                .filterBounds(area) \
+                .filterDate(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+                .filter(ee.Filter.lt('CLOUD_COVER', 30))
+            
+            if collection.size().getInfo() == 0:
+                return None
+            
+            logger.info(f"🛰️ Found {collection.size().getInfo()} Landsat 8 images")
+            
+            # Calculate NDVI
+            def add_ndvi(image):
+                ndvi = image.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
+                return image.addBands(ndvi)
+            
+            ndvi_collection = collection.map(add_ndvi)
+            median_ndvi = ndvi_collection.select('NDVI').median()
+            
+            # Canopy threshold
+            canopy_mask = median_ndvi.gt(0.4)
+            
+            canopy_stats = canopy_mask.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=area,
+                scale=30,
+                maxPixels=1e9
+            ).getInfo()
+            
+            canopy_coverage = canopy_stats.get('NDVI', 0)
+            
+            # Create spatial grid
+            canopy_grid = self._create_canopy_grid(median_ndvi, center_lat, center_lon, radius_m, scale=30)
+            
+            return {
+                'canopy_coverage': canopy_coverage,
+                'canopy_grid': canopy_grid['grid'],
+                'grid_coordinates': canopy_grid['coordinates'],
+                'grid_size': canopy_grid['grid_size'],
+                'mean_ndvi': median_ndvi.reduceRegion(
+                    reducer=ee.Reducer.mean(),
+                    geometry=area,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo().get('NDVI', 0),
+                'data_source': 'landsat8',
+                'image_count': collection.size().getInfo(),
+                'resolution_m': 30
+            }
+            
+        except Exception as e:
+            logger.warning(f"Landsat 8 canopy extraction failed: {e}")
+            return None
+    
+    def _create_canopy_grid(self, ndvi_image: ee.Image, center_lat: float, center_lon: float, 
+                           radius_m: float, scale: int = 30) -> Dict[str, Any]:
+        """Create spatial grid of canopy coverage for bedding zone search"""
+        try:
+            grid_size = 30  # 30x30 grid
+            span_deg = (radius_m * 2) / 111000  # Convert meters to degrees (approx)
+            
+            # Create grid coordinates
+            lat_start = center_lat - span_deg / 2
+            lon_start = center_lon - span_deg / 2
+            lat_step = span_deg / grid_size
+            lon_step = span_deg / grid_size
+            
+            # Sample NDVI at grid points
+            grid = np.zeros((grid_size, grid_size))
+            coordinates = {'lat': [], 'lon': []}
+            
+            # Batch sampling for efficiency (sample every 3rd point for 10x10 effective grid)
+            sample_step = 3
+            sample_points = []
+            
+            for i in range(0, grid_size, sample_step):
+                for j in range(0, grid_size, sample_step):
+                    lat = lat_start + (i + 0.5) * lat_step
+                    lon = lon_start + (j + 0.5) * lon_step
+                    sample_points.append(ee.Geometry.Point([lon, lat]))
+            
+            # Batch sample
+            sample_fc = ee.FeatureCollection(sample_points)
+            sampled = ndvi_image.sampleRegions(
+                collection=sample_fc,
+                scale=scale,
+                geometries=True
+            ).getInfo()
+            
+            # Fill grid with sampled values
+            idx = 0
+            for i in range(0, grid_size, sample_step):
+                for j in range(0, grid_size, sample_step):
+                    if idx < len(sampled['features']):
+                        ndvi_val = sampled['features'][idx]['properties'].get('NDVI', 0)
+                        # Convert NDVI to canopy coverage (NDVI > 0.4 = canopy)
+                        canopy_val = 1.0 if ndvi_val > 0.4 else max(0, ndvi_val / 0.4)
+                        grid[i, j] = canopy_val
+                        idx += 1
+            
+            # Interpolate missing values
+            from scipy.ndimage import zoom
+            if sample_step > 1:
+                grid = zoom(grid, sample_step, order=1)[:grid_size, :grid_size]
+            
+            # Store all grid coordinates
+            for i in range(grid_size):
+                for j in range(grid_size):
+                    coordinates['lat'].append(lat_start + (i + 0.5) * lat_step)
+                    coordinates['lon'].append(lon_start + (j + 0.5) * lon_step)
+            
+            return {
+                'grid': grid.tolist(),
+                'coordinates': coordinates,
+                'grid_size': grid_size,
+                'span_deg': span_deg,
+                'resolution_m': scale
+            }
+            
+        except Exception as e:
+            logger.error(f"Grid creation failed: {e}")
+            # Return simple uniform grid as fallback
+            grid = np.ones((30, 30)) * 0.65  # Vermont default
+            return {
+                'grid': grid.tolist(),
+                'coordinates': {'lat': [], 'lon': []},
+                'grid_size': 30,
+                'span_deg': (radius_m * 2) / 111000,
+                'resolution_m': scale,
+                'fallback': True
+            }
+    
+    def _analyze_thermal_cover(self, area: ee.Geometry) -> Dict[str, Any]:
+        """Analyze thermal cover type (conifer vs hardwood) using NLCD"""
+        try:
+            # NLCD Land Cover
+            nlcd = ee.Image('USGS/NLCD_RELEASES/2021_REL/NLCD/2021')
+            landcover = nlcd.select('landcover')
+            
+            # Forest classes:
+            # 41 = Deciduous Forest (hardwood)
+            # 42 = Evergreen Forest (conifer - thermal cover)
+            # 43 = Mixed Forest
+            
+            deciduous_mask = landcover.eq(41)
+            evergreen_mask = landcover.eq(42)
+            mixed_mask = landcover.eq(43)
+            
+            # Calculate percentages
+            area_sq_m = area.area().getInfo()
+            
+            deciduous_area = deciduous_mask.multiply(ee.Image.pixelArea()) \
+                .reduceRegion(
+                    reducer=ee.Reducer.sum(),
+                    geometry=area,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo().get('landcover', 0)
+            
+            evergreen_area = evergreen_mask.multiply(ee.Image.pixelArea()) \
+                .reduceRegion(
+                    reducer=ee.Reducer.sum(),
+                    geometry=area,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo().get('landcover', 0)
+            
+            mixed_area = mixed_mask.multiply(ee.Image.pixelArea()) \
+                .reduceRegion(
+                    reducer=ee.Reducer.sum(),
+                    geometry=area,
+                    scale=30,
+                    maxPixels=1e9
+                ).getInfo().get('landcover', 0)
+            
+            total_forest = deciduous_area + evergreen_area + mixed_area
+            
+            if total_forest > 0:
+                conifer_pct = (evergreen_area + mixed_area * 0.5) / area_sq_m
+                hardwood_pct = (deciduous_area + mixed_area * 0.5) / area_sq_m
+            else:
+                conifer_pct = 0
+                hardwood_pct = 0
+            
+            # Determine dominant type
+            if conifer_pct > hardwood_pct * 1.5:
+                dominant = 'conifer'  # Heavy conifer = excellent thermal cover
+            elif hardwood_pct > conifer_pct * 1.5:
+                dominant = 'hardwood'  # Hardwood = mast production
+            else:
+                dominant = 'mixed'  # Mixed = good all-around
+            
+            return {
+                'dominant_type': dominant,
+                'conifer_percentage': round(conifer_pct, 3),
+                'hardwood_percentage': round(hardwood_pct, 3),
+                'thermal_cover_rating': 'excellent' if conifer_pct > 0.4 else 'good' if conifer_pct > 0.2 else 'moderate'
+            }
+            
+        except Exception as e:
+            logger.warning(f"Thermal cover analysis failed: {e}")
+            # Vermont default: mixed hardwood/conifer
+            return {
+                'dominant_type': 'mixed',
+                'conifer_percentage': 0.3,
+                'hardwood_percentage': 0.5,
+                'thermal_cover_rating': 'moderate'
+            }
+    
+    def _fallback_canopy_coverage(self, center_lat: float, center_lon: float, radius_m: float) -> Dict[str, Any]:
+        """Fallback canopy coverage when GEE unavailable"""
+        logger.warning("⚠️ Using fallback canopy coverage (no satellite data)")
+        
+        # Vermont bounds check for better defaults
+        if 42 < center_lat < 45 and -74 < center_lon < -71:
+            canopy = 0.65  # Good Vermont forest cover
+            thermal = 'mixed'
+        else:
+            canopy = 0.55  # Generic moderate forest
+            thermal = 'mixed'
+        
+        # Create uniform grid
+        grid_size = 30
+        grid = np.ones((grid_size, grid_size)) * canopy
+        
+        return {
+            'canopy_coverage': canopy,
+            'canopy_grid': grid.tolist(),
+            'grid_coordinates': {'lat': [], 'lon': []},
+            'grid_size': grid_size,
+            'thermal_cover_type': thermal,
+            'conifer_percentage': 0.3,
+            'hardwood_percentage': 0.5,
+            'data_source': 'fallback',
+            'fallback': True
+        }
     
     def _analyze_land_cover(self, area: ee.Geometry) -> Dict[str, Any]:
         """Analyze land cover types in the hunting area"""

@@ -371,15 +371,48 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         else:
             return self.get_elevation_data_fallback(lat, lon)
 
-    def get_dynamic_gee_data_enhanced(self, lat: float, lon: float, max_retries: int = 5) -> Dict:
-        """Enhanced GEE data with elevation integration and slope validation"""
+    def get_dynamic_gee_data_enhanced(self, lat: float, lon: float, vegetation_data: Optional[Dict] = None, max_retries: int = 5) -> Dict:
+        """Enhanced GEE data with REAL canopy coverage from vegetation analyzer"""
         gee_data = self.get_dynamic_gee_data(lat, lon, max_retries)
         
         # Add elevation, slope, and aspect data
         elevation_data = self.get_elevation_data(lat, lon)
         gee_data.update(elevation_data)
         
-        # 🎯 FINAL VALIDATION: Ensure slope is realistic for Vermont terrain
+        # � REAL CANOPY INTEGRATION from VegetationAnalyzer
+        if vegetation_data and 'canopy_coverage_analysis' in vegetation_data:
+            canopy_analysis = vegetation_data['canopy_coverage_analysis']
+            
+            # Save old canopy for comparison
+            old_canopy = gee_data.get('canopy_coverage', 0)
+            
+            # Extract REAL satellite canopy
+            real_canopy = canopy_analysis.get('canopy_coverage', old_canopy)
+            
+            # Override GEE canopy with REAL satellite data
+            gee_data['canopy_coverage'] = real_canopy
+            gee_data['canopy_grid'] = canopy_analysis.get('canopy_grid', [])
+            gee_data['grid_coordinates'] = canopy_analysis.get('grid_coordinates', {})
+            gee_data['grid_size'] = canopy_analysis.get('grid_size', 0)
+            gee_data['thermal_cover_type'] = canopy_analysis.get('thermal_cover_type', 'mixed')
+            gee_data['conifer_percentage'] = canopy_analysis.get('conifer_percentage', 0.3)
+            gee_data['canopy_data_source'] = canopy_analysis.get('data_source', 'fallback')
+            gee_data['canopy_resolution_m'] = canopy_analysis.get('resolution_m', 30)
+            
+            # Log canopy upgrade
+            logger.info(f"🌲 CANOPY UPGRADE: {old_canopy:.1%} (estimated) → "
+                       f"{real_canopy:.1%} (satellite: {gee_data['canopy_data_source']})")
+            
+            # Flag if using fallback
+            if canopy_analysis.get('fallback'):
+                logger.warning("⚠️ Canopy using FALLBACK mode (no satellite data available)")
+            else:
+                logger.info(f"✅ Using REAL satellite canopy data ({gee_data['canopy_resolution_m']}m resolution)")
+        else:
+            logger.warning("⚠️ No vegetation analysis provided, using estimated canopy coverage")
+            gee_data['canopy_data_source'] = 'estimated'
+        
+        # �🎯 FINAL VALIDATION: Ensure slope is realistic for Vermont terrain
         if gee_data.get("slope", 0) > 45:
             logger.warning(f"⚠️ FINAL SLOPE VALIDATION: {gee_data['slope']:.1f}° exceeds realistic limit")
             # Apply Vermont terrain correction based on elevation
@@ -392,7 +425,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 gee_data["slope"] = np.random.uniform(3, 15)   # Gentle
             logger.info(f"🔧 SLOPE CORRECTED: Applied {gee_data['slope']:.1f}° for {elevation:.0f}m elevation")
         
-        logger.info(f"🏔️ Enhanced GEE data: Canopy={gee_data['canopy_coverage']:.1%}, "
+        logger.info(f"🏔️ Enhanced GEE data: Canopy={gee_data['canopy_coverage']:.1%} ({gee_data.get('canopy_data_source', 'unknown')}), "
                    f"Slope={gee_data['slope']:.1f}°, Aspect={gee_data['aspect']:.0f}°")
         
         return gee_data
@@ -909,11 +942,33 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
     def run_enhanced_biological_analysis(self, lat: float, lon: float, time_of_day: int,
                                         season: str, hunting_pressure: str,
                                         target_datetime: Optional[datetime] = None) -> Dict:
-        """Enhanced biological analysis with comprehensive site generation (bedding, stands, feeding, camera)"""
+        """Enhanced biological analysis with REAL canopy coverage from satellite imagery"""
         start_time = time.time()
         
-        # Get enhanced environmental data
-        gee_data = self.get_dynamic_gee_data_enhanced(lat, lon)
+        # 🆕 GET VEGETATION ANALYSIS FIRST (includes real canopy coverage!)
+        vegetation_data = None
+        try:
+            try:
+                from backend.vegetation_analyzer import VegetationAnalyzer
+            except ImportError:
+                from vegetation_analyzer import VegetationAnalyzer
+            
+            analyzer = VegetationAnalyzer()
+            if analyzer.initialize():
+                logger.info(f"🌿 Analyzing vegetation with 1000-yard radius (914m)...")
+                vegetation_data = analyzer.analyze_hunting_area(
+                    lat, lon, 
+                    radius_km=0.914,  # 1000 yards = 914m = 0.914km
+                    season=season
+                )
+                logger.info("✅ Vegetation analysis complete (includes real canopy coverage)")
+            else:
+                logger.warning("⚠️ VegetationAnalyzer initialization failed, will use estimated canopy")
+        except Exception as e:
+            logger.error(f"Vegetation analysis failed: {e}, will use estimated canopy")
+        
+        # Get enhanced environmental data (now includes REAL canopy from vegetation analysis)
+        gee_data = self.get_dynamic_gee_data_enhanced(lat, lon, vegetation_data=vegetation_data)
         osm_data = self.get_osm_road_proximity(lat, lon)
         weather_data = self.get_enhanced_weather_with_trends(lat, lon, target_datetime)
         

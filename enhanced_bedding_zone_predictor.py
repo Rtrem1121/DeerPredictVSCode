@@ -967,8 +967,45 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         except Exception as e:
             logger.error(f"Vegetation analysis failed: {e}, will use estimated canopy")
         
+        # 🆕 GET LIDAR TERRAIN DATA (35cm resolution for microhabitat features!)
+        lidar_data = None
+        try:
+            try:
+                from backend.vermont_lidar_reader import get_lidar_reader
+            except ImportError:
+                from vermont_lidar_reader import get_lidar_reader
+            
+            reader = get_lidar_reader()
+            if reader.has_lidar_coverage(lat, lon):
+                logger.info(f"🗺️ Extracting LiDAR terrain (35cm resolution)...")
+                lidar_data = reader.get_terrain_data(lat, lon, radius_m=914)
+                if lidar_data:
+                    logger.info(f"✅ LiDAR terrain extracted: {lidar_data['resolution_m']:.2f}m resolution, {len(lidar_data.get('benches', []))} benches found")
+                else:
+                    logger.warning("⚠️ LiDAR extraction failed, will use SRTM 30m fallback")
+            else:
+                logger.info("ℹ️ No LiDAR coverage for this location, using SRTM 30m fallback")
+        except Exception as e:
+            logger.error(f"LiDAR analysis failed: {e}, will use SRTM 30m fallback")
+        
         # Get enhanced environmental data (now includes REAL canopy from vegetation analysis)
         gee_data = self.get_dynamic_gee_data_enhanced(lat, lon, vegetation_data=vegetation_data)
+        
+        # 🆕 Enhance GEE data with LiDAR terrain features
+        if lidar_data:
+            gee_data['lidar_terrain'] = {
+                'resolution_m': lidar_data['resolution_m'],
+                'mean_elevation': lidar_data['mean_elevation'],
+                'mean_slope': lidar_data['mean_slope'],
+                'benches_count': len(lidar_data.get('benches', [])),
+                'benches': lidar_data.get('benches', []),
+                'saddles_count': len(lidar_data.get('saddles', [])),
+                'saddles': lidar_data.get('saddles', []),
+                'data_source': lidar_data['source'],
+                'file': lidar_data['file']
+            }
+            logger.info(f"🎯 Enhanced with LiDAR: {gee_data['lidar_terrain']['benches_count']} benches, {gee_data['lidar_terrain']['saddles_count']} saddles")
+        
         osm_data = self.get_osm_road_proximity(lat, lon)
         weather_data = self.get_enhanced_weather_with_trends(lat, lon, target_datetime)
         
@@ -1009,7 +1046,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "movement_direction": movement_direction,
             "confidence_score": confidence,
             "analysis_time": analysis_time,
-            "optimization_version": "v3.0-complete-site-generation",
+            "optimization_version": "v3.1-lidar-integration",
             "timestamp": datetime.now().isoformat(),
             "target_prediction_time": target_datetime.isoformat() if target_datetime else None
         }

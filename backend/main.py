@@ -14,7 +14,7 @@ Author: GitHub Copilot (Refactoring Assistant)
 Date: August 24, 2025
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
@@ -22,10 +22,20 @@ import numpy as np
 import logging
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+import time
 
-# Set up logging first
+# Set up logging first with custom filter to suppress health checks
+class HealthCheckFilter(logging.Filter):
+    """Filter out health check requests from logs to reduce noise"""
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Suppress health check logs (both Docker healthchecks and Streamlit pings)
+        return "/health" not in record.getMessage()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Add filter to uvicorn access logger to suppress health check spam
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 # Import services for health checks
 from backend.services.prediction_service import get_prediction_service

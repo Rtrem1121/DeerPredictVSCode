@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 5m      # Check every 5 minutes (was 30s)
       timeout: 10s
       retries: 3
       start_period: 40s
@@ -53,7 +53,7 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
-      interval: 30s
+      interval: 5m      # Check every 5 minutes (was 30s)
       timeout: 10s
       retries: 3
       start_period: 40s

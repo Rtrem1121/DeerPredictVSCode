@@ -15,6 +15,13 @@ services:
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
       - scouting_data:/app/backend/scouting_data
+      # 🚀 DEVELOPMENT: Mount root Python files for instant updates (no rebuild needed!)
+      # Using :ro (read-only) to prevent accidental corruption from container
+      - ./enhanced_bedding_zone_predictor.py:/app/enhanced_bedding_zone_predictor.py:ro
+      - ./prediction_service_bedding_fix.py:/app/prediction_service_bedding_fix.py:ro
+      - ./production_bedding_fix.py:/app/production_bedding_fix.py:ro
+      - ./optimized_biological_integration.py:/app/optimized_biological_integration.py:ro
+      - ./enhanced_biological_integration.py:/app/enhanced_biological_integration.py:ro
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
       - PYTHONPATH=/app:/app/backend

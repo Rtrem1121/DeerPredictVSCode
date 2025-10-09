@@ -18,7 +18,7 @@ import math
 import numpy as np
 import tempfile
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from optimized_biological_integration import OptimizedBiologicalIntegration
 
@@ -491,32 +491,38 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         if slope_disqualified:
             logger.warning(f"🚫 BEDDING ZONE DISQUALIFIED: Slope {criteria['slope']:.1f}° > {thresholds['max_slope']}° limit")
         
-        # CRITICAL FIX: Aspect score (thermal advantage) with strict biological enforcement
-        if thresholds["optimal_aspect_min"] <= criteria["aspect"] <= thresholds["optimal_aspect_max"]:
-            scores["aspect"] = 100  # Perfect south-facing
-        else:
-            # Calculate distance from optimal range
-            optimal_center = (thresholds["optimal_aspect_min"] + thresholds["optimal_aspect_max"]) / 2
-            aspect_diff = min(abs(criteria["aspect"] - optimal_center), 
-                             360 - abs(criteria["aspect"] - optimal_center))
-            
-            # BIOLOGICAL ACCURACY: Severe penalty for non-south facing slopes
-            # North-facing slopes (315°-45°) are particularly poor for deer
-            if 315 <= criteria["aspect"] or criteria["aspect"] <= 45:  # North-facing (worst)
-                scores["aspect"] = max(0, 20 - (aspect_diff / 45) * 20)  # Very low score
-                logger.warning(f"⚠️ ASPECT WARNING: North-facing slope {criteria['aspect']:.1f}° is suboptimal for deer activity")
-            elif 45 < criteria["aspect"] < 135:  # East-facing (poor)
-                scores["aspect"] = max(0, 40 - (aspect_diff / 90) * 30)  # Low score
-                logger.warning(f"⚠️ ASPECT WARNING: East-facing slope {criteria['aspect']:.1f}° reduces thermal advantage")
-            elif 225 < criteria["aspect"] < 315:  # West-facing (moderate)
-                scores["aspect"] = max(0, 60 - (aspect_diff / 90) * 20)  # Moderate score
-            else:  # Other non-optimal aspects
-                scores["aspect"] = max(0, 100 - (aspect_diff / 90) * 60)  # Moderate penalty
+        # BIOLOGICAL ACCURACY FIX: Aspect scoring based on temperature preferences
+        # Cold weather: South-facing preferred (thermal advantage)
+        # Warm weather: North/East-facing preferred (cooling)
+        # Moderate weather: All aspects equally acceptable
+        temperature = weather_data.get("temperature", 50)
+        aspect_score = 70  # Default neutral score (all aspects acceptable)
         
-        # ENHANCED: Mark thermal optimization status for biological accuracy
-        thermal_optimal = thresholds["optimal_aspect_min"] <= criteria["aspect"] <= thresholds["optimal_aspect_max"]
-        if not thermal_optimal:
-            logger.warning(f"🌡️ THERMAL SUBOPTIMAL: Aspect {criteria['aspect']:.1f}° outside optimal range ({thresholds['optimal_aspect_min']:.0f}°-{thresholds['optimal_aspect_max']:.0f}°)")
+        if temperature < 40:  # Cold weather - prefer south-facing
+            if 135 <= criteria["aspect"] <= 225:  # South-facing
+                aspect_score = 100  # Optimal for thermal advantage
+                logger.info(f"✅ THERMAL OPTIMAL: South-facing {criteria['aspect']:.1f}° ideal for cold weather")
+            elif 315 <= criteria["aspect"] or criteria["aspect"] <= 45:  # North-facing
+                aspect_score = 50  # Less ideal but acceptable with cover
+                logger.info(f"⚠️ THERMAL SUBOPTIMAL: North-facing {criteria['aspect']:.1f}° cooler in cold weather, but acceptable")
+            else:  # East/West-facing
+                aspect_score = 70  # Neutral
+                
+        elif temperature > 65:  # Warm weather - prefer north/east-facing  
+            if 315 <= criteria["aspect"] or criteria["aspect"] <= 135:  # North/East-facing
+                aspect_score = 100  # Optimal for cooling
+                logger.info(f"✅ THERMAL OPTIMAL: North/East-facing {criteria['aspect']:.1f}° provides cooling in warm weather")
+            elif 135 < criteria["aspect"] <= 225:  # South-facing
+                aspect_score = 60  # Can be hot, reduced by canopy
+                logger.info(f"⚠️ THERMAL WARM: South-facing {criteria['aspect']:.1f}° warmer, relies on canopy shade")
+            else:  # West-facing
+                aspect_score = 50  # Afternoon sun exposure
+                
+        else:  # Moderate weather (40-65°F) - all aspects equal
+            aspect_score = 85  # Slightly favorable (no thermal stress either way)
+            logger.info(f"✅ THERMAL NEUTRAL: {criteria['aspect']:.1f}° suitable for moderate temperatures")
+        
+        scores["aspect"] = aspect_score
         
         # Wind protection score (leeward positioning)
         wind_diff = abs(criteria["wind_direction"] - criteria["aspect"])
@@ -561,50 +567,46 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # BIOLOGICAL ACCURACY: Slopes >30° are completely unsuitable for bedding
         slope_disqualified = criteria["slope"] > thresholds["max_slope"]
         
-        # CRITICAL FIX: Only south-facing slopes (135°-225°) are suitable for mature buck bedding
-        # All other aspects (north, east, west) are biologically unsuitable
-        aspect_disqualified = False
+        # BIOLOGICAL ACCURACY FIX: Aspect preference varies by temperature, not a hard requirement
+        # Mature bucks bed on ANY aspect if cover, wind, and security are good
+        # Temperature determines aspect PREFERENCE (not disqualification)
+        temperature = weather_data.get("temperature", 50)  # Get current temperature
         aspect_value = criteria.get("aspect")
+        aspect_preference_met = True  # Default: all aspects acceptable
         
-        # Handle None or invalid aspect values
-        if aspect_value is None or not isinstance(aspect_value, (int, float)):
-            aspect_disqualified = True
-            logger.warning(f"🚫 ASPECT DISQUALIFIED: Invalid or missing aspect data - cannot determine slope orientation")
-        elif not (135 <= aspect_value <= 225):  # Only south-facing is acceptable
-            if 315 <= aspect_value or aspect_value <= 45:  # North-facing (315°-45°)
-                aspect_disqualified = True
-                logger.warning(f"🚫 ASPECT DISQUALIFIED: North-facing slope {aspect_value:.1f}° is unsuitable for mature buck bedding")
-            elif 45 < aspect_value < 135:  # East-facing (45°-135°) 
-                aspect_disqualified = True
-                logger.warning(f"🚫 ASPECT DISQUALIFIED: East-facing slope {aspect_value:.1f}° lacks thermal advantage for bedding")
-            elif 225 < aspect_value < 315:  # West-facing (225°-315°)
-                aspect_disqualified = True
-                logger.warning(f"🚫 ASPECT DISQUALIFIED: West-facing slope {aspect_value:.1f}° receives insufficient sunlight for bedding")
-            else:  # Any other aspect outside south-facing range
-                aspect_disqualified = True
-                logger.warning(f"🚫 ASPECT DISQUALIFIED: Aspect {aspect_value:.1f}° outside optimal south-facing range (135°-225°)")
+        # Log aspect preference based on temperature (informational only)
+        if aspect_value is not None and isinstance(aspect_value, (int, float)):
+            if temperature < 40:  # Cold weather - south-facing preferred but not required
+                if 135 <= aspect_value <= 225:
+                    logger.info(f"✅ ASPECT OPTIMAL: South-facing {aspect_value:.1f}° ideal for cold weather thermal advantage")
+                elif 315 <= aspect_value or aspect_value <= 45:
+                    logger.info(f"⚠️ ASPECT SUBOPTIMAL: North-facing {aspect_value:.1f}° less ideal in cold, but acceptable with good cover")
+                else:
+                    logger.info(f"ℹ️ ASPECT NEUTRAL: {aspect_value:.1f}° acceptable aspect for bedding")
+            elif temperature > 65:  # Warm weather - north/east-facing preferred
+                if 315 <= aspect_value or aspect_value <= 135:
+                    logger.info(f"✅ ASPECT OPTIMAL: North/East-facing {aspect_value:.1f}° provides cooling in warm weather")
+                elif 135 < aspect_value <= 225:
+                    logger.info(f"⚠️ ASPECT SUBOPTIMAL: South-facing {aspect_value:.1f}° can be hot, but acceptable with canopy")
+                else:
+                    logger.info(f"ℹ️ ASPECT NEUTRAL: West-facing {aspect_value:.1f}° acceptable with afternoon shade")
+            else:  # Moderate weather - all aspects equally acceptable
+                logger.info(f"✅ ASPECT ACCEPTABLE: {aspect_value:.1f}° suitable for moderate temperatures")
+        else:
+            logger.info(f"ℹ️ ASPECT UNKNOWN: Missing aspect data, relying on other criteria")
         
-        # Determine if location meets minimum criteria with strict slope AND aspect enforcement
+        # Determine if location meets minimum criteria - NO ASPECT DISQUALIFICATION
         meets_criteria = (
             primary_criteria_met and
             terrain_suitable and
             not slope_disqualified and  # Hard requirement: no steep slopes
-            not aspect_disqualified and  # Hard requirement: no east/north-facing slopes
             overall_score >= 70  # Lowered from 80 for viable but not perfect habitat
         )
         
-        # Log disqualification reasons
+        # Log disqualification reasons (slope only - aspect never disqualifies)
         if slope_disqualified:
             logger.warning(f"🚫 LOCATION DISQUALIFIED: Slope {criteria['slope']:.1f}° exceeds biological limit of {thresholds['max_slope']}°")
-            meets_criteria = False  # Force disqualification
-            
-        if aspect_disqualified:
-            logger.warning(f"🚫 LOCATION DISQUALIFIED: Aspect {criteria['aspect']:.1f}° unsuitable for mature buck bedding")
-            logger.warning(f"   🦌 Biological reasoning: Mature bucks REQUIRE south-facing slopes (135°-225°) for:")
-            logger.warning(f"   • Maximum thermal advantage and sun exposure")
-            logger.warning(f"   • Highest browse quality (oak mast, nutritious vegetation)")
-            logger.warning(f"   • Optimal wind positioning for scent detection")
-            logger.warning(f"   • West/East/North-facing slopes lack these critical advantages")
+            logger.warning(f"   🦌 Biological reasoning: Slopes over {thresholds['max_slope']}° are too steep for comfortable bedding")
             meets_criteria = False  # Force disqualification
         
         # Enhanced logging for debugging zone generation failures
@@ -660,23 +662,56 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             delta_lon = (distance_m * math.sin(bearing_rad)) / meters_per_degree_lon
             return {"lat": delta_lat, "lon": delta_lon}
 
-        # Position 1: Primary - Leeward slope with thermal advantage
-        primary_bearing = leeward_direction
-        if temperature < 40:  # Cold weather - favor south-facing thermal slopes
-            primary_bearing = (leeward_direction + 180) % 360  # South-facing leeward
+        # Position 1: Primary - UPHILL on slopes for thermal/security advantage
+        # CRITICAL FIX: Prioritize elevation over wind on sloped terrain
+        # Lowered threshold from 10° to 5° - even gentle slopes have directional movement
+        if slope > 5:  # Sloped terrain (even gentle slopes) - elevation is CRITICAL for deer bedding
+            # Place bedding UPHILL (higher elevation for thermal advantage, security, escape routes)
+            uphill_direction = (aspect + 180) % 360
+            primary_bearing = uphill_direction
+            
+            # Check if wind conflicts with uphill placement (angle difference > 90°)
+            angle_diff = abs((uphill_direction - leeward_direction + 180) % 360 - 180)
+            if angle_diff > 90:  # Wind perpendicular or upwind from ideal bedding
+                # Compromise: favor uphill (70%) but adjust for wind (30%)
+                logger.info(f"⚠️ BEDDING COMPROMISE: Uphill={uphill_direction:.0f}° vs Leeward={leeward_direction:.0f}° (angle diff={angle_diff:.0f}°)")
+                primary_bearing = self._combine_bearings(
+                    uphill_direction,    # Uphill - thermal/security priority
+                    leeward_direction,   # Downwind - scent control
+                    0.7, 0.3  # 70% elevation, 30% wind
+                )
+                logger.info(f"🧭 BEDDING: Combined bearing = {primary_bearing:.0f}° (elevation-priority)")
+            else:
+                logger.info(f"✅ BEDDING: Uphill placement aligns with wind (uphill={uphill_direction:.0f}°, leeward={leeward_direction:.0f}°)")
+        else:  # Truly flat terrain (≤5°) - wind dominates (no significant elevation advantage)
+            primary_bearing = leeward_direction
+            logger.info(f"🧭 BEDDING: Flat terrain (slope={slope:.1f}°≤5°), using leeward direction ({leeward_direction:.0f}°)")
 
         primary_distance = clamp_distance(base_distance_m * 1.15 * distance_multiplier)
         primary_offset = calculate_offset(primary_distance, primary_bearing)
 
         # Position 2: Secondary - Optimal canopy protection
-        secondary_bearing = (wind_direction + 90) % 360
+        # On steep slopes, keep bedding uphill with slight variation from primary
+        # On flat terrain, use crosswind for canopy diversity
+        # Lowered threshold from 10° to 5° for consistency
+        if slope > 5:  # Sloped terrain (even gentle slopes) - stay uphill
+            uphill_direction = (aspect + 180) % 360
+            secondary_bearing = (uphill_direction + 30) % 360  # Slight variation from primary
+            logger.info(f"🏔️ SECONDARY BEDDING: Uphill variation ({secondary_bearing:.0f}°) on {slope:.1f}° slope")
+        else:  # Truly flat terrain - use crosswind
+            secondary_bearing = (wind_direction + 90) % 360
+            logger.info(f"🌲 SECONDARY BEDDING: Crosswind canopy ({secondary_bearing:.0f}°) on flat terrain")
+        
         secondary_distance = clamp_distance(base_distance_m * 0.85 * distance_multiplier)
         secondary_offset = calculate_offset(secondary_distance, secondary_bearing)
 
-        # Position 3: Escape - Higher elevation with visibility
-        escape_bearing = aspect  # Use slope aspect for uphill direction
-        if slope < 5:  # Flat terrain - use wind protection
+        # Position 3: Escape - Higher elevation with visibility and multiple escape routes
+        if slope > 5:  # Sloped terrain (lowered from 10°) - place UPHILL for maximum elevation advantage
+            escape_bearing = (aspect + 180) % 360  # Uphill direction for escape routes
+            logger.info(f"🏔️ ESCAPE BEDDING: Placing uphill ({escape_bearing:.0f}°) for elevation/visibility advantage")
+        else:  # Flat terrain - use wind protection
             escape_bearing = (leeward_direction + 45) % 360
+            logger.info(f"🏔️ ESCAPE BEDDING: Flat terrain - using leeward+45° ({escape_bearing:.0f}°)")
 
         escape_distance = clamp_distance(base_distance_m * 1.0 * distance_multiplier)
         escape_offset = calculate_offset(escape_distance, escape_bearing)
@@ -685,22 +720,23 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             {
                 "offset": primary_offset,
                 "type": "primary",
-                "description": f"Primary bedding: Leeward thermal position ({primary_bearing:.0f}°)"
+                "description": f"Primary bedding: {'Uphill' if slope > 5 else 'Leeward'} position ({primary_bearing:.0f}°) - Elevation priority on {slope:.1f}° slope"
             },
             {
                 "offset": secondary_offset,
                 "type": "secondary", 
-                "description": f"Secondary bedding: Crosswind canopy protection ({secondary_bearing:.0f}°)"
+                "description": f"Secondary bedding: {'Uphill variation' if slope > 5 else 'Crosswind canopy'} ({secondary_bearing:.0f}°)"
             },
             {
                 "offset": escape_offset,
                 "type": "escape",
-                "description": f"Escape bedding: Elevated security position ({escape_bearing:.0f}°)"
+                "description": f"Escape bedding: {'Uphill' if slope > 5 else 'Leeward'} security position ({escape_bearing:.0f}°)"
             }
         ]
         
         logger.info(f"🧭 Calculated bedding positions: Wind={wind_direction:.0f}°, "
-                   f"Leeward={leeward_direction:.0f}°, Slope={slope:.1f}°, Aspect={aspect:.0f}°")
+                   f"Leeward={leeward_direction:.0f}°, Slope={slope:.1f}°, Aspect={aspect:.0f}° "
+                   f"({'UPHILL-PRIORITY' if slope > 10 else 'WIND-PRIORITY'})")
         
         return zone_variations
 
@@ -1012,11 +1048,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Generate enhanced bedding zones
         bedding_zones = self.generate_enhanced_bedding_zones(lat, lon, gee_data, osm_data, weather_data)
         
-        # Generate stand recommendations (3 sites)
-        stand_recommendations = self.generate_enhanced_stand_sites(lat, lon, gee_data, osm_data, weather_data, season)
+        # Generate stand recommendations (3 sites) with TIME-AWARE THERMAL CALCULATIONS
+        stand_recommendations = self.generate_enhanced_stand_sites(lat, lon, gee_data, osm_data, weather_data, season, target_datetime)
         
-        # Generate feeding areas (3 sites)
-        feeding_areas = self.generate_enhanced_feeding_areas(lat, lon, gee_data, osm_data, weather_data)
+        # Generate feeding areas (3 sites) with TIME-AWARE MOVEMENT
+        feeding_areas = self.generate_enhanced_feeding_areas(lat, lon, gee_data, osm_data, weather_data, time_of_day)
         
         # Generate camera placement (1 site)
         camera_placement = self.generate_enhanced_camera_placement(lat, lon, gee_data, osm_data, weather_data, stand_recommendations)
@@ -1080,9 +1116,355 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         return min(max(confidence, 0.0), 1.0)
     
+    def _calculate_thermal_strength(self, aspect: float, slope: float) -> float:
+        """
+        Calculate thermal wind strength based on slope aspect and steepness
+        
+        Thermals are strongest on:
+        - South-facing slopes (maximum sun exposure)
+        - Moderate to steep slopes (15-30°)
+        - Open canopy areas (but we assume 70-80% canopy in Vermont)
+        
+        Args:
+            aspect: Slope aspect in degrees (direction slope faces)
+            slope: Slope angle in degrees
+            
+        Returns:
+            Thermal strength multiplier (0.0 to 1.0)
+            0.0 = no thermal effect (flat or north-facing)
+            1.0 = maximum thermal effect (steep south-facing)
+        """
+        # Aspect component: South-facing (135-225°) has strongest thermals
+        if 135 <= aspect <= 225:  # South-facing
+            aspect_factor = 1.0
+        elif 90 <= aspect < 135 or 225 < aspect <= 270:  # SE/SW-facing
+            aspect_factor = 0.7
+        elif 45 <= aspect < 90 or 270 < aspect <= 315:  # E/W-facing
+            aspect_factor = 0.4
+        else:  # North-facing (315-45°)
+            aspect_factor = 0.2  # Minimal thermal effect
+        
+        # Slope component: Moderate slopes (15-30°) have strongest thermals
+        if 15 <= slope <= 30:
+            slope_factor = 1.0
+        elif 10 <= slope < 15:
+            slope_factor = 0.6
+        elif slope > 30:
+            slope_factor = 0.8  # Still significant but terrain is steep
+        else:  # < 10° (relatively flat)
+            slope_factor = 0.3
+        
+        # Vermont canopy factor: Heavy canopy (70-80%) moderates thermals
+        canopy_reduction = 0.7  # Reduce thermal effect by 30% due to canopy
+        
+        # Combine factors
+        thermal_strength = aspect_factor * slope_factor * canopy_reduction
+        
+        return min(max(thermal_strength, 0.0), 1.0)
+    
+    def _calculate_sunrise_sunset(self, lat: float, lon: float, date: datetime) -> Dict[str, datetime]:
+        """
+        Calculate sunrise and sunset times for a given location and date
+        Uses simplified algorithm (accurate to within ~10 minutes for Vermont latitudes)
+        
+        Args:
+            lat: Latitude in degrees
+            lon: Longitude in degrees  
+            date: Date to calculate for
+            
+        Returns:
+            Dict with 'sunrise' and 'sunset' datetime objects (local time)
+        """
+        # Julian day calculation
+        day_of_year = date.timetuple().tm_yday
+        
+        # Solar declination (tilt of Earth)
+        declination = 23.45 * math.sin(math.radians((360/365) * (day_of_year - 81)))
+        
+        # Hour angle at sunrise/sunset
+        lat_rad = math.radians(lat)
+        dec_rad = math.radians(declination)
+        
+        # Sunrise hour angle (accounting for atmospheric refraction)
+        cos_hour_angle = (-math.sin(math.radians(-0.833)) - 
+                          math.sin(lat_rad) * math.sin(dec_rad)) / \
+                         (math.cos(lat_rad) * math.cos(dec_rad))
+        
+        # Clamp to valid range (polar regions might exceed)
+        cos_hour_angle = max(-1, min(1, cos_hour_angle))
+        hour_angle = math.degrees(math.acos(cos_hour_angle))
+        
+        # Solar noon (local solar time)
+        # Longitude correction: 4 minutes per degree from reference meridian
+        timezone_offset = -5  # Vermont is EST (UTC-5), EDT (UTC-4) in summer
+        if 3 <= date.month <= 10:  # Rough DST approximation
+            timezone_offset = -4
+            
+        solar_noon_utc = 12 - (lon / 15)  # 15° per hour
+        solar_noon_local = solar_noon_utc + timezone_offset
+        
+        # Sunrise and sunset times (hours from midnight)
+        sunrise_hours = solar_noon_local - (hour_angle / 15)
+        sunset_hours = solar_noon_local + (hour_angle / 15)
+        
+        # Convert to datetime objects
+        sunrise_time = date.replace(hour=0, minute=0, second=0) + timedelta(hours=sunrise_hours)
+        sunset_time = date.replace(hour=0, minute=0, second=0) + timedelta(hours=sunset_hours)
+        
+        return {
+            'sunrise': sunrise_time,
+            'sunset': sunset_time,
+            'solar_noon': date.replace(hour=0, minute=0, second=0) + timedelta(hours=solar_noon_local)
+        }
+    
+    def _calculate_thermal_wind_time_based(self, aspect: float, slope: float, 
+                                          lat: float, lon: float,
+                                          prediction_time: datetime,
+                                          canopy_coverage: float = 0.7) -> Dict[str, any]:
+        """
+        Calculate thermal wind direction and strength based on ACTUAL TIME relative to sunrise/sunset
+        
+        This is the BIOLOGICALLY ACCURATE version that uses real solar timing.
+        
+        Thermal Wind Timeline:
+        - Sunrise to Sunrise+30min: Minimal (10% strength)
+        - Sunrise+30min to Sunrise+2.5hrs: STRONG upslope (80% strength) ⭐ PRIME MORNING
+        - Sunrise+2.5hrs to 11am: Moderate upslope (40% strength)
+        - 11am to 3pm: Minimal (10% strength) - Midday lull
+        - 3pm to Sunset-2hrs: Weak downslope (20% strength)
+        - Sunset-2hrs to Sunset: STRONG downslope (90% strength) ⭐ PRIME EVENING  
+        - Sunset to Sunset+30min: MAXIMUM downslope (100% strength) ⭐ ABSOLUTE PRIME
+        
+        Args:
+            aspect: Slope direction in degrees (downhill direction)
+            slope: Slope steepness in degrees
+            lat: Latitude (for sunrise/sunset calculation)
+            lon: Longitude (for sunrise/sunset calculation)
+            prediction_time: Time of prediction (datetime object)
+            canopy_coverage: Forest canopy (0-1), reduces thermal strength
+            
+        Returns:
+            Dict with thermal_direction, thermal_strength, description, phase info
+        """
+        # Calculate sunrise/sunset for this location and date
+        solar_times = self._calculate_sunrise_sunset(lat, lon, prediction_time)
+        sunrise = solar_times['sunrise']
+        sunset = solar_times['sunset']
+        
+        # Calculate time offsets from solar events
+        minutes_since_sunrise = (prediction_time - sunrise).total_seconds() / 60
+        minutes_until_sunset = (sunset - prediction_time).total_seconds() / 60
+        
+        # Base thermal strength factors (same as before)
+        slope_factor = min(slope / 30.0, 1.0)
+        canopy_reduction = 1.0 - (canopy_coverage * 0.6)
+        
+        # Aspect multiplier (sun exposure)
+        if 135 <= aspect <= 225:  # South-facing
+            aspect_multiplier = 1.0
+        elif aspect <= 45 or aspect >= 315:  # North-facing
+            aspect_multiplier = 0.4
+        else:  # East/West-facing
+            aspect_multiplier = 0.7
+        
+        base_strength = slope_factor * canopy_reduction * aspect_multiplier
+        
+        # TIME-BASED THERMAL PHASE CALCULATION
+        # Morning thermal cycle (upslope)
+        if 0 <= minutes_since_sunrise < 30:  # Just after sunrise
+            thermal_direction = (aspect + 180) % 360  # Uphill
+            time_multiplier = 0.1  # Minimal (still cool)
+            phase = "early_morning"
+            description = f"Early morning: Minimal upslope thermal (sun just rose {minutes_since_sunrise:.0f}min ago)"
+            
+        elif 30 <= minutes_since_sunrise < 150:  # 30min to 2.5hrs after sunrise
+            thermal_direction = (aspect + 180) % 360  # Uphill
+            # Ramp up from 40% to 80% strength (strongest warming rate)
+            time_multiplier = 0.4 + ((minutes_since_sunrise - 30) / 120) * 0.4
+            phase = "strong_morning_upslope"
+            description = f"⭐ PRIME MORNING: Strong upslope thermal ({minutes_since_sunrise:.0f}min after sunrise)"
+            
+        elif 150 <= minutes_since_sunrise < 270:  # 2.5hrs to 4.5hrs after sunrise
+            thermal_direction = (aspect + 180) % 360  # Uphill
+            time_multiplier = 0.4  # Moderate strength (plateau)
+            phase = "moderate_morning"
+            description = f"Late morning: Moderate upslope thermal ({minutes_since_sunrise/60:.1f}hrs after sunrise)"
+            
+        # Midday lull (11am to 3pm)
+        elif prediction_time.hour >= 11 and prediction_time.hour < 15:
+            thermal_direction = aspect  # Slight downslope tendency
+            time_multiplier = 0.1  # Minimal
+            phase = "midday_lull"
+            description = "Midday: Minimal thermal (solar equilibrium)"
+            
+        # Evening thermal cycle (downslope) - MOST IMPORTANT FOR DEER HUNTING
+        elif 120 <= minutes_until_sunset < 180:  # 2-3 hours before sunset
+            thermal_direction = aspect  # Downhill
+            time_multiplier = 0.2  # Weak (just starting to cool)
+            phase = "early_evening"
+            description = f"Early evening: Weak downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
+            
+        elif 60 <= minutes_until_sunset < 120:  # 1-2 hours before sunset
+            thermal_direction = aspect  # Downhill  
+            # Ramp up from 50% to 90% (rapid cooling)
+            time_multiplier = 0.5 + ((120 - minutes_until_sunset) / 60) * 0.4
+            phase = "strong_evening_downslope"
+            description = f"⭐ PRIME EVENING: Strong downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
+            
+        elif 0 <= minutes_until_sunset < 60:  # Last hour before sunset
+            thermal_direction = aspect  # Downhill
+            # Maximum strength (95-100%)
+            time_multiplier = 0.95 + ((60 - minutes_until_sunset) / 60) * 0.05
+            phase = "peak_evening_downslope"
+            description = f"🎯 ABSOLUTE PRIME: Maximum downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
+            
+        elif minutes_until_sunset < 0 and minutes_until_sunset > -30:  # 30min after sunset
+            thermal_direction = aspect  # Downhill
+            time_multiplier = 1.0  # Maximum strength (coldest air sinking)
+            phase = "post_sunset_maximum"
+            description = f"🌙 POST-SUNSET MAX: Maximum downslope drainage ({-minutes_until_sunset:.0f}min after sunset)"
+            
+        else:  # Default to weak downslope (late afternoon or night)
+            thermal_direction = aspect
+            time_multiplier = 0.15
+            phase = "default_weak"
+            description = "Weak thermal activity"
+        
+        # Calculate final thermal strength
+        thermal_strength = base_strength * time_multiplier
+        
+        return {
+            "direction": thermal_direction,
+            "strength": thermal_strength,
+            "description": description,
+            "phase": phase,
+            "time_multiplier": time_multiplier,
+            "minutes_since_sunrise": minutes_since_sunrise if minutes_since_sunrise >= 0 else None,
+            "minutes_until_sunset": minutes_until_sunset if minutes_until_sunset >= 0 else None,
+            "sunrise": sunrise.strftime("%I:%M %p"),
+            "sunset": sunset.strftime("%I:%M %p"),
+            "slope_factor": slope_factor,
+            "canopy_reduction": canopy_reduction,
+            "aspect_multiplier": aspect_multiplier
+        }
+    
+    def _calculate_thermal_wind(self, aspect: float, slope: float, time_of_day: str, 
+                                canopy_coverage: float = 0.7) -> Dict[str, any]:
+        """
+        Calculate thermal wind direction and strength based on slope characteristics and time
+        
+        Thermal winds are slope-induced air currents caused by differential heating/cooling:
+        - Morning (sunrise to 10am): Air warms, flows UPHILL (upslope breeze)
+        - Evening (4pm to sunset): Air cools, flows DOWNHILL (downslope breeze)
+        - Midday: Minimal thermal effect (prevailing wind dominates)
+        
+        Args:
+            aspect: Slope direction in degrees (direction slope faces)
+            slope: Slope steepness in degrees
+            time_of_day: "morning", "evening", or "midday"
+            canopy_coverage: Forest canopy coverage (0-1), reduces thermal strength
+            
+        Returns:
+            Dict with thermal_direction, thermal_strength, and description
+        """
+        # Calculate base thermal strength (0-1 scale)
+        # Stronger on steeper slopes, weaker under heavy canopy
+        slope_factor = min(slope / 30.0, 1.0)  # Max effect at 30° slope
+        canopy_reduction = 1.0 - (canopy_coverage * 0.6)  # Heavy canopy reduces thermals by 60%
+        
+        # South-facing slopes get stronger solar heating = stronger thermals
+        # North-facing slopes get less sun = weaker thermals
+        if 135 <= aspect <= 225:  # South-facing
+            aspect_multiplier = 1.0  # Full thermal strength
+        elif aspect <= 45 or aspect >= 315:  # North-facing
+            aspect_multiplier = 0.4  # Weak thermals (less sun)
+        else:  # East/West-facing
+            aspect_multiplier = 0.7  # Moderate thermals
+        
+        base_strength = slope_factor * canopy_reduction * aspect_multiplier
+        
+        # Time-based thermal direction and strength
+        if time_of_day == "morning":
+            # Morning: Air warms, flows UPHILL
+            thermal_direction = (aspect + 180) % 360  # Opposite of aspect = uphill
+            thermal_strength = base_strength * 0.8  # Strong morning thermals
+            description = "Upslope thermal (warming air rising)"
+            
+        elif time_of_day == "evening":
+            # Evening: Air cools, flows DOWNHILL (most important for deer hunting)
+            thermal_direction = aspect  # Same as aspect = downhill
+            thermal_strength = base_strength * 1.0  # Strongest thermals at dusk
+            description = "Downslope thermal (cooling air sinking)"
+            
+        else:  # midday
+            # Midday: Minimal thermal effect
+            thermal_direction = aspect  # Slight downslope tendency
+            thermal_strength = base_strength * 0.2  # Weak thermals
+            description = "Minimal thermal (prevailing wind dominates)"
+        
+        return {
+            "direction": thermal_direction,
+            "strength": thermal_strength,
+            "description": description,
+            "slope_factor": slope_factor,
+            "canopy_reduction": canopy_reduction,
+            "aspect_multiplier": aspect_multiplier
+        }
+    
+    def _combine_bearings(self, bearing1: float, bearing2: float, weight1: float, weight2: float) -> float:
+        """
+        Combine two compass bearings using vector addition (proper circular mean)
+        
+        Args:
+            bearing1: First bearing in degrees (0-360)
+            bearing2: Second bearing in degrees (0-360)
+            weight1: Weight for first bearing (0-1)
+            weight2: Weight for second bearing (0-1)
+            
+        Returns:
+            Combined bearing in degrees (0-360)
+            
+        Example:
+            Evening: 60% downhill (180°) + 40% downwind (135°)
+            = Optimal evening stand bearing
+        """
+        # Normalize weights
+        total_weight = weight1 + weight2
+        w1 = weight1 / total_weight
+        w2 = weight2 / total_weight
+        
+        # Convert to radians
+        rad1 = np.radians(bearing1)
+        rad2 = np.radians(bearing2)
+        
+        # Convert to unit vectors and combine
+        x = w1 * np.sin(rad1) + w2 * np.sin(rad2)
+        y = w1 * np.cos(rad1) + w2 * np.cos(rad2)
+        
+        # Convert back to bearing (0-360)
+        combined_rad = np.arctan2(x, y)
+        combined_deg = np.degrees(combined_rad)
+        
+        # Ensure 0-360 range
+        if combined_deg < 0:
+            combined_deg += 360
+            
+        return combined_deg
+    
     def _calculate_optimal_stand_positions(self, lat: float, lon: float, gee_data: Dict, 
-                                         osm_data: Dict, weather_data: Dict) -> List[Dict]:
-        """Calculate optimal stand positions using environmental analysis"""
+                                         osm_data: Dict, weather_data: Dict,
+                                         prediction_time: Optional[datetime] = None) -> List[Dict]:
+        """
+        Calculate optimal stand positions with TIME-AWARE THERMAL WIND effects
+        
+        Uses actual sunrise/sunset times to calculate thermal wind strength and direction.
+        This is biologically accurate - thermals are strongest at sunrise+2hrs (morning)
+        and sunset-1hr to sunset+30min (evening prime time).
+        """
+        
+        # Use current time if not specified
+        if prediction_time is None:
+            prediction_time = datetime.now()
         
         # Extract environmental data
         wind_direction = weather_data.get("wind_direction", 180)
@@ -1090,29 +1472,167 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         slope = gee_data.get("slope", 10)
         aspect = gee_data.get("aspect", 180)
         elevation = gee_data.get("elevation", 300)
+        canopy = gee_data.get("canopy_coverage", 0.7)
         
         # Base offset distance for stands (200-300 meters)
         base_offset = 0.002  # ~222m at typical latitude
 
-        # Stand 1: Travel Corridor - Downwind of bedding to keep hunter scent away
-        # Wind direction is the source (meteorological convention), so flip 180°
-        travel_bearing = (wind_direction + 180) % 360
-        travel_lat_offset = base_offset * 1.5 * np.cos(np.radians(travel_bearing))
-        travel_lon_offset = base_offset * 1.5 * np.sin(np.radians(travel_bearing))
+        # Calculate downhill and uphill directions from aspect
+        downhill_direction = aspect  # Aspect = direction slope faces (downhill)
+        uphill_direction = (aspect + 180) % 360  # Opposite of aspect = uphill
+        
+        # Calculate downwind direction (prevailing meteorological wind)
+        downwind_direction = (wind_direction + 180) % 360
+        
+        # 🌡️ TIME-BASED THERMAL WIND CALCULATION - Uses actual sunrise/sunset!
+        # This calculates all three hunt periods with proper timing
+        thermal_now = self._calculate_thermal_wind_time_based(
+            aspect, slope, lat, lon, prediction_time, canopy
+        )
+        
+        logger.info(f"🌅 Solar times: Sunrise={thermal_now['sunrise']}, Sunset={thermal_now['sunset']}")
+        logger.info(f"🌡️ Current thermal: {thermal_now['description']} | Strength: {thermal_now['strength']:.0%}")
+        
+        # Calculate thermals for all three hunting periods (for stand recommendations)
+        # Even if predicting for morning, calculate evening stand position for later hunts
+        morning_time = prediction_time.replace(hour=7, minute=30)  # 1.5hrs after typical sunrise
+        evening_time = prediction_time.replace(hour=17, minute=30)  # 1.5hrs before typical sunset
+        midday_time = prediction_time.replace(hour=12, minute=0)
+        
+        evening_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, evening_time, canopy)
+        morning_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, morning_time, canopy)
+        midday_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, midday_time, canopy)
+        
+        # Stand 1: EVENING Stand - Thermal downslope + deer movement downhill
+        # Evening: Cooling air sinks downhill, deer move downhill to feed
+        # Scent flows DOWNHILL with falling thermal, so stand MUST be downhill of bedding
+        # 
+        # CRITICAL: On slopes where bedding is UPHILL from input, evening stand should be
+        # positioned BETWEEN input and bedding (mid-slope), NOT below input (potential hazards)
+        
+        # Get current wind speed to determine thermal vs prevailing wind dominance
+        wind_speed_mph = weather_data.get('wind', {}).get('speed', 0)  # mph
+        
+        # Determine if thermal is active (any sunset period or measurable thermal)
+        thermal_is_active = (
+            evening_thermal["phase"] in ["strong_evening_downslope", "peak_evening_downslope", "post_sunset_maximum"]
+            or evening_thermal["strength"] > 0.05  # Any measurable thermal (lowered from 0.1)
+        )
+        
+        # THERMAL DOMINANCE: Unless prevailing wind is STRONG (>20 mph), thermals control scent
+        if thermal_is_active and wind_speed_mph < 20:  # THERMAL DOMINATES
+            # Combine thermal direction with deer movement (both downhill)
+            evening_bearing = self._combine_bearings(
+                evening_thermal["direction"],  # Thermal flows downhill
+                downhill_direction,  # Deer move downhill
+                0.6,  # Thermal weight
+                0.4   # Deer movement weight
+            )
+            
+            # Wind weight based on prevailing WIND SPEED (not thermal strength)
+            # Field observation: Thermals dominate unless wind > 20 mph
+            if wind_speed_mph < 5:
+                wind_weight = 0.0   # No prevailing wind effect (calm conditions)
+            elif wind_speed_mph < 10:
+                wind_weight = 0.05  # 5% prevailing wind (light breeze)
+            elif wind_speed_mph < 15:
+                wind_weight = 0.15  # 15% prevailing wind (moderate breeze)
+            else:  # 15-20 mph
+                wind_weight = 0.25  # 25% prevailing wind (strong breeze, but thermal still dominant)
+            
+            evening_bearing = self._combine_bearings(
+                evening_bearing,
+                downwind_direction,
+                1.0 - wind_weight,  # Thermal + movement (75-100%)
+                wind_weight         # Prevailing wind (0-25% based on wind speed)
+            )
+            logger.info(f"🌅 THERMAL DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}, Thermal phase={evening_thermal['phase']}")
+            
+        elif wind_speed_mph >= 20:  # STRONG PREVAILING WIND OVERRIDES THERMAL
+            # Strong sustained wind (>20 mph) overrides even active thermal drafts
+            evening_bearing = self._combine_bearings(
+                downhill_direction,  # Deer still move downhill
+                downwind_direction,  # Strong prevailing wind dominates
+                0.4,  # 40% deer movement
+                0.6   # 60% prevailing wind (STRONG wind overrides thermal)
+            )
+            logger.info(f"💨 WIND DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph (>20mph overrides thermal)")
+            
+        else:  # No thermal activity AND weak wind (midday or calm)
+            # Use deer movement + scaled prevailing wind influence
+            wind_weight = min(0.4, wind_speed_mph / 50)  # Scale wind weight with speed
+            evening_bearing = self._combine_bearings(
+                downhill_direction,
+                downwind_direction,
+                1.0 - wind_weight,
+                wind_weight
+            )
+            logger.info(f"🦌 DEER MOVEMENT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}")
+        
+        # SAFETY CHECK: If evening bearing points downhill from input on a slope,
+        # reduce distance to avoid water/roads at bottom of slope
+        # Lowered threshold from 10° to 5° for consistency
+        if slope > 5:  # On sloped terrain (even gentle slopes)
+            # Check if evening bearing is close to downhill direction
+            bearing_to_downhill_diff = abs((evening_bearing - downhill_direction + 180) % 360 - 180)
+            if bearing_to_downhill_diff < 45:  # Within 45° of downhill
+                # Reduce distance to avoid going too far downslope (into rivers/roads)
+                evening_distance_multiplier = 0.6  # Shorter distance
+                logger.info(f"⚠️ EVENING STAND: Reduced distance (bearing={evening_bearing:.0f}° near downhill={downhill_direction:.0f}°) to avoid valley hazards")
+            else:
+                evening_distance_multiplier = 1.5
+        else:
+            evening_distance_multiplier = 1.5
+            
+        travel_lat_offset = base_offset * evening_distance_multiplier * np.cos(np.radians(evening_bearing))
+        travel_lon_offset = base_offset * evening_distance_multiplier * np.sin(np.radians(evening_bearing))
 
-        # Stand 2: Pinch Point - Use terrain features for funneling
-        if slope > 15:  # Steep terrain - use ridgelines
-            pinch_bearing = aspect
-        else:  # Flatter terrain - favor crosswind positioning
-            pinch_bearing = (wind_direction + 45) % 360
+        # Stand 2: MORNING Stand - Intercept deer moving UPHILL to bedding
+        # Morning: Deer move FROM feeding (downhill) TO bedding (uphill)
+        # CRITICAL FIX: On sloped terrain, position stand UPHILL (beyond bedding area)
+        # Deer must pass stand on final approach to bedding zone
+        if slope > 5:  # Sloped terrain - use UPHILL positioning
+            # Position stand UPHILL of bedding area (deer's final destination)
+            # Combine uphill movement with slight wind offset
+            if morning_thermal["strength"] > 0.3:  # Strong upslope thermal
+                # Strong thermal pulls scent uphill - stay crosswind AND uphill
+                morning_bearing = self._combine_bearings(
+                    uphill_direction,      # Uphill (where deer are heading)
+                    (uphill_direction + 30) % 360,  # Slight crosswind variation
+                    0.8,  # Primarily uphill
+                    0.2   # Minor crosswind offset
+                )
+                logger.info(f"🌅 MORNING STAND: Uphill ({uphill_direction:.0f}°) with crosswind offset on {slope:.1f}° slope")
+            else:  # Weak thermals - standard uphill intercept
+                morning_bearing = uphill_direction  # Pure uphill positioning
+                logger.info(f"🏔️ MORNING STAND: Uphill intercept ({uphill_direction:.0f}°) on {slope:.1f}° slope")
+        else:  # Flat terrain - use traditional wind-based positioning
+            morning_bearing = self._combine_bearings(
+                downwind_direction,   # Prevailing wind
+                (wind_direction + 90) % 360,  # Crosswind
+                0.7, 0.3
+            )
+            logger.info(f"🌲 MORNING STAND: Wind-based ({morning_bearing:.0f}°) on flat terrain")
+            
+        pinch_lat_offset = base_offset * 1.3 * np.cos(np.radians(morning_bearing))
+        pinch_lon_offset = base_offset * 1.3 * np.sin(np.radians(morning_bearing))
 
-        pinch_lat_offset = base_offset * 0.8 * np.cos(np.radians(pinch_bearing))
-        pinch_lon_offset = base_offset * 0.8 * np.sin(np.radians(pinch_bearing))
-
-        # Stand 3: Feeding Area - Downwind of primary movement routes
-        feeding_bearing = travel_bearing
-        feeding_lat_offset = base_offset * 1.2 * np.cos(np.radians(feeding_bearing))
-        feeding_lon_offset = base_offset * 1.2 * np.sin(np.radians(feeding_bearing))
+        # Stand 3: ALL-DAY/MIDDAY/ALTERNATE Stand - Versatile positioning
+        # On sloped terrain: Position as ALTERNATE UPHILL approach (bedding area coverage)
+        # On flat terrain: Use prevailing wind
+        if slope > 5:  # Sloped terrain - alternate uphill approach
+            # Position for different wind conditions or alternate deer approach
+            allday_bearing = (uphill_direction + 45) % 360  # Uphill with offset
+            logger.info(f"🏔️ ALTERNATE STAND: Uphill variation ({allday_bearing:.0f}°) on {slope:.1f}° slope")
+        else:  # Flat terrain - prevailing wind dominates
+            if slope > 15:
+                allday_bearing = (downwind_direction + 45) % 360  # Crosswind funnel on steep terrain
+            else:
+                allday_bearing = downwind_direction  # Pure downwind on flat terrain
+            logger.info(f"💨 ALTERNATE STAND: Wind-based ({allday_bearing:.0f}°) on flat terrain")
+            
+        feeding_lat_offset = base_offset * 1.0 * np.cos(np.radians(allday_bearing))
+        feeding_lon_offset = base_offset * 1.0 * np.sin(np.radians(allday_bearing))
 
         # Terrain adjustments
         terrain_multiplier = 1.0 + (slope / 200)  # Larger spacing on steep terrain
@@ -1123,43 +1643,49 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lat": travel_lat_offset * terrain_multiplier,
                     "lon": travel_lon_offset * terrain_multiplier
                 },
-                "type": "Travel Corridor Stand",
-                "description": f"Downwind travel corridor position ({travel_bearing:.0f}°)"
+                "type": "Evening Stand",
+                "description": f"Evening: {evening_thermal['description']} ({evening_thermal['direction']:.0f}°) + Downwind ({downwind_direction:.0f}°) = {evening_bearing:.0f}° | Thermal strength: {evening_thermal['strength']:.0%}"
             },
             {
                 "offset": {
                     "lat": pinch_lat_offset * terrain_multiplier,
                     "lon": pinch_lon_offset * terrain_multiplier
                 },
-                "type": "Pinch Point Stand",
-                "description": f"Terrain funnel advantage ({pinch_bearing:.0f}°)"
+                "type": "Morning Stand",
+                "description": f"Morning: {morning_thermal['description']} ({morning_thermal['direction']:.0f}°) + Crosswind position = {morning_bearing:.0f}° | Thermal strength: {morning_thermal['strength']:.0%}"
             },
             {
                 "offset": {
                     "lat": feeding_lat_offset * terrain_multiplier,
                     "lon": feeding_lon_offset * terrain_multiplier
                 },
-                "type": "Feeding Area Stand",
-                "description": f"Evening feeding approach ({feeding_bearing:.0f}°)"
+                "type": "All-Day Stand",
+                "description": f"Midday: {midday_thermal['description']} - Downwind ({allday_bearing:.0f}°) | Thermal strength: {midday_thermal['strength']:.0%}"
             }
         ]
 
         logger.info(
-            f"🎯 Calculated stand positions: Wind={wind_direction:.0f}°, "
-            f"Downwind={travel_bearing:.0f}°, Terrain slope={slope:.1f}°"
+            f"🎯 Stand positions with THERMAL winds: "
+            f"Wind={wind_direction:.0f}°→Downwind={downwind_direction:.0f}°, "
+            f"Slope={slope:.1f}°, Aspect={aspect:.0f}° (Downhill={downhill_direction:.0f}°, Uphill={uphill_direction:.0f}°)"
+        )
+        logger.info(
+            f"🌡️ Thermal strength: Evening={evening_thermal['strength']:.0%} (downslope), "
+            f"Morning={morning_thermal['strength']:.0%} (upslope), Midday={midday_thermal['strength']:.0%}"
         )
         
         return stand_variations
 
     def generate_enhanced_stand_sites(self, lat: float, lon: float, gee_data: Dict, 
-                                     osm_data: Dict, weather_data: Dict, season: str) -> List[Dict]:
-        """Generate 3 enhanced stand site recommendations based on biological analysis"""
+                                     osm_data: Dict, weather_data: Dict, season: str,
+                                     prediction_time: Optional[datetime] = None) -> List[Dict]:
+        """Generate 3 enhanced stand site recommendations based on biological analysis with TIME-AWARE thermals"""
         try:
             stand_sites = []
             
-            # Generate 3 strategic stand locations using environmental analysis
+            # Generate 3 strategic stand locations using environmental analysis with REAL solar timing
             stand_variations = self._calculate_optimal_stand_positions(
-                lat, lon, gee_data, osm_data, weather_data
+                lat, lon, gee_data, osm_data, weather_data, prediction_time
             )
             
             for i, variation in enumerate(stand_variations):
@@ -1219,15 +1745,28 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Base offset distance for feeding areas (150-250 meters)
         base_offset = 0.0015  # ~167m at typical latitude
         
-        # Feeding Area 1: Primary - Open areas with edge cover
-        # Position in areas with partial canopy (edge habitat)
-        if canopy > 0.7:  # Dense forest - move toward openings
-            primary_bearing = (aspect + 90) % 360  # Perpendicular to slope
-        else:  # Open area - stay near cover
-            primary_bearing = (wind_direction + 135) % 360  # Downwind with cover
+        # Feeding Area 1: Primary - DOWNHILL on slopes for moisture/food
+        # CRITICAL FIX: Prioritize elevation for feeding areas on sloped terrain
+        # Lowered threshold from 10° to 5° for consistency
+        if slope > 5:  # Sloped terrain (even gentle slopes) - place feeding DOWNHILL (valleys have better food)
+            downhill_direction = aspect  # Downhill direction
+            primary_bearing = downhill_direction
             
-        primary_lat_offset = base_offset * 1.3 * np.cos(np.radians(primary_bearing))
-        primary_lon_offset = base_offset * 1.3 * np.sin(np.radians(primary_bearing))
+            # Increase distance on steep slopes (deer travel farther to feed in valleys)
+            distance_multiplier = 1.5 + (slope / 60)  # Up to 2x distance on 30° slopes
+            
+            logger.info(f"🌾 FEEDING: Slope={slope:.1f}° - placing DOWNHILL ({downhill_direction:.0f}°) for valley food sources")
+        else:  # Truly flat terrain (≤5°) - use canopy/wind positioning
+            if canopy > 0.7:  # Dense forest - move toward openings
+                primary_bearing = (aspect + 90) % 360  # Perpendicular to slope
+            else:  # Open area - stay near cover
+                primary_bearing = (wind_direction + 135) % 360  # Downwind with cover
+            
+            distance_multiplier = 1.0
+            logger.info(f"🌾 FEEDING: Flat terrain (slope={slope:.1f}°≤5°) - using canopy/wind positioning ({primary_bearing:.0f}°)")
+            
+        primary_lat_offset = base_offset * 1.3 * distance_multiplier * np.cos(np.radians(primary_bearing))
+        primary_lon_offset = base_offset * 1.3 * distance_multiplier * np.sin(np.radians(primary_bearing))
         
         # Feeding Area 2: Secondary - Browse areas near bedding
         # Position for morning/evening travel convenience
@@ -1235,12 +1774,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         secondary_lat_offset = base_offset * 0.7 * np.cos(np.radians(secondary_bearing))
         secondary_lon_offset = base_offset * 0.7 * np.sin(np.radians(secondary_bearing))
         
-        # Feeding Area 3: Emergency - Water access and escape routes
+        # Feeding Area 3: Emergency - Water access and escape routes (DOWNHILL in valleys)
         # Position near water sources with multiple escape routes
-        if slope > 10:  # Sloped terrain - use valley bottoms
-            emergency_bearing = (aspect + 180) % 360  # Toward valley
-        else:  # Flat terrain - use thermal advantage
+        # Lowered threshold from 10° to 5° for consistency
+        if slope > 5:  # Sloped terrain - use valley bottoms (DOWNHILL for water/drainage)
+            emergency_bearing = aspect  # Downhill toward valley bottoms (water accumulates)
+            logger.info(f"🌾 EMERGENCY FEEDING: Placing downhill ({emergency_bearing:.0f}°) toward valley/water")
+        else:  # Truly flat terrain - use thermal advantage
             emergency_bearing = 180 if temperature < 50 else 0  # South in cold, north in warm
+            logger.info(f"🌾 EMERGENCY FEEDING: Flat terrain - thermal position ({emergency_bearing:.0f}°)")
             
         emergency_lat_offset = base_offset * 1.0 * np.cos(np.radians(emergency_bearing))
         emergency_lon_offset = base_offset * 1.0 * np.sin(np.radians(emergency_bearing))
@@ -1256,7 +1798,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": primary_lon_offset * terrain_multiplier * canopy_multiplier
                 },
                 "type": "Primary Feeding Area",
-                "description": f"Edge habitat feeding area with {canopy:.1%} canopy"
+                "description": f"{'Valley/downhill' if slope > 10 else 'Edge habitat'} feeding - {canopy:.1%} canopy, {slope:.1f}° slope"
             },
             {
                 "offset": {
@@ -1264,7 +1806,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": secondary_lon_offset * terrain_multiplier * canopy_multiplier
                 },
                 "type": "Secondary Feeding Area", 
-                "description": f"Browse area near protective cover"
+                "description": f"Browse area near protective cover - crosswind positioning"
             },
             {
                 "offset": {
@@ -1272,44 +1814,67 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": emergency_lon_offset * terrain_multiplier * canopy_multiplier
                 },
                 "type": "Emergency Feeding Area",
-                "description": f"Water access feeding area"
+                "description": f"{'Valley bottom' if slope > 10 else 'Thermal optimized'} - water/escape access"
             }
         ]
         
         logger.info(f"🌾 Calculated feeding positions: Canopy={canopy:.1%}, "
-                   f"Slope={slope:.1f}°, Temp={temperature:.0f}°F")
+                   f"Slope={slope:.1f}°, Temp={temperature:.0f}°F "
+                   f"({'DOWNHILL-VALLEYS' if slope > 10 else 'WIND-CANOPY'})")
         
         return feeding_variations
 
     def generate_enhanced_feeding_areas(self, lat: float, lon: float, gee_data: Dict, 
-                                       osm_data: Dict, weather_data: Dict) -> Dict:
-        """Generate 3 enhanced feeding areas in GeoJSON format with aspect fallback"""
+                                       osm_data: Dict, weather_data: Dict, time_of_day: int = 12) -> Dict:
+        """Generate 3 enhanced feeding areas in GeoJSON format with TIME-AWARE movement logic
+        
+        CRITICAL FIX: For PM hunts, prioritize DOWNHILL movement (thermal drafts)
+        For AM hunts, aspect matters (deer feed before moving uphill to bed)
+        """
         try:
             # Check if primary location has suitable aspect for feeding
             base_terrain_aspect = gee_data.get("aspect")
-            aspect_suitable_for_feeding = (base_terrain_aspect is not None and 
-                                         isinstance(base_terrain_aspect, (int, float)) and 
-                                         135 <= base_terrain_aspect <= 225)
+            slope = gee_data.get("slope", 0)
             
-            if not aspect_suitable_for_feeding:
-                logger.warning(f"🌾 PRIMARY FEEDING LOCATION REJECTED: Aspect {base_terrain_aspect}° unsuitable for feeding")
-                logger.warning(f"   🦌 Mature bucks prefer south-facing feeding areas (135°-225°) for:")
-                logger.warning(f"   • Maximum mast production (oak acorns, nuts)")
-                logger.warning(f"   • Higher browse quality and nutritional content")
-                logger.warning(f"   • Optimal thermal conditions for extended feeding")
+            # 🎯 TIME-AWARE FEEDING LOGIC:
+            # PM Hunt (15:00-20:00): Deer move FROM bedding (uphill) TO feeding (downhill)
+            #                         -> Prioritize DOWNHILL, ignore aspect
+            # AM Hunt (05:00-11:00): Deer move FROM feeding TO bedding (uphill)
+            #                         -> Aspect matters for food quality
+            is_pm_hunt = time_of_day >= 15  # Evening hunt (3 PM+)
+            is_am_hunt = time_of_day < 12   # Morning hunt (before noon)
+            
+            # On sloped terrain during PM hunts, ALWAYS use downhill (thermal draft movement)
+            if is_pm_hunt and slope > 5:
+                logger.info(f"🌅 PM HUNT on {slope:.1f}° slope: Prioritizing DOWNHILL movement (aspect={base_terrain_aspect:.0f}°)")
+                logger.info(f"   ⬇️ Deer move downhill with thermal drafts in evening, regardless of aspect")
+                # Skip aspect check - use downhill positions
+                aspect_suitable_for_feeding = True  # Override aspect requirement
+            else:
+                # AM hunt or flat terrain - aspect matters for food quality
+                aspect_suitable_for_feeding = (base_terrain_aspect is not None and 
+                                             isinstance(base_terrain_aspect, (int, float)) and 
+                                             135 <= base_terrain_aspect <= 225)
                 
-                # 🎯 FEEDING ASPECT FALLBACK: Search for south-facing feeding alternatives
-                logger.info(f"🔍 FEEDING FALLBACK SEARCH: Looking for south-facing feeding areas (135°-225°) nearby...")
-                alternative_feeding = self._search_alternative_feeding_sites(
-                    lat, lon, gee_data, osm_data, weather_data
-                )
-                
-                if alternative_feeding["features"]:
-                    logger.info(f"✅ FEEDING FALLBACK SUCCESS: Found {len(alternative_feeding['features'])} south-facing feeding areas nearby")
-                    return alternative_feeding
-                else:
-                    logger.warning(f"🚫 FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
-                    logger.warning(f"   Proceeding with penalized feeding areas on suboptimal aspect")
+                if not aspect_suitable_for_feeding and not is_pm_hunt:
+                    logger.warning(f"🌾 PRIMARY FEEDING LOCATION REJECTED: Aspect {base_terrain_aspect}° unsuitable for feeding")
+                    logger.warning(f"   🦌 Mature bucks prefer south-facing feeding areas (135°-225°) for:")
+                    logger.warning(f"   • Maximum mast production (oak acorns, nuts)")
+                    logger.warning(f"   • Higher browse quality and nutritional content")
+                    logger.warning(f"   • Optimal thermal conditions for extended feeding")
+                    
+                    # 🎯 FEEDING ASPECT FALLBACK: Search for south-facing feeding alternatives (AM HUNT ONLY)
+                    logger.info(f"🔍 FEEDING FALLBACK SEARCH: Looking for south-facing feeding areas (135°-225°) nearby...")
+                    alternative_feeding = self._search_alternative_feeding_sites(
+                        lat, lon, gee_data, osm_data, weather_data
+                    )
+                    
+                    if alternative_feeding["features"]:
+                        logger.info(f"✅ FEEDING FALLBACK SUCCESS: Found {len(alternative_feeding['features'])} south-facing feeding areas nearby")
+                        return alternative_feeding
+                    else:
+                        logger.warning(f"🚫 FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
+                        logger.warning(f"   Proceeding with penalized feeding areas on suboptimal aspect")
             
             feeding_features = []
             

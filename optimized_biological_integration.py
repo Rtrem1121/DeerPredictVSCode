@@ -931,13 +931,16 @@ class OptimizedBiologicalIntegration:
                 if map_element:
                     result["bedding_maps"] = True
                     self.logger.info("✅ Bedding maps display found")
-            except:
+            except (NoSuchElementException, WebDriverException) as e:
+                self.logger.debug(f"Primary map element not found: {e}")
                 try:
                     # Alternative map class names
                     map_element = driver.find_element(By.CSS_SELECTOR, "[data-testid*='map']")
                     if map_element:
                         result["bedding_maps"] = True
-                except:
+                        self.logger.info("✅ Bedding maps display found (alternative selector)")
+                except (NoSuchElementException, WebDriverException) as e:
+                    self.logger.warning(f"Map display element not found: {e}")
                     result["errors"].append("Map display element not found")
             
             # Look for marker elements (red markers 20-50m downwind)

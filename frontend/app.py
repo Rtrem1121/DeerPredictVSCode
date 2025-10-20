@@ -132,7 +132,8 @@ def enhanced_deer_approach_calculation(prediction_data):
                             "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
                 compass_dir = directions[int((bearing + 11.25) / 22.5) % 16]
                 return bearing, compass_dir
-        except:
+        except (KeyError, TypeError, ValueError) as e:
+            st.warning(f"Could not calculate bedding-based direction: {e}")
             pass  # Fall through to terrain-based calculation
     
     # Method 2: Travel corridor calculation
@@ -149,7 +150,8 @@ def enhanced_deer_approach_calculation(prediction_data):
                         "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
             compass_dir = directions[int((bearing + 11.25) / 22.5) % 16]
             return bearing, compass_dir
-        except:
+        except (KeyError, TypeError, ValueError, IndexError) as e:
+            st.warning(f"Could not calculate travel corridor direction: {e}")
             pass
     
     # Method 3: Terrain-based calculation (fallback)
@@ -1238,8 +1240,14 @@ with tab_predict:
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:
         prediction = st.session_state.prediction_results
         prediction_data = prediction.get('data', prediction) if isinstance(prediction, dict) and 'data' in prediction else prediction
-        hunt_windows = prediction_data.get('hunt_window_predictions') or []
-        stand_priority_overrides = prediction_data.get('stand_priority_overrides') or {}
+        
+        # Handle case where prediction_data might be None due to backend failure
+        if prediction_data is None:
+            hunt_windows = []
+            stand_priority_overrides = {}
+        else:
+            hunt_windows = prediction_data.get('hunt_window_predictions') or []
+            stand_priority_overrides = prediction_data.get('stand_priority_overrides') or {}
 
         if hunt_windows or stand_priority_overrides:
             with st.expander("🪵 Forecast Hunt Windows & Wind Credibility", expanded=True):
@@ -2461,7 +2469,7 @@ with tab_scout:
                     
                     # Observation type
                     obs_type_names = [ot['type'] for ot in observation_types]
-                    selected_obs_type = st.selectbox("🔍 Observation Type", obs_type_names)
+                    selected_obs_type = st.selectbox("🔍 Observation Type", obs_type_names, key="form_obs_type")
                     
                     # Find selected observation type data
                     selected_type_data = next((ot for ot in observation_types if ot['type'] == selected_obs_type), {})
@@ -2469,10 +2477,11 @@ with tab_scout:
                     
                     # Confidence rating
                     confidence = st.slider("📊 Confidence Level", 1, 10, 7, 
-                                         help="How certain are you about this observation?")
+                                         help="How certain are you about this observation?",
+                                         key="form_confidence")
                     
                     # Notes
-                    notes = st.text_area("📝 Notes", placeholder="Describe what you observed...")
+                    notes = st.text_area("📝 Notes", placeholder="Describe what you observed...", key="form_notes")
                     
                     # Type-specific details
                     details = {}
@@ -2480,30 +2489,31 @@ with tab_scout:
                     if selected_enum == "FRESH_SCRAPE":
                         st.markdown("#### 🦌 Scrape Details")
                         details = {
-                            "size": st.selectbox("Size", ["Small", "Medium", "Large", "Huge"]),
-                            "freshness": st.selectbox("Freshness", ["Old", "Recent", "Fresh", "Very Fresh"]),
-                            "licking_branch": st.checkbox("Active licking branch present"),
-                            "multiple_scrapes": st.checkbox("Multiple scrapes in area")
+                            "size": st.selectbox("Size", ["Small", "Medium", "Large", "Huge"], key="scrape_size"),
+                            "freshness": st.selectbox("Freshness", ["Old", "Recent", "Fresh", "Very Fresh"], key="scrape_freshness"),
+                            "licking_branch": st.checkbox("Active licking branch present", key="scrape_licking"),
+                            "multiple_scrapes": st.checkbox("Multiple scrapes in area", key="scrape_multiple")
                         }
                     
                     elif selected_enum == "RUB_LINE":
                         st.markdown("#### 🌳 Rub Details")
                         details = {
-                            "tree_diameter_inches": st.number_input("Tree Diameter (inches)", 1, 36, 6),
-                            "rub_height_inches": st.number_input("Rub Height (inches)", 12, 72, 36),
+                            "tree_diameter_inches": st.number_input("Tree Diameter (inches)", 1, 36, 6, key="rub_diameter"),
+                            "rub_height_inches": st.number_input("Rub Height (inches)", 12, 72, 36, key="rub_height"),
                             "direction": st.selectbox("Primary Direction", 
-                                                    ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest", "Multiple"]),
-                            "tree_species": st.text_input("Tree Species (optional)"),
-                            "multiple_rubs": st.checkbox("Multiple rubs in line")
+                                                    ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest", "Multiple"],
+                                                    key="rub_direction"),
+                            "tree_species": st.text_input("Tree Species (optional)", key="rub_species"),
+                            "multiple_rubs": st.checkbox("Multiple rubs in line", key="rub_multiple")
                         }
                     
                     elif selected_enum == "BEDDING_AREA":
                         st.markdown("#### 🛏️ Bedding Details")
                         details = {
-                            "number_of_beds": st.number_input("Number of Beds", 1, 20, 1),
-                            "bed_size": st.selectbox("Bed Size", ["Small (Doe/Fawn)", "Medium (Young Buck)", "Large (Mature Buck)", "Multiple Sizes"]),
-                            "cover_type": st.selectbox("Cover Type", ["Thick Brush", "Conifer Stand", "Creek Bottom", "Ridge Top", "Field Edge"]),
-                            "thermal_advantage": st.checkbox("Good thermal cover")
+                            "number_of_beds": st.number_input("Number of Beds", 1, 20, 1, key="bed_number"),
+                            "bed_size": st.selectbox("Bed Size", ["Small (Doe/Fawn)", "Medium (Young Buck)", "Large (Mature Buck)", "Multiple Sizes"], key="bed_size"),
+                            "cover_type": st.selectbox("Cover Type", ["Thick Brush", "Conifer Stand", "Creek Bottom", "Ridge Top", "Field Edge"], key="bed_cover"),
+                            "thermal_advantage": st.checkbox("Good thermal cover", key="bed_thermal")
                         }
                     
                     elif selected_enum == "TRAIL_CAMERA":
@@ -2578,11 +2588,12 @@ with tab_scout:
                     elif selected_enum == "DEER_TRACKS":
                         st.markdown("#### 🐾 Track Details")
                         details = {
-                            "track_size": st.selectbox("Track Size", ["Small (Doe/Fawn)", "Medium (Young Buck)", "Large (Mature Buck)", "Multiple Sizes"]),
-                            "trail_width_inches": st.number_input("Trail Width (inches)", 6, 24, 12),
-                            "usage_level": st.selectbox("Usage Level", ["Light", "Moderate", "Heavy", "Highway"]),
+                            "track_size": st.selectbox("Track Size", ["Small (Doe/Fawn)", "Medium (Young Buck)", "Large (Mature Buck)", "Multiple Sizes"], key="track_size"),
+                            "trail_width_inches": st.number_input("Trail Width (inches)", 6, 24, 12, key="track_width"),
+                            "usage_level": st.selectbox("Usage Level", ["Light", "Moderate", "Heavy", "Highway"], key="track_usage"),
                             "direction": st.selectbox("Primary Direction", 
-                                                    ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest", "Multiple"])
+                                                    ["North", "South", "East", "West", "Northeast", "Northwest", "Southeast", "Southwest", "Multiple"],
+                                                    key="track_direction")
                         }
                     
                     # Submit button

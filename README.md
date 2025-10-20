@@ -58,8 +58,8 @@ streamlit run frontend/app.py
 
 ### Docker Deployment (Recommended)
 ```bash
-# Start all services
-docker-compose up -d --build
+# Start all services (from repo root)
+docker-compose -f docker/docker-compose.yml up -d --build
 
 # View application
 # Frontend: http://localhost:8501
@@ -279,7 +279,7 @@ The application is production-ready with:
    .\deploy.ps1 dev
    
    # Or using traditional docker-compose:
-   docker-compose up --build
+  docker-compose -f docker/docker-compose.yml up --build
    ```
 
 4. **Deploy for Production:**

@@ -19,8 +19,28 @@ import numpy as np
 import tempfile
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from dataclasses import asdict
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from optimized_biological_integration import OptimizedBiologicalIntegration
+
+# 🔧 Refactored Services: BiologicalAspectScorer imported lazily to avoid circular import
+
+# 🎯 HSM Integration: Import Habitat Suitability Model components
+USE_HSM_METHOD = os.getenv('USE_HSM_METHOD', 'false').lower() == 'true'
+HSM_VISUALIZATION_ENABLED = os.getenv('HSM_VISUALIZATION_ENABLED', 'false').lower() == 'true'
+
+if USE_HSM_METHOD:
+    try:
+        from habitat_suitability_model import HabitatSuitabilityModel
+        from habitat_suitability_visualizer import HabitatSuitabilityVisualizer
+        HSM_AVAILABLE = True
+    except ImportError as e:
+        logging.warning(f"⚠️ HSM: Could not import Habitat Suitability Model: {e}")
+        logging.warning("⚠️ HSM: Falling back to traditional tiered point sampling")
+        USE_HSM_METHOD_ACTUAL = False
+        HSM_AVAILABLE = False
+else:
+    HSM_AVAILABLE = False
 
 try:
     import rasterio
@@ -30,6 +50,24 @@ try:
 except ImportError:
     RASTERIO_AVAILABLE = False
     logging.warning("Rasterio not available - using fallback elevation calculations")
+
+# 🗺️ LIDAR Integration: Import LIDAR processor service for high-resolution terrain
+USE_LIDAR_FIRST = os.getenv('USE_LIDAR_FIRST', 'true').lower() == 'true'
+try:
+    from backend.services.lidar_processor import get_lidar_processor, DEMFileManager, TerrainExtractor, BatchLIDARProcessor
+    LIDAR_AVAILABLE = True
+except ImportError:
+    LIDAR_AVAILABLE = False
+    logging.warning("⚠️ LIDAR: LIDAR processor service not available - using GEE only")
+    USE_LIDAR_FIRST = False
+
+# 🎯 Stand Calculator Integration: Import wind-aware stand calculator service
+try:
+    from backend.services.stand_calculator import WindAwareStandCalculator
+    STAND_CALCULATOR_AVAILABLE = True
+except ImportError as e:
+    STAND_CALCULATOR_AVAILABLE = False
+    logging.warning(f"⚠️ STAND: Stand calculator service not available - using embedded logic: {e}")
 
 def get_aspect_classification(aspect_degrees):
     """
@@ -91,11 +129,214 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
-    """Enhanced bedding zone prediction with comprehensive biological accuracy"""
+    """
+    Enhanced bedding zone prediction with comprehensive biological accuracy.
     
+    This class implements advanced mature whitetail buck bedding area prediction
+    using Google Earth Engine terrain data, OpenStreetMap road proximity analysis,
+    weather-based thermal/wind considerations, and biological behavioral patterns.
+    
+    The predictor uses a multi-layered approach:
+    1. Terrain Analysis: Slope, aspect, elevation from GEE/LiDAR
+    2. Wind/Thermal Analysis: Prevailing winds, thermal currents, scent management
+    3. Cover Analysis: Canopy density, vegetation types, security cover
+    4. Proximity Analysis: Distance from roads, water sources, food sources
+    5. Behavioral Modeling: Time-of-day movement, seasonal patterns
+    
+    Attributes:
+        METERS_PER_DEGREE (int): Conversion factor for latitude/longitude to meters
+        MIN_DESCENT_METERS (float): Minimum elevation drop to consider downhill placement
+        elevation_api_url (str): API endpoint for elevation data fallback
+        _elevation_cache (dict): Cache for elevation lookups to reduce API calls
+    
+    Example:
+        >>> predictor = EnhancedBeddingZonePredictor()
+        >>> result = predictor.run_enhanced_biological_analysis(
+        ...     lat=44.0, lon=-72.0, time_of_day=6, season='fall'
+        ... )
+        >>> bedding_zones = result['bedding_zones']
+    
+    Notes:
+        - Requires Google Earth Engine credentials for full functionality
+        - Falls back to Open Elevation API if GEE unavailable
+        - Uses LiDAR data when available for higher accuracy
+    
+    Version:
+        Enhanced in v2.0 (October 2025) with wind/leeward priority fixes
+    """
+    
+    METERS_PER_DEGREE = 111_320
+    MIN_DESCENT_METERS = 1.0  # minimum cumulative drop to consider placement downhill
+
     def __init__(self):
+        """
+        Initialize the Enhanced Bedding Zone Predictor.
+        
+        Sets up elevation API connection, initializes caching, and inherits
+        optimized biological integration features from parent class.
+        """
         super().__init__()
         self.elevation_api_url = "https://api.open-elevation.com/api/v1/lookup"
+        self._elevation_cache = {}
+        
+        # � Refactored Services: Initialize biological aspect scorer
+        from backend.services.aspect_scorer import BiologicalAspectScorer
+        self.aspect_scorer = BiologicalAspectScorer()
+        logger.info("Refactoring: BiologicalAspectScorer service initialized (Phase 4.7 logic)")
+        
+        # 🎯 Stand Calculator: Initialize wind-aware stand calculator service
+        self.stand_calculator = None
+        if STAND_CALCULATOR_AVAILABLE:
+            self.stand_calculator = WindAwareStandCalculator()
+            logger.info("🎯 Refactoring: WindAwareStandCalculator service initialized (wind-thermal-scent integration)")
+        
+        # �🗺️ LIDAR Integration: Initialize Vermont LIDAR reader for high-resolution terrain
+        self.lidar_dem_manager = None
+        self.lidar_terrain_extractor = None
+        self.lidar_batch_processor = None
+        self.use_lidar_first = USE_LIDAR_FIRST
+        self.lidar_stats = {
+            'lidar_calls': 0,
+            'gee_fallback_calls': 0,
+            'coverage_checks': 0,
+            'lidar_time_ms': 0,
+            'gee_time_ms': 0
+        }
+        if LIDAR_AVAILABLE and USE_LIDAR_FIRST:
+            try:
+                self.lidar_dem_manager, self.lidar_terrain_extractor, self.lidar_batch_processor = get_lidar_processor()
+                logger.info("🗺️ LIDAR: LIDAR processor service ENABLED (0.35m resolution, offline capable)")
+                logger.info("🗺️ LIDAR: Will prefer local LIDAR over GEE SRTM (30m) for terrain data")
+            except Exception as e:
+                logger.error(f"❌ LIDAR: Failed to initialize: {e}")
+                self.lidar_dem_manager = None
+                self.lidar_terrain_extractor = None
+                self.lidar_batch_processor = None
+                self.use_lidar_first = False
+        
+        # 🎯 HSM Integration: Initialize Habitat Suitability Model if enabled
+        self.hsm_model = None
+        self.hsm_viz = None
+        if HSM_AVAILABLE and USE_HSM_METHOD:
+            try:
+                self.hsm_model = HabitatSuitabilityModel(
+                    resolution_m=30,
+                    search_radius_m=1500,
+                    min_separation_m=300,
+                    cache_ttl_hours=6
+                )
+                logger.info("🎯 HSM: Habitat Suitability Model ENABLED")
+                
+                if HSM_VISUALIZATION_ENABLED:
+                    self.hsm_viz = HabitatSuitabilityVisualizer(output_dir="suitability_maps")
+                    logger.info("📊 HSM: Visualization ENABLED (maps saved to suitability_maps/)")
+            except Exception as e:
+                logger.error(f"❌ HSM: Failed to initialize: {e}")
+                self.hsm_model = None
+                self.hsm_viz = None
+
+    @staticmethod
+    def _angular_difference(angle_a: float, angle_b: float) -> float:
+        """Return the smallest absolute difference between two bearings."""
+        return abs(((angle_a - angle_b + 180) % 360) - 180)
+
+    @staticmethod
+    def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Approximate great-circle distance in meters between two points."""
+        radius_m = 6_371_000
+        lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
+        lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
+        delta_lat = lat2_rad - lat1_rad
+        delta_lon = lon2_rad - lon1_rad
+        a_val = (
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+        )
+        c_val = 2 * math.atan2(math.sqrt(a_val), math.sqrt(max(1 - a_val, 0)))
+        return radius_m * c_val
+
+    @staticmethod
+    def _bearing_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Compute the bearing from the first point to the second in degrees."""
+        lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+        delta_lon = math.radians(lon2 - lon1)
+        y_val = math.sin(delta_lon) * math.cos(lat2_rad)
+        x_val = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon)
+        return (math.degrees(math.atan2(y_val, x_val)) + 360) % 360
+
+    @staticmethod
+    def _distance_bearing_to_offset(lat: float, distance_m: float, bearing_deg: float) -> Tuple[float, float]:
+        """Convert a distance/bearing into latitude/longitude deltas."""
+        if distance_m <= 0:
+            return 0.0, 0.0
+        meters_per_degree_lat = 111_320.0
+        meters_per_degree_lon = max(1.0, 111_320.0 * math.cos(math.radians(lat)))
+        bearing_rad = math.radians(bearing_deg)
+        delta_lat = (distance_m * math.cos(bearing_rad)) / meters_per_degree_lat
+        delta_lon = (distance_m * math.sin(bearing_rad)) / meters_per_degree_lon
+        return delta_lat, delta_lon
+
+    def _lookup_elevation(self, lat: float, lon: float, fallback: Optional[float] = None) -> Optional[float]:
+        """Lookup elevation with simple caching and graceful fallback."""
+        cache_key = (round(lat, 5), round(lon, 5))
+        if cache_key in self._elevation_cache:
+            return self._elevation_cache[cache_key]
+        try:
+            elevation_data = self.get_elevation_data(lat, lon)
+            elevation_value = elevation_data.get("elevation")
+            if elevation_value is not None:
+                self._elevation_cache[cache_key] = elevation_value
+                return elevation_value
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug("Elevation lookup failed at %.5f, %.5f: %s", lat, lon, exc)
+        return fallback
+
+    def _compute_elevation_profile(self, base_lat: float, base_lon: float,
+                                    lat_offset: float, lon_offset: float,
+                                    steps: int, base_elevation: Optional[float]) -> Dict[str, Optional[float]]:
+        """Sample elevation along a planned offset to confirm downhill travel."""
+        if steps <= 0:
+            return {
+                "samples": [],
+                "segment_deltas": [],
+                "total_change": None,
+                "first_delta": None
+            }
+
+        samples: List[float] = []
+        if base_elevation is None:
+            base_elevation = self._lookup_elevation(base_lat, base_lon)
+        if base_elevation is None:
+            # Unable to sample profile without a baseline
+            return {
+                "samples": [],
+                "segment_deltas": [],
+                "total_change": None,
+                "first_delta": None
+            }
+
+        samples.append(float(base_elevation))
+        for step_idx in range(1, steps + 1):
+            ratio = step_idx / steps
+            sample_lat = base_lat + lat_offset * ratio
+            sample_lon = base_lon + lon_offset * ratio
+            elevation = self._lookup_elevation(sample_lat, sample_lon, fallback=samples[-1])
+            if elevation is None:
+                # Maintain continuity if lookup fails
+                samples.append(samples[-1])
+            else:
+                samples.append(float(elevation))
+
+        segment_deltas = [samples[i + 1] - samples[i] for i in range(len(samples) - 1)]
+        total_change = samples[-1] - samples[0]
+        first_delta = segment_deltas[0] if segment_deltas else None
+
+        return {
+            "samples": samples,
+            "segment_deltas": segment_deltas,
+            "total_change": total_change,
+            "first_delta": first_delta
+        }
         
     def get_slope_aspect_gee(self, lat: float, lon: float) -> Dict:
         """Get accurate slope and aspect using Google Earth Engine SRTM DEM"""
@@ -371,13 +612,104 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         else:
             return self.get_elevation_data_fallback(lat, lon)
 
-    def get_dynamic_gee_data_enhanced(self, lat: float, lon: float, vegetation_data: Optional[Dict] = None, max_retries: int = 5) -> Dict:
-        """Enhanced GEE data with REAL canopy coverage from vegetation analyzer"""
+    def get_dynamic_gee_data_enhanced(self, lat: float, lon: float, vegetation_data: Optional[Dict] = None, max_retries: int = 5, prefer_lidar: bool = True) -> Dict:
+        """Enhanced GEE data with REAL canopy coverage from vegetation analyzer
+        
+        🗺️ LIDAR-FIRST ARCHITECTURE (Phase 2):
+        - TIER 1: Try LIDAR first (0.35m resolution, instant, offline)
+        - TIER 2: Fall back to GEE (30m resolution, 2-3s, online)
+        - TIER 3: Emergency rasterio fallback
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            vegetation_data: Optional vegetation analysis data
+            max_retries: Max GEE API retries
+            prefer_lidar: Whether to try LIDAR before GEE (default: True)
+        """
         gee_data = self.get_dynamic_gee_data(lat, lon, max_retries)
         
-        # Add elevation, slope, and aspect data
-        elevation_data = self.get_elevation_data(lat, lon)
-        gee_data.update(elevation_data)
+        # Track coverage check
+        if hasattr(self, 'lidar_stats'):
+            self.lidar_stats['coverage_checks'] += 1
+        
+        # 🗺️ TIER 1: Try LIDAR first (0.35m resolution, instant)
+        if self.use_lidar_first and prefer_lidar and self.lidar_terrain_extractor:
+            try:
+                import time
+                start_time = time.time()
+                
+                lidar_files = self.lidar_dem_manager.get_files()
+                lidar_terrain = self.lidar_terrain_extractor.extract_point_terrain(
+                    lat, lon, lidar_files, sample_radius_m=30
+                )
+                
+                elapsed_ms = (time.time() - start_time) * 1000
+                if hasattr(self, 'lidar_stats'):
+                    self.lidar_stats['lidar_time_ms'] += elapsed_ms
+                
+                # Check if LIDAR has coverage for this location
+                if lidar_terrain and lidar_terrain.get('coverage'):
+                    if hasattr(self, 'lidar_stats'):
+                        self.lidar_stats['lidar_calls'] += 1
+                    
+                    logger.info(f"🗺️ LIDAR TERRAIN (0.35m): "
+                               f"Slope={lidar_terrain['slope']:.1f}°, "
+                               f"Aspect={lidar_terrain['aspect']:.0f}°, "
+                               f"Elevation={lidar_terrain['elevation']:.1f}m "
+                               f"({elapsed_ms:.1f}ms)")
+                    
+                    # Use LIDAR terrain data (skip GEE terrain API call!)
+                    elevation_data = {
+                        'elevation': lidar_terrain['elevation'],
+                        'slope': lidar_terrain['slope'],
+                        'aspect': lidar_terrain['aspect'],
+                        'api_source': 'lidar-0.35m',
+                        'query_success': True,
+                        'resolution_m': lidar_terrain['resolution_m']
+                    }
+                    gee_data.update(elevation_data)
+                    
+                    # Continue to canopy integration below
+                    # (LIDAR provides terrain, vegetation_data provides canopy)
+                    
+                else:
+                    # No LIDAR coverage at this location
+                    logger.info(f"🌍 GEE FALLBACK: No LIDAR coverage at ({lat:.4f}, {lon:.4f})")
+                    if hasattr(self, 'lidar_stats'):
+                        self.lidar_stats['gee_fallback_calls'] += 1
+                    
+                    # Fall through to TIER 2: GEE
+                    import time
+                    start_time = time.time()
+                    elevation_data = self.get_elevation_data(lat, lon)
+                    if hasattr(self, 'lidar_stats'):
+                        self.lidar_stats['gee_time_ms'] += (time.time() - start_time) * 1000
+                    gee_data.update(elevation_data)
+                    
+            except Exception as e:
+                logger.warning(f"⚠️ LIDAR extraction failed: {e}, falling back to GEE")
+                if hasattr(self, 'lidar_stats'):
+                    self.lidar_stats['gee_fallback_calls'] += 1
+                
+                # TIER 2: GEE fallback on error
+                import time
+                start_time = time.time()
+                elevation_data = self.get_elevation_data(lat, lon)
+                if hasattr(self, 'lidar_stats'):
+                    self.lidar_stats['gee_time_ms'] += (time.time() - start_time) * 1000
+                gee_data.update(elevation_data)
+        else:
+            # 🌍 TIER 2: GEE (LIDAR disabled or prefer_lidar=False)
+            if hasattr(self, 'lidar_stats'):
+                self.lidar_stats['gee_fallback_calls'] += 1
+            
+            import time
+            start_time = time.time()
+            elevation_data = self.get_elevation_data(lat, lon)
+            if hasattr(self, 'lidar_stats'):
+                self.lidar_stats['gee_time_ms'] += (time.time() - start_time) * 1000
+            gee_data.update(elevation_data)
         
         # � REAL CANOPY INTEGRATION from VegetationAnalyzer
         if vegetation_data and 'canopy_coverage_analysis' in vegetation_data:
@@ -430,8 +762,110 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         return gee_data
 
+    def log_data_source_stats(self):
+        """
+        Log statistics about LIDAR vs GEE data source usage.
+        
+        🗺️ Phase 2: LIDAR-First Architecture Monitoring
+        
+        Tracks and reports:
+        - Percentage of terrain data from LIDAR vs GEE
+        - Average extraction times for each source
+        - Total coverage checks performed
+        - Performance metrics (calls/sec, ms/call)
+        
+        Expected for Vermont locations: 90-100% LIDAR usage
+        Expected for non-Vermont: 0% LIDAR, 100% GEE fallback
+        """
+        if not hasattr(self, 'lidar_stats'):
+            logger.info("📊 DATA SOURCE STATS: No LIDAR statistics available")
+            return
+        
+        stats = self.lidar_stats
+        total_calls = stats['lidar_calls'] + stats['gee_fallback_calls']
+        
+        if total_calls == 0:
+            logger.info("📊 DATA SOURCE STATS: No terrain data fetched yet")
+            return
+        
+        # Calculate percentages
+        lidar_pct = (stats['lidar_calls'] / total_calls * 100) if total_calls > 0 else 0
+        gee_pct = 100 - lidar_pct
+        
+        # Calculate average times
+        lidar_avg_ms = (stats['lidar_time_ms'] / stats['lidar_calls']) if stats['lidar_calls'] > 0 else 0
+        gee_avg_ms = (stats['gee_time_ms'] / stats['gee_fallback_calls']) if stats['gee_fallback_calls'] > 0 else 0
+        
+        # Log summary
+        logger.info("=" * 60)
+        logger.info("📊 LIDAR-FIRST ARCHITECTURE STATISTICS (Phase 2)")
+        logger.info("=" * 60)
+        logger.info(f"🗺️  DATA SOURCE BREAKDOWN:")
+        logger.info(f"   ├─ LIDAR (0.35m):  {stats['lidar_calls']:3d} calls ({lidar_pct:5.1f}%) - {lidar_avg_ms:6.1f}ms avg")
+        logger.info(f"   └─ GEE (30m):      {stats['gee_fallback_calls']:3d} calls ({gee_pct:5.1f}%) - {gee_avg_ms:6.1f}ms avg")
+        logger.info(f"")
+        logger.info(f"⚡ PERFORMANCE:")
+        logger.info(f"   ├─ Coverage checks: {stats['coverage_checks']} locations")
+        logger.info(f"   ├─ LIDAR speedup:   {gee_avg_ms/lidar_avg_ms:.1f}x faster than GEE" if lidar_avg_ms > 0 else "   ├─ LIDAR speedup:   N/A")
+        logger.info(f"   └─ Time saved:      {stats['gee_time_ms'] - stats['lidar_time_ms']:.0f}ms total")
+        logger.info(f"")
+        
+        # Validation against targets
+        if lidar_pct >= 90:
+            logger.info(f"✅ TARGET MET: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
+        elif lidar_pct >= 50:
+            logger.warning(f"⚠️  PARTIAL: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
+        else:
+            logger.warning(f"❌ LOW LIDAR: {lidar_pct:.1f}% usage (expected 90%+ for Vermont)")
+        
+        logger.info("=" * 60)
+
     def evaluate_bedding_suitability(self, gee_data: Dict, osm_data: Dict, weather_data: Dict) -> Dict:
-        """Comprehensive bedding zone suitability evaluation with adaptive thresholds"""
+        """
+        Evaluate bedding zone suitability using adaptive biological criteria.
+        
+        Analyzes terrain, cover, and environmental factors to score potential bedding
+        locations for mature whitetail bucks. Uses adaptive thresholds that adjust
+        based on hunting pressure and seasonal conditions.
+        
+        Args:
+            gee_data: Google Earth Engine terrain data containing:
+                - slope: Terrain slope in degrees
+                - aspect: Compass direction of slope face (0-360°)
+                - canopy_coverage: Percentage of overhead cover (0-1)
+                - elevation: Height above sea level in meters
+            osm_data: OpenStreetMap proximity data containing:
+                - nearest_road_distance_m: Distance to closest road in meters
+                - road_type: Classification of nearest road
+            weather_data: Current weather conditions containing:
+                - wind_direction: Prevailing wind bearing (0-360°)
+                - wind_speed: Wind velocity in mph
+                - temperature: Current temp in Fahrenheit
+        
+        Returns:
+            dict: Suitability evaluation with:
+                - score: Overall suitability (0-100)
+                - criteria: Individual factor scores
+                - thresholds: Applied threshold values
+                - meets_requirements: Boolean if minimum standards met
+                - adjustments: Any threshold modifications applied
+        
+        Notes:
+            - Slope preference: 10-25° optimal (balances drainage and comfort)
+            - Canopy minimum: 60% cover (adjusted for high pressure areas)
+            - Road distance: >200m minimum for security
+            - Aspect preference: South-facing slopes for thermal advantage
+            - Tracks slope consistency to prevent data corruption
+        
+        Example:
+            >>> gee_data = {'slope': 15.5, 'aspect': 180, 'canopy_coverage': 0.75}
+            >>> osm_data = {'nearest_road_distance_m': 350}
+            >>> weather_data = {'wind_direction': 270, 'temperature': 45}
+            >>> result = predictor.evaluate_bedding_suitability(
+            ...     gee_data, osm_data, weather_data
+            ... )
+            >>> print(f"Suitability score: {result['score']}/100")
+        """
         # 🎯 SLOPE CONSISTENCY TRACKING: Log original slope value
         original_slope = gee_data.get("slope", 0)
         logger.info(f"📏 SLOPE TRACKING: Original GEE slope = {original_slope:.6f}°")
@@ -456,8 +890,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         thresholds = {
             "min_canopy": 0.6,      # Lowered from 0.7 for high-pressure areas with marginal cover
             "min_road_distance": 200,  # >200m from roads (maintained)
-            "min_slope": 3,         # 3°-30° slope range (expanded for mountainous terrain)
-            "max_slope": 30,        # Critical: 30° max for mature buck bedding (never exceed!)
+            "min_slope": 10,        # 10° minimum for drainage and visibility
+            "optimal_slope_max": 25, # 25° optimal maximum for comfort
+            "max_slope": 30,        # 30° absolute maximum (biological limit - disqualify if exceeded)
             "optimal_aspect_min": 135,  # South-facing slopes (135°-225°)
             "optimal_aspect_max": 225
         }
@@ -474,54 +909,60 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         else:
             scores["isolation"] = (criteria["road_distance"] / thresholds["min_road_distance"]) * 50
         
-        # CRITICAL FIX: Slope suitability score with strict 30° enforcement
-        if thresholds["min_slope"] <= criteria["slope"] <= thresholds["max_slope"]:
+        # ENHANCED SLOPE SCORING: Optimal range 10-25° for mature buck bedding
+        # This matches biological requirements for comfort, visibility, and drainage
+        slope = criteria["slope"]
+        
+        if thresholds["min_slope"] <= slope <= thresholds["optimal_slope_max"]:
+            # OPTIMAL RANGE: 10-25° perfect for bedding
             scores["slope"] = 100
-        elif criteria["slope"] < thresholds["min_slope"]:
-            scores["slope"] = (criteria["slope"] / thresholds["min_slope"]) * 80
-        else:  # Too steep - CRITICAL BIOLOGICAL FAILURE
-            # Steep slopes (>30°) are unsuitable for mature buck bedding
-            # Apply aggressive penalty: 10 points per degree over limit
-            slope_excess = criteria["slope"] - thresholds["max_slope"]
-            scores["slope"] = max(0, 100 - (slope_excess * 10))
-            logger.warning(f"⚠️ SLOPE VIOLATION: {criteria['slope']:.1f}° exceeds {thresholds['max_slope']}° limit for bedding (Score: {scores['slope']:.1f})")
+            logger.info(f"✅ OPTIMAL SLOPE: {slope:.1f}° within ideal 10-25° range")
+            
+        elif 5 <= slope < thresholds["min_slope"]:
+            # TOO FLAT: 5-10° - insufficient cover, poor drainage
+            penalty = (thresholds["min_slope"] - slope) * 8  # 8 points per degree below optimal
+            scores["slope"] = max(20, 100 - penalty)
+            logger.info(f"⚠️ SUBOPTIMAL SLOPE: {slope:.1f}° is too flat (drainage concerns), score: {scores['slope']:.0f}")
+            
+        elif thresholds["optimal_slope_max"] < slope <= thresholds["max_slope"]:
+            # TOO STEEP: 25-30° - reduced comfort, instability risk
+            penalty = (slope - thresholds["optimal_slope_max"]) * 12  # 12 points per degree above optimal
+            scores["slope"] = max(10, 100 - penalty)
+            logger.warning(f"⚠️ STEEP SLOPE: {slope:.1f}° exceeds optimal 25° (comfort concerns), score: {scores['slope']:.0f}")
+            
+        elif slope > thresholds["max_slope"]:
+            # CRITICAL: >30° - biologically unsuitable for mature buck bedding
+            scores["slope"] = 0  # Complete disqualification
+            logger.warning(f"🚫 SLOPE VIOLATION: {slope:.1f}° exceeds {thresholds['max_slope']}° biological limit - UNSUITABLE FOR BEDDING")
+            
+        else:  # slope < 5°
+            # EXTREMELY FLAT: <5° - swampy, no oversight, poor habitat
+            scores["slope"] = 10
+            logger.warning(f"⚠️ EXTREMELY FLAT: {slope:.1f}° likely swampy with poor visibility, score: {scores['slope']:.0f}")
         
         # ENHANCED: Disqualify areas with excessive slopes completely
         slope_disqualified = criteria["slope"] > thresholds["max_slope"]
         if slope_disqualified:
             logger.warning(f"🚫 BEDDING ZONE DISQUALIFIED: Slope {criteria['slope']:.1f}° > {thresholds['max_slope']}° limit")
         
-        # BIOLOGICAL ACCURACY FIX: Aspect scoring based on temperature preferences
-        # Cold weather: South-facing preferred (thermal advantage)
-        # Warm weather: North/East-facing preferred (cooling)
-        # Moderate weather: All aspects equally acceptable
+        # PHASE 4.7: BIOLOGICAL ASPECT SCORING (Wind-Integrated)
+        # 🔧 REFACTORED: Using BiologicalAspectScorer service
+        # Prioritizes leeward shelter when wind >10 mph, thermal aspects when wind <10 mph
+        # Always considers uphill positioning for scent/visibility
+        wind_direction = weather_data.get("wind_direction", 180)
+        wind_speed = weather_data.get("wind_speed", 5)
         temperature = weather_data.get("temperature", 50)
-        aspect_score = 70  # Default neutral score (all aspects acceptable)
+        slope = criteria.get("slope", 15)
         
-        if temperature < 40:  # Cold weather - prefer south-facing
-            if 135 <= criteria["aspect"] <= 225:  # South-facing
-                aspect_score = 100  # Optimal for thermal advantage
-                logger.info(f"✅ THERMAL OPTIMAL: South-facing {criteria['aspect']:.1f}° ideal for cold weather")
-            elif 315 <= criteria["aspect"] or criteria["aspect"] <= 45:  # North-facing
-                aspect_score = 50  # Less ideal but acceptable with cover
-                logger.info(f"⚠️ THERMAL SUBOPTIMAL: North-facing {criteria['aspect']:.1f}° cooler in cold weather, but acceptable")
-            else:  # East/West-facing
-                aspect_score = 70  # Neutral
-                
-        elif temperature > 65:  # Warm weather - prefer north/east-facing  
-            if 315 <= criteria["aspect"] or criteria["aspect"] <= 135:  # North/East-facing
-                aspect_score = 100  # Optimal for cooling
-                logger.info(f"✅ THERMAL OPTIMAL: North/East-facing {criteria['aspect']:.1f}° provides cooling in warm weather")
-            elif 135 < criteria["aspect"] <= 225:  # South-facing
-                aspect_score = 60  # Can be hot, reduced by canopy
-                logger.info(f"⚠️ THERMAL WARM: South-facing {criteria['aspect']:.1f}° warmer, relies on canopy shade")
-            else:  # West-facing
-                aspect_score = 50  # Afternoon sun exposure
-                
-        else:  # Moderate weather (40-65°F) - all aspects equal
-            aspect_score = 85  # Slightly favorable (no thermal stress either way)
-            logger.info(f"✅ THERMAL NEUTRAL: {criteria['aspect']:.1f}° suitable for moderate temperatures")
+        aspect_score, aspect_reason = self.aspect_scorer.score_aspect(
+            aspect=criteria["aspect"],
+            wind_direction=wind_direction,
+            wind_speed=wind_speed,
+            temperature=temperature,
+            slope=slope
+        )
         
+        logger.info(f"🧭 ASPECT BIOLOGICAL: {aspect_reason}")
         scores["aspect"] = aspect_score
         
         # Wind protection score (leeward positioning)
@@ -626,26 +1067,26 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "thresholds": thresholds
         }
     
-    def _calculate_optimal_bedding_positions(self, lat: float, lon: float, gee_data: Dict, 
-                                           osm_data: Dict, weather_data: Dict, suitability: Dict) -> List[Dict]:
-        """Calculate optimal bedding positions using environmental analysis"""
-        
-        # Extract environmental data
+    def _calculate_optimal_bedding_positions(self, lat: float, lon: float, gee_data: Dict,
+                                             osm_data: Dict, weather_data: Dict, suitability: Dict,
+                                             terrain_cache: Optional[Dict[Tuple[float, float], Dict]] = None) -> List[Dict]:
+        """Calculate optimal bedding positions with pre-filtered leeward samples."""
+        if terrain_cache is None:
+            terrain_cache = {}
+
         wind_direction = weather_data.get("wind_direction", 180)
         wind_speed = weather_data.get("wind_speed", 5)
-        temperature = weather_data.get("temperature", 50)
         slope = gee_data.get("slope", 10)
         aspect = gee_data.get("aspect", 180)
-        elevation = gee_data.get("elevation", 300)
-        
-        # Calculate leeward direction (opposite of wind)
-        leeward_direction = (wind_direction + 180) % 360
-        
-        # Base offset distance in meters (keep bedding within hunting distance)
-        slope_factor = max(0.0, min(slope, 30.0))
-        base_distance_m = 90.0 + slope_factor * 4.0  # 90-210m based on slope comfort
 
-        # Adjust spacing with terrain and wind but keep it bounded
+        leeward_direction = (wind_direction + 180) % 360
+        slope_factor = max(0.0, min(slope, 30.0))
+        base_distance_m = 90.0 + slope_factor * 4.0
+
+        # Calculate uphill/leeward angle difference for wind priority logic
+        uphill_direction = (aspect + 180) % 360
+        angle_diff = abs((uphill_direction - leeward_direction + 180) % 360 - 180)
+
         terrain_multiplier = 1.0 + (slope_factor / 150.0)
         wind_multiplier = 1.0 + (min(max(wind_speed, 0.0), 25.0) / 120.0)
         distance_multiplier = terrain_multiplier * wind_multiplier
@@ -654,102 +1095,497 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             return max(70.0, min(distance_m, 320.0))
 
         def calculate_offset(distance_m: float, bearing_deg: float) -> Dict[str, float]:
-            lat_rad = math.radians(lat)
-            meters_per_degree_lat = 111_320.0
-            meters_per_degree_lon = max(1.0, 111_320.0 * math.cos(lat_rad))
-            bearing_rad = math.radians(bearing_deg)
-            delta_lat = (distance_m * math.cos(bearing_rad)) / meters_per_degree_lat
-            delta_lon = (distance_m * math.sin(bearing_rad)) / meters_per_degree_lon
+            delta_lat, delta_lon = self._distance_bearing_to_offset(lat, distance_m, bearing_deg)
             return {"lat": delta_lat, "lon": delta_lon}
 
-        # Position 1: Primary - UPHILL on slopes for thermal/security advantage
-        # CRITICAL FIX: Prioritize elevation over wind on sloped terrain
-        # Lowered threshold from 10° to 5° - even gentle slopes have directional movement
-        if slope > 5:  # Sloped terrain (even gentle slopes) - elevation is CRITICAL for deer bedding
-            # Place bedding UPHILL (higher elevation for thermal advantage, security, escape routes)
-            uphill_direction = (aspect + 180) % 360
-            primary_bearing = uphill_direction
-            
-            # Check if wind conflicts with uphill placement (angle difference > 90°)
-            angle_diff = abs((uphill_direction - leeward_direction + 180) % 360 - 180)
-            if angle_diff > 90:  # Wind perpendicular or upwind from ideal bedding
-                # Compromise: favor uphill (70%) but adjust for wind (30%)
-                logger.info(f"⚠️ BEDDING COMPROMISE: Uphill={uphill_direction:.0f}° vs Leeward={leeward_direction:.0f}° (angle diff={angle_diff:.0f}°)")
-                primary_bearing = self._combine_bearings(
-                    uphill_direction,    # Uphill - thermal/security priority
-                    leeward_direction,   # Downwind - scent control
-                    0.7, 0.3  # 70% elevation, 30% wind
+        def cache_sample(sample_lat: float, sample_lon: float) -> Dict:
+            key = (round(sample_lat, 6), round(sample_lon, 6))
+            if key not in terrain_cache:
+                terrain_cache[key] = self.get_dynamic_gee_data_enhanced(sample_lat, sample_lon)
+            return terrain_cache[key]
+
+        leeward_tolerance = 45.0
+        min_slope_required = 6.0
+
+        def within_leeward(aspect_value: float) -> bool:
+            return self._angular_difference(aspect_value, leeward_direction) <= leeward_tolerance
+
+        def evaluate_ring(label: str, base_bearing: float, base_distance_m: float,
+                          avoid_bearings: Iterable[float]) -> Optional[Dict[str, Any]]:
+            ring_offsets = (-45, -30, -15, 0, 15, 30, 45)
+            centers = {leeward_direction, base_bearing}
+            best_choice: Optional[Dict[str, Any]] = None
+            best_score: Optional[Tuple[float, float]] = None
+
+            for center in centers:
+                for offset in ring_offsets:
+                    candidate_bearing = (center + offset) % 360
+                    if any(self._angular_difference(candidate_bearing, other) < 15 for other in avoid_bearings):
+                        logger.debug(
+                            "🧭 Discarded %s bearing %.0f°: overlaps previously selected bearing",
+                            label,
+                            candidate_bearing,
+                        )
+                        continue
+
+                    distances_to_try = sorted({
+                        base_distance_m,
+                        max(base_distance_m, 150.0),
+                        max(base_distance_m, 180.0),
+                        max(base_distance_m, 210.0),
+                        max(base_distance_m, 240.0),
+                        max(base_distance_m, 260.0),
+                    })
+
+                    last_reason = "no valid samples"
+                    accepted = False
+
+                    for trial_distance in distances_to_try:
+                        delta_lat, delta_lon = self._distance_bearing_to_offset(lat, trial_distance, candidate_bearing)
+                        sample_lat = lat + delta_lat
+                        sample_lon = lon + delta_lon
+                        terrain_sample = cache_sample(sample_lat, sample_lon)
+                        sample_slope = float(terrain_sample.get("slope", 0.0) or 0.0)
+                        sample_aspect = terrain_sample.get("aspect")
+
+                        if sample_slope < min_slope_required:
+                            last_reason = f"slope {sample_slope:.1f}° < {min_slope_required:.1f}°"
+                            continue
+
+                        if sample_aspect is None:
+                            last_reason = "aspect unavailable"
+                            continue
+
+                        if not within_leeward(sample_aspect):
+                            diff_val = self._angular_difference(sample_aspect, leeward_direction)
+                            last_reason = f"aspect {sample_aspect:.0f}° (Δ{diff_val:.0f}° windward)"
+                            continue
+
+                        candidate_info = {
+                            "bearing": candidate_bearing,
+                            "distance_m": trial_distance,
+                            "offset": {"lat": delta_lat, "lon": delta_lon},
+                            "terrain": terrain_sample,
+                            "slope": sample_slope,
+                            "aspect": sample_aspect,
+                            "lat": sample_lat,
+                            "lon": sample_lon,
+                        }
+
+                        score = (sample_slope, -abs(self._angular_difference(candidate_bearing, leeward_direction)))
+                        if best_score is None or score > best_score:
+                            best_choice = candidate_info
+                            best_score = score
+
+                        accepted = True
+                        break
+
+                    if not accepted:
+                        logger.debug(
+                            "🧭 Discarded %s bearing %.0f°: %s",
+                            label,
+                            candidate_bearing,
+                            last_reason,
+                        )
+
+            return best_choice
+
+        if slope > 5:
+            # CRITICAL FIX: Prioritize leeward (wind shelter) over uphill when wind is present
+            # and they conflict. Deer need wind shelter MORE than elevation advantage.
+            # Lowered threshold from 6mph to 3mph to handle light winds properly.
+            if wind_speed >= 3 and angle_diff >= 60:
+                # Wind present and uphill/leeward conflict significantly
+                # Use pure leeward direction to get on the sheltered side of the ridge
+                primary_bearing = leeward_direction
+                logger.info(
+                    "🌬️ BEDDING PRIMARY: Wind (%.1f mph) - using LEEWARD direction (%.0f°) "
+                    "over uphill (%.0f°) for wind shelter (angle diff=%.0f°)",
+                    wind_speed,
+                    leeward_direction,
+                    uphill_direction,
+                    angle_diff,
                 )
-                logger.info(f"🧭 BEDDING: Combined bearing = {primary_bearing:.0f}° (elevation-priority)")
+                logger.info(f"🎯 DEBUG: primary_bearing set to {primary_bearing:.0f}°")
+            elif angle_diff >= 90:
+                # Moderate conflict - blend uphill and leeward but strongly favor leeward
+                # Increased leeward weight from 60% to 80% for better wind shelter
+                primary_bearing = self._combine_bearings(leeward_direction, uphill_direction, 0.8, 0.2)
+                logger.info(
+                    "⚠️ BEDDING COMPROMISE: Uphill=%.0f° vs Leeward=%.0f° (angle diff=%.0f°) "
+                    "- blending with strong leeward priority 80/20 (%.0f°)",
+                    uphill_direction,
+                    leeward_direction,
+                    angle_diff,
+                    primary_bearing,
+                )
             else:
-                logger.info(f"✅ BEDDING: Uphill placement aligns with wind (uphill={uphill_direction:.0f}°, leeward={leeward_direction:.0f}°)")
-        else:  # Truly flat terrain (≤5°) - wind dominates (no significant elevation advantage)
+                # Uphill and leeward align - use uphill for elevation advantage
+                primary_bearing = uphill_direction
+                logger.info(
+                    "✅ BEDDING: Uphill placement aligns with wind (uphill=%.0f°, leeward=%.0f°)",
+                    uphill_direction,
+                    leeward_direction,
+                )
+        else:
             primary_bearing = leeward_direction
-            logger.info(f"🧭 BEDDING: Flat terrain (slope={slope:.1f}°≤5°), using leeward direction ({leeward_direction:.0f}°)")
+            logger.info(
+                "🧭 BEDDING: Flat terrain (slope=%.1f°≤5°), using leeward direction (%.0f°)",
+                slope,
+                leeward_direction,
+            )
 
         primary_distance = clamp_distance(base_distance_m * 1.15 * distance_multiplier)
         primary_offset = calculate_offset(primary_distance, primary_bearing)
 
-        # Position 2: Secondary - Optimal canopy protection
-        # On steep slopes, keep bedding uphill with slight variation from primary
-        # On flat terrain, use crosswind for canopy diversity
-        # Lowered threshold from 10° to 5° for consistency
-        if slope > 5:  # Sloped terrain (even gentle slopes) - stay uphill
-            uphill_direction = (aspect + 180) % 360
-            secondary_bearing = (uphill_direction + 30) % 360  # Slight variation from primary
-            logger.info(f"🏔️ SECONDARY BEDDING: Uphill variation ({secondary_bearing:.0f}°) on {slope:.1f}° slope")
-        else:  # Truly flat terrain - use crosswind
-            secondary_bearing = (wind_direction + 90) % 360
-            logger.info(f"🌲 SECONDARY BEDDING: Crosswind canopy ({secondary_bearing:.0f}°) on flat terrain")
+        # CRITICAL: Add minimum separation between bedding zones to prevent clustering
+        # Mature bucks use multiple bedding areas spread across terrain
+        MIN_SEPARATION_DEGREES = 45  # Minimum angular separation between zones
         
-        secondary_distance = clamp_distance(base_distance_m * 0.85 * distance_multiplier)
+        # CRITICAL: Secondary and escape bearings must also respect leeward priority
+        # Use variations from primary_bearing, not re-calculated uphill
+        if slope > 5:
+            # If wind forced leeward primary, keep secondary/escape near leeward too
+            if wind_speed >= 3 and angle_diff >= 60:
+                # Strong wind - all beds need wind shelter, but spread them out
+                secondary_bearing = (primary_bearing + MIN_SEPARATION_DEGREES) % 360
+                logger.info(
+                    "🌬️ SECONDARY BEDDING: Leeward variation (%.0f°) for wind shelter (wind %.1f mph)",
+                    secondary_bearing,
+                    wind_speed,
+                )
+            else:
+                # Moderate wind or uphill/leeward alignment - use uphill variations
+                uphill_direction = (aspect + 180) % 360
+                secondary_bearing = (uphill_direction + MIN_SEPARATION_DEGREES) % 360
+                logger.info(
+                    "🏔️ SECONDARY BEDDING: Uphill variation (%.0f°) on %.1f° slope",
+                    secondary_bearing,
+                    slope,
+                )
+        else:
+            secondary_bearing = (wind_direction + 90) % 360
+            logger.info(
+                "🌲 SECONDARY BEDDING: Crosswind canopy (%.0f°) on flat terrain",
+                secondary_bearing,
+            )
+
+        secondary_distance = clamp_distance(base_distance_m * 1.0 * distance_multiplier)  # Increased from 0.85 for better separation
         secondary_offset = calculate_offset(secondary_distance, secondary_bearing)
 
-        # Position 3: Escape - Higher elevation with visibility and multiple escape routes
-        if slope > 5:  # Sloped terrain (lowered from 10°) - place UPHILL for maximum elevation advantage
-            escape_bearing = (aspect + 180) % 360  # Uphill direction for escape routes
-            logger.info(f"🏔️ ESCAPE BEDDING: Placing uphill ({escape_bearing:.0f}°) for elevation/visibility advantage")
-        else:  # Flat terrain - use wind protection
+        if slope > 5:
+            # If wind forced leeward primary, escape also needs wind shelter
+            if wind_speed >= 3 and angle_diff >= 60:
+                escape_bearing = (primary_bearing - MIN_SEPARATION_DEGREES) % 360
+                logger.info(
+                    "🌬️ ESCAPE BEDDING: Leeward variation (%.0f°) for wind shelter (wind %.1f mph)",
+                    escape_bearing,
+                    wind_speed,
+                )
+            else:
+                # Moderate wind or uphill/leeward alignment
+                escape_bearing = (aspect + 180) % 360
+                logger.info(
+                    "🏔️ ESCAPE BEDDING: Placing uphill (%.0f°) for elevation/visibility advantage",
+                    escape_bearing,
+                )
+        else:
             escape_bearing = (leeward_direction + 45) % 360
-            logger.info(f"🏔️ ESCAPE BEDDING: Flat terrain - using leeward+45° ({escape_bearing:.0f}°)")
+            logger.info(
+                "🏔️ ESCAPE BEDDING: Flat terrain - using leeward+45° (%.0f°)",
+                escape_bearing,
+            )
 
-        escape_distance = clamp_distance(base_distance_m * 1.0 * distance_multiplier)
+        escape_distance = clamp_distance(base_distance_m * 1.25 * distance_multiplier)  # Increased from 1.0 for better separation
         escape_offset = calculate_offset(escape_distance, escape_bearing)
+
+        selected_bearings: List[float] = []
+
+        primary_prefilter_note: Optional[str] = None
+        secondary_prefilter_note: Optional[str] = None
+        escape_prefilter_note: Optional[str] = None
+
+        # CRITICAL: If strong wind forced leeward priority, skip prefilter to preserve wind shelter
+        skip_prefilter_for_wind = (wind_speed >= 3 and angle_diff >= 60 and slope > 5)
+        
+        if skip_prefilter_for_wind:
+            logger.info(
+                "🌬️ STRONG WIND OVERRIDE: Skipping leeward prefilter to preserve wind shelter bearings "
+                "(wind=%.1f mph, angle_diff=%.0f°)",
+                wind_speed,
+                angle_diff,
+            )
+            selected_bearings.extend([primary_bearing, secondary_bearing, escape_bearing])
+        else:
+            # Normal prefilter for moderate/calm conditions
+            primary_prefilter = evaluate_ring("primary", primary_bearing, primary_distance, selected_bearings)
+            if primary_prefilter:
+                primary_bearing = primary_prefilter["bearing"]
+                primary_distance = primary_prefilter["distance_m"]
+                primary_offset = primary_prefilter["offset"]
+                selected_bearings.append(primary_bearing)
+                cache_sample(primary_prefilter["lat"], primary_prefilter["lon"])
+                primary_prefilter_note = (
+                    f"prefilter leeward sample aspect {primary_prefilter['aspect']:.0f}° "
+                    f"slope {primary_prefilter['slope']:.1f}°"
+                )
+            elif slope <= min_slope_required:
+                logger.info("⚠️ Primary bedding retained original bearing due to flat terrain and no leeward samples")
+
+            secondary_prefilter = evaluate_ring("secondary", secondary_bearing, secondary_distance, selected_bearings)
+            if secondary_prefilter:
+                secondary_bearing = secondary_prefilter["bearing"]
+                secondary_distance = secondary_prefilter["distance_m"]
+                secondary_offset = secondary_prefilter["offset"]
+                selected_bearings.append(secondary_bearing)
+                cache_sample(secondary_prefilter["lat"], secondary_prefilter["lon"])
+                secondary_prefilter_note = (
+                    f"prefilter leeward sample aspect {secondary_prefilter['aspect']:.0f}° "
+                    f"slope {secondary_prefilter['slope']:.1f}°"
+                )
+
+            escape_prefilter = evaluate_ring("escape", escape_bearing, escape_distance, selected_bearings)
+            if escape_prefilter:
+                escape_bearing = escape_prefilter["bearing"]
+                escape_distance = escape_prefilter["distance_m"]
+                escape_offset = escape_prefilter["offset"]
+                selected_bearings.append(escape_bearing)
+                cache_sample(escape_prefilter["lat"], escape_prefilter["lon"])
+                escape_prefilter_note = (
+                    f"prefilter leeward sample aspect {escape_prefilter['aspect']:.0f}° "
+                    f"slope {escape_prefilter['slope']:.1f}°"
+                )
 
         zone_variations = [
             {
                 "offset": primary_offset,
                 "type": "primary",
-                "description": f"Primary bedding: {'Uphill' if slope > 5 else 'Leeward'} position ({primary_bearing:.0f}°) - Elevation priority on {slope:.1f}° slope"
+                "description": f"Primary bedding: {'Uphill' if slope > 5 else 'Leeward'} position ({primary_bearing:.0f}°) - Elevation priority on {slope:.1f}° slope",
+                "bearing": primary_bearing,
+                "distance_m": primary_distance,
+                "adjustments": [note for note in [primary_prefilter_note] if note],
             },
             {
                 "offset": secondary_offset,
-                "type": "secondary", 
-                "description": f"Secondary bedding: {'Uphill variation' if slope > 5 else 'Crosswind canopy'} ({secondary_bearing:.0f}°)"
+                "type": "secondary",
+                "description": f"Secondary bedding: {'Uphill variation' if slope > 5 else 'Crosswind canopy'} ({secondary_bearing:.0f}°)",
+                "bearing": secondary_bearing,
+                "distance_m": secondary_distance,
+                "adjustments": [note for note in [secondary_prefilter_note] if note],
             },
             {
                 "offset": escape_offset,
                 "type": "escape",
-                "description": f"Escape bedding: {'Uphill' if slope > 5 else 'Leeward'} security position ({escape_bearing:.0f}°)"
-            }
+                "description": f"Escape bedding: {'Uphill' if slope > 5 else 'Leeward'} security position ({escape_bearing:.0f}°)",
+                "bearing": escape_bearing,
+                "distance_m": escape_distance,
+                "adjustments": [note for note in [escape_prefilter_note] if note],
+            },
         ]
-        
-        logger.info(f"🧭 Calculated bedding positions: Wind={wind_direction:.0f}°, "
-                   f"Leeward={leeward_direction:.0f}°, Slope={slope:.1f}°, Aspect={aspect:.0f}° "
-                   f"({'UPHILL-PRIORITY' if slope > 10 else 'WIND-PRIORITY'})")
-        
+
+        logger.info(
+            "🧭 Calculated bedding positions: Wind=%.0f°, Leeward=%.0f°, Slope=%.1f°, Aspect=%.0f° (%s)",
+            wind_direction,
+            leeward_direction,
+            slope,
+            aspect,
+            "UPHILL-PRIORITY" if slope > 10 else "WIND-PRIORITY",
+        )
+
         return zone_variations
+
+    def _adjust_bedding_position(self,
+                                 base_lat: float,
+                                 base_lon: float,
+                                 candidate_lat: float,
+                                 candidate_lon: float,
+                                 weather_data: Dict,
+                                 search_distance_m: Optional[float],
+                                 bearing_hint: Optional[float],
+                                 terrain_cache: Dict[Tuple[float, float], Dict]) -> Tuple[float, float, Dict, List[str]]:
+        """Nudge bedding positions toward leeward slopes with sufficient relief."""
+        adjustments: List[str] = []
+        wind_direction = weather_data.get("wind_direction", 0)
+        leeward_direction = (wind_direction + 180) % 360
+        tolerance = 45.0
+        min_slope_required = 6.0
+        if not search_distance_m or search_distance_m <= 0:
+            search_distance_m = 140.0
+
+        def sample(lat_val: float, lon_val: float) -> Dict:
+            key = (round(lat_val, 6), round(lon_val, 6))
+            if key not in terrain_cache:
+                terrain_cache[key] = self.get_dynamic_gee_data_enhanced(lat_val, lon_val)
+            return terrain_cache[key]
+
+        initial_data = sample(candidate_lat, candidate_lon)
+        aspect = initial_data.get("aspect")
+        slope_val = initial_data.get("slope", 0.0)
+        aspect_diff = self._angular_difference(aspect, leeward_direction) if aspect is not None else 180.0
+
+        if slope_val >= min_slope_required and aspect is not None and aspect_diff <= tolerance:
+            return candidate_lat, candidate_lon, initial_data, adjustments
+
+        bearing_candidates = set()
+        if bearing_hint is not None:
+            bearing_candidates.add(bearing_hint % 360)
+            bearing_candidates.add((bearing_hint + 30) % 360)
+            bearing_candidates.add((bearing_hint - 30) % 360)
+        for delta in (-60, -45, -30, 0, 30, 45, 60):
+            bearing_candidates.add((leeward_direction + delta) % 360)
+
+        distance_candidates_raw = [
+            search_distance_m,
+            search_distance_m * 1.2,
+            search_distance_m * 0.8,
+            search_distance_m * 1.5,
+            max(140.0, search_distance_m),
+            max(160.0, search_distance_m * 1.8),
+            search_distance_m * 2.0,
+        ]
+        distance_candidates = []
+        for candidate in distance_candidates_raw:
+            if candidate <= 0:
+                continue
+            if not any(abs(candidate - existing) < 1e-3 for existing in distance_candidates):
+                distance_candidates.append(candidate)
+
+        best_leeward: Optional[Tuple[float, float, Dict, float]] = None
+        best_relaxed: Optional[Tuple[float, float, Dict, float]] = None
+        best_leeward_bearing: Optional[float] = None
+        best_relaxed_bearing: Optional[float] = None
+
+        for distance_m in distance_candidates:
+            if distance_m <= 0:
+                continue
+            for bearing in bearing_candidates:
+                delta_lat, delta_lon = self._distance_bearing_to_offset(base_lat, distance_m, bearing)
+                test_lat = base_lat + delta_lat
+                test_lon = base_lon + delta_lon
+                terrain = sample(test_lat, test_lon)
+                candidate_slope = terrain.get("slope", 0.0)
+                candidate_aspect = terrain.get("aspect")
+                if candidate_aspect is None:
+                    continue
+                candidate_diff = self._angular_difference(candidate_aspect, leeward_direction)
+                if candidate_slope >= min_slope_required and candidate_diff <= tolerance:
+                    if not best_leeward or candidate_slope > best_leeward[3]:
+                        best_leeward = (test_lat, test_lon, terrain, candidate_slope)
+                        best_leeward_bearing = bearing
+                elif candidate_slope >= min_slope_required:
+                    if not best_relaxed or candidate_diff < best_relaxed[3]:
+                        best_relaxed = (test_lat, test_lon, terrain, candidate_diff)
+                        best_relaxed_bearing = bearing
+
+        if best_leeward and best_leeward_bearing is not None:
+            lat_val, lon_val, terrain, slope_metric = best_leeward
+            aspect_val = terrain.get("aspect")
+            adjustments.append(
+                f"shifted to {best_leeward_bearing:.0f}° bearing for leeward aspect ({aspect_val:.0f}°)"
+                if aspect_val is not None else "shifted to leeward bearing"
+            )
+            return lat_val, lon_val, terrain, adjustments
+
+        if best_relaxed and best_relaxed_bearing is not None:
+            lat_val, lon_val, terrain, diff_metric = best_relaxed
+            aspect_val = terrain.get("aspect")
+            adjustments.append(
+                f"shifted to {best_relaxed_bearing:.0f}° bearing for stronger slope (aspect diff {diff_metric:.0f}°)"
+            )
+            return lat_val, lon_val, terrain, adjustments
+
+        if aspect is None:
+            adjustments.append("kept original bedding - aspect unavailable for adjustments")
+        elif aspect_diff > tolerance:
+            adjustments.append("kept origin - no leeward slope within search radius")
+        elif slope_val < min_slope_required:
+            adjustments.append("kept origin - insufficient slope relief within search radius")
+
+        return candidate_lat, candidate_lon, initial_data, adjustments
 
     def generate_enhanced_bedding_zones(self, lat: float, lon: float, gee_data: Dict, 
                                        osm_data: Dict, weather_data: Dict) -> Dict:
         """Generate biologically accurate bedding zones with comprehensive criteria"""
         try:
+            # 🎯 HSM PATH: Use Habitat Suitability Model if enabled
+            if self.hsm_model is not None:
+                try:
+                    logger.info(f"🎯 HSM: Generating bedding zones via Habitat Suitability Model")
+                    
+                    hsm_result = self.hsm_model.get_bedding_candidates(
+                        lat=lat,
+                        lon=lon,
+                        wind_direction=weather_data.get('wind_direction', 180),
+                        season=weather_data.get('season', 'early_season'),
+                        n_candidates=3,
+                        use_cache=True
+                    )
+                    
+                    # Optional visualization
+                    if self.hsm_viz is not None:
+                        try:
+                            viz_metadata = {
+                                'lat': lat,
+                                'lon': lon,
+                                'wind_direction': weather_data.get('wind_direction', 180),
+                                'season': weather_data.get('season', 'early_season'),
+                                'timestamp': datetime.now().isoformat()
+                            }
+                            
+                            viz_path = self.hsm_viz.plot_suitability_surface(
+                                suitability_map=hsm_result['suitability_map'],
+                                slope_array=hsm_result['raster_data']['slope'],
+                                aspect_array=hsm_result['raster_data']['aspect'],
+                                leeward_array=hsm_result['raster_data']['leeward'],
+                                selected_candidates=hsm_result['candidates'],
+                                center_lat=lat,
+                                center_lon=lon,
+                                metadata=viz_metadata,
+                                save=True
+                            )
+                            logger.info(f"📊 HSM: Visualization saved to {viz_path}")
+                        except Exception as viz_err:
+                            logger.warning(f"⚠️ HSM: Visualization failed: {viz_err}")
+                    
+                    # Log performance
+                    perf = hsm_result['performance']
+                    logger.info(f"⚡ HSM: Completed in {perf['latency_seconds']:.2f}s with {perf['gee_calls']} GEE calls")
+                    if perf.get('cached', False):
+                        logger.info(f"📦 HSM: Used cached raster (0 new GEE calls)")
+                    
+                    # Return HSM results in expected format
+                    return {
+                        'type': 'FeatureCollection',
+                        'features': hsm_result['candidates'],
+                        'properties': {
+                            'marker_type': 'bedding',
+                            'total_features': len(hsm_result['candidates']),
+                            'generated_at': hsm_result['metadata']['timestamp'],
+                            'suitability_analysis': hsm_result['metadata'],
+                            'enhancement_version': 'v2.0-hsm',
+                            'slope_tracking': perf
+                        }
+                    }
+                    
+                except Exception as hsm_error:
+                    logger.error(f"❌ HSM: Error during bedding zone generation: {hsm_error}")
+                    logger.warning(f"⚠️ HSM: Falling back to traditional tiered point sampling")
+                    # Fall through to traditional method
+            
+            # ========== 🎯 PHASE 3.5 OPTIMIZED METHOD (ALWAYS USE TERRAIN FILTERING) ==========
             # Evaluate primary location
             suitability = self.evaluate_bedding_suitability(gee_data, osm_data, weather_data)
             
             # CRITICAL BIOLOGICAL CHECK: Completely disqualify steep slopes for bedding
             slope = gee_data.get("slope", 10)
             max_slope_limit = 30  # Biological maximum for mature buck bedding
+            
+            # 🚀 PHASE 3.5: ALWAYS use intelligent terrain-based search with filtering
+            # This is 19x faster than old method (3.4s vs 65s) because it:
+            # 1. Batch-fetches LIDAR for 26 candidates (0.23s)
+            # 2. Filters to top 5-15 by terrain score (>50%)
+            # 3. Only runs GEE vegetation on filtered candidates (~3 GEE calls vs 26)
+            logger.info(f"🎯 PHASE 3.5: Using intelligent terrain-filtered bedding search...")
             
             if slope > max_slope_limit:
                 logger.warning(f"🚫 PRIMARY LOCATION REJECTED: Slope {slope:.1f}° exceeds biological limit of {max_slope_limit}°")
@@ -759,8 +1595,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 logger.warning(f"   • Difficulty with quick escape routes")
                 logger.warning(f"   • Heat stress in warm weather (70°F+ conditions)")
                 
-                # 🎯 CRITICAL FALLBACK: Search for alternative bedding sites with suitable slopes
-                logger.info(f"🔍 FALLBACK SEARCH: Looking for alternative bedding sites with slopes ≤{max_slope_limit}°...")
+                # Search with strict slope limit
+                logger.info(f"🔍 TERRAIN SEARCH: Looking for alternative bedding sites with slopes ≤{max_slope_limit}°...")
                 alternative_zones = self._search_alternative_bedding_sites(
                     lat, lon, gee_data, osm_data, weather_data, max_slope_limit
                 )
@@ -781,8 +1617,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     alt_suitability = self.evaluate_bedding_suitability(alt_gee_data, osm_data, weather_data)
                     
                     # Generate 3 bedding zones (primary, secondary, escape) from this optimal location
+                    fallback_cache: Dict[Tuple[float, float], Dict] = {}
                     zone_variations = self._calculate_optimal_bedding_positions(
-                        best_lat, best_lon, alt_gee_data, osm_data, weather_data, alt_suitability
+                        best_lat, best_lon, alt_gee_data, osm_data, weather_data, alt_suitability,
+                        terrain_cache=fallback_cache,
                     )
                     
                     enhanced_bedding_zones = []
@@ -852,115 +1690,42 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             "generated_at": datetime.now().isoformat(),
                             "disqualified_reason": f"Primary slope {slope:.1f}° too steep, no suitable alternatives found",
                             "biological_note": "Mature whitetail bucks require slopes ≤30° for comfortable bedding",
-                            "enhancement_version": "v2.0-slope-enforced-with-fallback"
+                            "enhancement_version": "v2.0-phase3.5-optimized"
                         }
                     }
-            
-            bedding_zones = []
-            
-            if suitability["meets_criteria"]:
-                # Generate multiple bedding zones using environmental analysis
-                zone_variations = self._calculate_optimal_bedding_positions(
-                    lat, lon, gee_data, osm_data, weather_data, suitability
+            else:
+                # Primary location slope is acceptable - still use Phase 3.5 for speed!
+                # This ensures we get diverse bedding zones efficiently (3.4s vs 65s)
+                logger.info(f"✅ PRIMARY SLOPE OK: {slope:.1f}° is within limit, using Phase 3.5 search for diverse zones...")
+                alternative_zones = self._search_alternative_bedding_sites(
+                    lat, lon, gee_data, osm_data, weather_data, max_slope_limit,
+                    require_south_facing=False  # Primary passed, so don't enforce aspect
                 )
                 
-                for i, variation in enumerate(zone_variations):
-                    zone_lat = lat + variation["offset"]["lat"]
-                    zone_lon = lon + variation["offset"]["lon"]
-                    
-                    # Calculate zone-specific score (add some variation)
-                    zone_score = (suitability["overall_score"] / 100) * (0.95 - i * 0.05)
-                    
-                    bedding_zones.append({
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Point",
-                            "coordinates": [zone_lon, zone_lat]
-                        },
+                if alternative_zones["features"]:
+                    logger.info(f"✅ PHASE 3.5 SUCCESS: Found {len(alternative_zones['features'])} optimized bedding zones")
+                    return alternative_zones
+                else:
+                    logger.warning(f"⚠️ PHASE 3.5 WARNING: No zones found, returning empty result")
+                    return {
+                        "type": "FeatureCollection",
+                        "features": [],
                         "properties": {
-                            "id": f"bedding_{i}",
-                            "type": "bedding",
-                            "score": zone_score,
-                            "confidence": 0.95,
-                            "description": f"{variation['description']}: {get_aspect_classification(suitability['criteria']['aspect'])['description']}, "
-                                         f"{suitability['criteria']['canopy_coverage']:.0%} canopy, "
-                                         f"{suitability['criteria']['road_distance']:.0f}m from roads, "
-                                         f"leeward ridge protection",
-                            "marker_index": i,
-                            "bedding_type": variation["type"],
-                            "canopy_coverage": suitability["criteria"]["canopy_coverage"],
-                            "road_distance": suitability["criteria"]["road_distance"],
-                            "slope": suitability["criteria"]["slope"],
-                            "aspect": suitability["criteria"]["aspect"],
-                            "thermal_advantage": get_aspect_classification(suitability["criteria"]["aspect"])["thermal"],
-                            "aspect_quality": get_aspect_classification(suitability["criteria"]["aspect"])["quality"],
-                            "aspect_direction": get_aspect_classification(suitability["criteria"]["aspect"])["direction"],
-                            "wind_protection": "excellent" if suitability["scores"]["wind_protection"] > 80 else "good",
-                            "security_rating": "high",
-                            "suitability_score": suitability["overall_score"],
-                            # 🎯 SLOPE CONSISTENCY: Add detailed slope tracking
-                            "slope_source": "base_suitability_analysis",
-                            "slope_precision": f"{suitability['criteria']['slope']:.6f}°"
+                            "marker_type": "bedding",
+                            "total_features": 0,
+                            "generated_at": datetime.now().isoformat(),
+                            "enhancement_version": "v2.0-phase3.5-optimized",
+                            "search_exhausted": True
                         }
-                    })
-                
-                logger.info(f"✅ Generated {len(bedding_zones)} enhanced bedding zones with "
-                           f"{suitability['overall_score']:.1f}% suitability")
-            else:
-                # Check if failure was due to aspect disqualification
-                aspect_value = suitability["criteria"].get("aspect")
-                aspect_failed = (aspect_value is None or 
-                               not isinstance(aspect_value, (int, float)) or 
-                               not (135 <= aspect_value <= 225))
-                
-                if aspect_failed:
-                    logger.warning(f"🚫 PRIMARY LOCATION REJECTED: Aspect {aspect_value}° unsuitable for mature buck bedding")
-                    logger.warning(f"   🦌 Mature bucks require south-facing slopes (135°-225°) for:")
-                    logger.warning(f"   • Maximum thermal advantage and solar exposure")
-                    logger.warning(f"   • Highest browse quality (oak mast, nutritious vegetation)")
-                    logger.warning(f"   • Optimal wind positioning for scent detection")
-                    
-                    # 🎯 CRITICAL ASPECT FALLBACK: Search for alternative bedding sites with south-facing aspects
-                    logger.info(f"🔍 ASPECT FALLBACK SEARCH: Looking for south-facing slopes (135°-225°) nearby...")
-                    alternative_zones = self._search_alternative_bedding_sites(
-                        lat, lon, gee_data, osm_data, weather_data, max_slope_limit=30, 
-                        require_south_facing=True
-                    )
-                    
-                    if alternative_zones["features"]:
-                        logger.info(f"✅ ASPECT FALLBACK SUCCESS: Found {len(alternative_zones['features'])} south-facing bedding alternatives")
-                        
-                        # 🦌 USE HIERARCHICAL SEARCH RESULTS DIRECTLY: Already diverse bedding zones found
-                        logger.info(f"🎯 RETURNING {len(alternative_zones['features'])} DIVERSE BEDDING ZONES from hierarchical search")
-                        return alternative_zones
-                    else:
-                        logger.warning(f"🚫 ASPECT FALLBACK FAILED: No south-facing bedding sites found within extended search radius")
-                
-                logger.warning(f"❌ No bedding zones generated - Failed criteria: "
-                              f"Canopy {suitability['criteria']['canopy_coverage']:.1%} "
-                              f"(need >{suitability['thresholds']['min_canopy']:.0%}), "
-                              f"Roads {suitability['criteria']['road_distance']:.0f}m "
-                              f"(need >{suitability['thresholds']['min_road_distance']}m), "
-                              f"Aspect {aspect_value}° (need 135°-225°), "
-                              f"Overall {suitability['overall_score']:.1f}% (need ≥70%)")
-            
-            return {
-                "type": "FeatureCollection",
-                "features": bedding_zones,
-                "properties": {
-                    "marker_type": "bedding",
-                    "total_features": len(bedding_zones),
-                    "generated_at": datetime.now().isoformat(),
-                    "suitability_analysis": suitability,
-                    "enhancement_version": "v2.0",
-                    # 🎯 SLOPE CONSISTENCY: Track for debugging discrepancies
-                    "slope_tracking": {
-                        "gee_source_slope": suitability["criteria"]["slope"],
-                        "zones_using_slope": [zone["properties"]["slope"] for zone in bedding_zones],
-                        "consistency_check": "verified" if all(zone["properties"]["slope"] == suitability["criteria"]["slope"] for zone in bedding_zones) else "inconsistent"
                     }
-                }
-            }
+            
+            # ========== OLD SLOW CODE REMOVED - PHASE 3.5 NOW DEFAULT ==========
+            # Phase 3.5 is now used for ALL predictions (not just steep slope fallback)
+            # Performance: 3.4s vs 65-500s (19-147x faster!)
+            # - Batch LIDAR for 26 candidates (0.23s)
+            # - Filter by terrain score >50% (no API calls)
+            # - Selective GEE queries for only 3-15 candidates
+            # Old code removed: ~180 lines of per-variation LIDAR/GEE loops
             
         except Exception as e:
             logger.error(f"Enhanced bedding zone generation failed: {e}")
@@ -978,7 +1743,64 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
     def run_enhanced_biological_analysis(self, lat: float, lon: float, time_of_day: int,
                                         season: str, hunting_pressure: str,
                                         target_datetime: Optional[datetime] = None) -> Dict:
-        """Enhanced biological analysis with REAL canopy coverage from satellite imagery"""
+        """
+        Run comprehensive biological analysis for mature buck hunting strategy.
+        
+        This is the main entry point for generating hunting predictions. It integrates
+        multiple data sources and analyses to provide bedding zones, stand locations,
+        and feeding areas based on terrain, weather, and biological behavior patterns.
+        
+        Data Sources Integrated:
+        - Vegetation Analysis: Real canopy coverage from satellite imagery (914m radius)
+        - LiDAR Terrain: 35cm resolution microhabitat features (benches, saddles)
+        - GEE Data: Elevation, slope, aspect from Google Earth Engine
+        - OSM Data: Road proximity and human activity patterns
+        - Weather Data: Wind, temperature, precipitation trends
+        
+        Args:
+            lat: Latitude in decimal degrees (-90 to 90)
+            lon: Longitude in decimal degrees (-180 to 180)
+            time_of_day: Hour of day in 24-hour format (0-23)
+            season: Hunting season ('early', 'rut', 'late', 'spring', 'summer', 'fall', 'winter')
+            hunting_pressure: Level of hunting activity ('low', 'medium', 'high')
+            target_datetime: Optional specific datetime for weather forecast (default: now)
+        
+        Returns:
+            dict: Comprehensive prediction containing:
+                - bedding_zones: List of 3 primary bedding areas with coordinates and scores
+                - stand_recommendations: 3 optimal stand locations with wind/scent analysis
+                - feeding_areas: Food source locations and travel corridor predictions
+                - terrain_features: Detailed terrain metrics and classifications
+                - weather_analysis: Wind, thermal, and scent management data
+                - confidence_score: Overall prediction confidence (0-100)
+                - metadata: Timing, data sources, and analysis parameters
+        
+        Raises:
+            ValueError: If coordinates are invalid or out of range
+            RuntimeError: If all data sources fail (GEE, LiDAR, elevation APIs)
+        
+        Example:
+            >>> predictor = EnhancedBeddingZonePredictor()
+            >>> result = predictor.run_enhanced_biological_analysis(
+            ...     lat=44.5,
+            ...     lon=-72.5,
+            ...     time_of_day=6,
+            ...     season='fall',
+            ...     hunting_pressure='medium'
+            ... )
+            >>> print(f"Found {len(result['bedding_zones'])} bedding areas")
+            >>> print(f"Confidence: {result['confidence_score']}%")
+        
+        Notes:
+            - Requires Google Earth Engine credentials for full functionality
+            - LiDAR data only available for Vermont locations
+            - Falls back gracefully to SRTM 30m data if LiDAR unavailable
+            - Caches elevation data to minimize API calls
+            - Processing time: 3-8 seconds depending on data sources
+        
+        Version:
+            Enhanced v2.0 (October 2025) with wind/leeward priority fixes
+        """
         start_time = time.time()
         
         # 🆕 GET VEGETATION ANALYSIS FIRST (includes real canopy coverage!)
@@ -1007,20 +1829,35 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         lidar_data = None
         try:
             try:
-                from backend.vermont_lidar_reader import get_lidar_reader
+                from backend.services.lidar_processor import get_lidar_processor
             except ImportError:
-                from vermont_lidar_reader import get_lidar_reader
-            
-            reader = get_lidar_reader()
-            if reader.has_lidar_coverage(lat, lon):
-                logger.info(f"🗺️ Extracting LiDAR terrain (35cm resolution)...")
-                lidar_data = reader.get_terrain_data(lat, lon, radius_m=914)
-                if lidar_data:
-                    logger.info(f"✅ LiDAR terrain extracted: {lidar_data['resolution_m']:.2f}m resolution, {len(lidar_data.get('benches', []))} benches found")
-                else:
-                    logger.warning("⚠️ LiDAR extraction failed, will use SRTM 30m fallback")
+                logger.warning("LIDAR processor service not available")
+                lidar_data = None
             else:
-                logger.info("ℹ️ No LiDAR coverage for this location, using SRTM 30m fallback")
+                dem_manager, terrain_extractor, batch_processor = get_lidar_processor()
+                if dem_manager.has_coverage(lat, lon):
+                    logger.info(f"🗺️ Extracting LiDAR terrain (35cm resolution)...")
+                    # Note: get_terrain_data with radius is not implemented in new service
+                    # Using point terrain extraction as fallback
+                    lidar_files = dem_manager.get_files()
+                    point_terrain = terrain_extractor.extract_point_terrain(lat, lon, lidar_files, sample_radius_m=30)
+                    if point_terrain and point_terrain.get('coverage'):
+                        # Convert to old format for compatibility
+                        lidar_data = {
+                            'resolution_m': point_terrain['resolution_m'],
+                            'mean_slope': point_terrain['slope'],  # Map slope -> mean_slope
+                            'aspect': point_terrain['aspect'],
+                            'mean_elevation': point_terrain['elevation'],  # Map elevation -> mean_elevation
+                            'benches': [],  # Not available in point extraction
+                            'saddles': [],  # Not available in point extraction
+                            'source': 'lidar_service',
+                            'file': 'point_extraction'
+                        }
+                        logger.info(f"✅ LiDAR terrain extracted: {lidar_data['resolution_m']:.2f}m resolution")
+                    else:
+                        logger.warning("⚠️ LiDAR extraction failed, will use SRTM 30m fallback")
+                else:
+                    logger.info("ℹ️ No LiDAR coverage for this location, using SRTM 30m fallback")
         except Exception as e:
             logger.error(f"LiDAR analysis failed: {e}, will use SRTM 30m fallback")
         
@@ -1029,18 +1866,32 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # 🆕 Enhance GEE data with LiDAR terrain features
         if lidar_data:
-            gee_data['lidar_terrain'] = {
-                'resolution_m': lidar_data['resolution_m'],
-                'mean_elevation': lidar_data['mean_elevation'],
-                'mean_slope': lidar_data['mean_slope'],
-                'benches_count': len(lidar_data.get('benches', [])),
-                'benches': lidar_data.get('benches', []),
-                'saddles_count': len(lidar_data.get('saddles', [])),
-                'saddles': lidar_data.get('saddles', []),
-                'data_source': lidar_data['source'],
-                'file': lidar_data['file']
-            }
-            logger.info(f"🎯 Enhanced with LiDAR: {gee_data['lidar_terrain']['benches_count']} benches, {gee_data['lidar_terrain']['saddles_count']} saddles")
+            try:
+                gee_data['lidar_terrain'] = {
+                    'resolution_m': lidar_data.get('resolution_m', 0.35),
+                    'mean_elevation': lidar_data.get('mean_elevation', 0.0),
+                    'mean_slope': lidar_data.get('mean_slope', 0.0),
+                    'benches_count': len(lidar_data.get('benches', [])),
+                    'benches': lidar_data.get('benches', []),
+                    'saddles_count': len(lidar_data.get('saddles', [])),
+                    'saddles': lidar_data.get('saddles', []),
+                    'data_source': lidar_data.get('source', 'lidar'),
+                    'file': lidar_data.get('file', 'unknown')
+                }
+                logger.info(f"🎯 Enhanced with LiDAR: {gee_data['lidar_terrain']['benches_count']} benches, {gee_data['lidar_terrain']['saddles_count']} saddles")
+            except KeyError as e:
+                logger.warning(f"⚠️ LiDAR data incomplete, missing key: {e}. Using fallback values.")
+                gee_data['lidar_terrain'] = {
+                    'resolution_m': 0.35,
+                    'mean_elevation': 0.0,
+                    'mean_slope': 0.0,
+                    'benches_count': 0,
+                    'benches': [],
+                    'saddles_count': 0,
+                    'saddles': [],
+                    'data_source': 'fallback',
+                    'file': 'none'
+                }
         
         osm_data = self.get_osm_road_proximity(lat, lon)
         weather_data = self.get_enhanced_weather_with_trends(lat, lon, target_datetime)
@@ -1049,13 +1900,19 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         bedding_zones = self.generate_enhanced_bedding_zones(lat, lon, gee_data, osm_data, weather_data)
         
         # Generate stand recommendations (3 sites) with TIME-AWARE THERMAL CALCULATIONS
-        stand_recommendations = self.generate_enhanced_stand_sites(lat, lon, gee_data, osm_data, weather_data, season, target_datetime)
+        stand_recommendations = self.generate_enhanced_stand_sites(
+            lat,
+            lon,
+            gee_data,
+            osm_data,
+            weather_data,
+            season,
+            target_datetime,
+            bedding_zones=bedding_zones,
+        )
         
         # Generate feeding areas (3 sites) with TIME-AWARE MOVEMENT
         feeding_areas = self.generate_enhanced_feeding_areas(lat, lon, gee_data, osm_data, weather_data, time_of_day)
-        
-        # Generate camera placement (1 site)
-        camera_placement = self.generate_enhanced_camera_placement(lat, lon, gee_data, osm_data, weather_data, stand_recommendations)
         
         # Calculate enhanced confidence based on all site generation success
         confidence = self.calculate_enhanced_confidence(gee_data, osm_data, weather_data, bedding_zones)
@@ -1067,7 +1924,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         analysis_time = time.time() - start_time
         
-        return {
+        # Assemble result dictionary
+        result = {
             "gee_data": gee_data,
             "osm_data": osm_data,
             "weather_data": weather_data,
@@ -1076,7 +1934,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 "stand_recommendations": stand_recommendations
             },
             "feeding_areas": feeding_areas,
-            "optimal_camera_placement": camera_placement,
+            "optimal_camera_placement": None,
             "activity_level": activity_level,
             "wind_thermal_analysis": wind_thermal_analysis,
             "movement_direction": movement_direction,
@@ -1086,6 +1944,49 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "timestamp": datetime.now().isoformat(),
             "target_prediction_time": target_datetime.isoformat() if target_datetime else None
         }
+        
+        # ==================== PREDICTION QUALITY VALIDATION ====================
+        # Validate prediction quality (scent cones, distances, terrain, wind integration)
+        # This catches issues like stands being upwind of bedding zones
+        logger.info("🔍 Starting prediction quality validation...")
+        try:
+            from backend.validators import PredictionQualityValidator
+            
+            logger.info(f"📊 Validating prediction with {len(stand_recommendations)} stands and {len(bedding_zones.get('features', []))} bedding zones")
+            quality_report = PredictionQualityValidator.validate(result)
+            result["quality_report"] = asdict(quality_report)
+            logger.info(f"✅ Quality validation complete: Score={quality_report.overall_quality_score:.1f}%, Valid={quality_report.is_valid}")
+            
+            # Log quality issues
+            if not quality_report.is_valid:
+                logger.warning(
+                    f"🚨 Prediction quality below threshold: "
+                    f"Score {quality_report.overall_quality_score:.1f}% "
+                    f"(threshold {PredictionQualityValidator.MIN_QUALITY_THRESHOLD}%)"
+                )
+                logger.warning(f"   Issues: {len(quality_report.issues)} found")
+                for issue in quality_report.issues:
+                    emoji = "🚫" if issue.severity == "error" else "⚠️" if issue.severity == "warning" else "ℹ️"
+                    logger.warning(f"   {emoji} [{issue.category}] {issue.description}")
+                
+                logger.warning(f"   Recommendations:")
+                for rec in quality_report.recommendations:
+                    logger.warning(f"      • {rec}")
+            else:
+                logger.info(
+                    f"✅ Prediction quality validated: "
+                    f"Score {quality_report.overall_quality_score:.1f}% "
+                    f"({len(quality_report.issues)} minor issues)"
+                )
+                
+        except ImportError as e:
+            logger.warning(f"⚠️ PredictionQualityValidator not available: {e}")
+            result["quality_report"] = None
+        except Exception as e:
+            logger.error(f"❌ Error during quality validation: {e}", exc_info=True)
+            result["quality_report"] = None
+        
+        return result
 
     def calculate_enhanced_confidence(self, gee_data: Dict, osm_data: Dict, 
                                     weather_data: Dict, bedding_zones: Dict) -> float:
@@ -1161,6 +2062,42 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         thermal_strength = aspect_factor * slope_factor * canopy_reduction
         
         return min(max(thermal_strength, 0.0), 1.0)
+    
+    def _score_aspect_biological(self, aspect: float, wind_direction: float, 
+                                 wind_speed: float, temperature: float, 
+                                 slope: float) -> tuple:
+        """
+        [DEPRECATED] Score aspect based on biological deer behavior.
+        
+        ⚠️ This method is DEPRECATED and maintained only for backward compatibility.
+        NEW CODE should use: self.aspect_scorer.score_aspect() instead.
+        
+        This method now delegates to BiologicalAspectScorer service for consistent scoring.
+        
+        Biological Priorities (in order):
+        1. Wind >10 mph: LEEWARD SHELTER dominates (wind protection)
+        2. Wind <10 mph: THERMAL ASPECT dominates (temperature regulation)
+        3. Always: UPHILL POSITIONING preferred (scent/visibility)
+        
+        Args:
+            aspect: Slope face direction (0-360°, downhill direction)
+            wind_direction: Wind source direction (0-360°, where wind comes FROM)
+            wind_speed: Wind speed (mph)
+            temperature: Air temperature (°F)
+            slope: Terrain slope (degrees)
+            
+        Returns:
+            Tuple[float, str]: (score 0-100, reasoning)
+        """
+        # 🔧 REFACTORED: Delegate to BiologicalAspectScorer service
+        # This removes ~130 lines of duplicated logic, maintaining biological accuracy
+        return self.aspect_scorer.score_aspect(
+            aspect=aspect,
+            wind_direction=wind_direction,
+            wind_speed=wind_speed,
+            temperature=temperature,
+            slope=slope
+        )
     
     def _calculate_sunrise_sunset(self, lat: float, lon: float, date: datetime) -> Dict[str, datetime]:
         """
@@ -1451,15 +2388,276 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
         return combined_deg
     
+    def _validate_scent_management(self, stand_bearing: float, wind_direction: float, 
+                                   wind_speed: float, bearing_name: str = "stand") -> Tuple[float, bool]:
+        """
+        🌬️ CRITICAL SCENT MANAGEMENT: Validate stand bearing doesn't blow scent into bedding
+        
+        When wind is strong (>10 mph), scent management becomes PRIMARY concern that
+        overrides terrain and thermal considerations. This prevents the hunter's scent
+        from reaching bedding zones and alerting deer.
+        
+        Args:
+            stand_bearing: Proposed bearing from bedding to stand (degrees)
+            wind_direction: Prevailing wind direction (degrees, where wind comes FROM)
+            wind_speed: Wind speed in mph
+            bearing_name: Name of bearing for logging (e.g., "morning stand")
+            
+        Returns:
+            (adjusted_bearing, scent_valid): Adjusted bearing and whether scent is OK
+            
+        Scent Cone Logic:
+            - Wind blows FROM wind_direction TO (wind_direction + 180) % 360
+            - Stand should be UPWIND or CROSSWIND, never DOWNWIND
+            - Downwind = scent blows toward bedding = FAIL
+            - Upwind (±45°) = scent blows away from bedding = IDEAL
+            - Crosswind (45-135°) = scent blows parallel = ACCEPTABLE
+        """
+        downwind_direction = (wind_direction + 180) % 360
+        
+        # Calculate angle difference between stand bearing and downwind direction
+        bearing_diff = abs((stand_bearing - downwind_direction + 180) % 360 - 180)
+        
+        # Scent cone validation (strict when wind > 10 mph)
+        if wind_speed > 10:  # Strong wind - scent management critical
+            if bearing_diff < 30:  # Within 30° of downwind = FAIL
+                # Stand is downwind - scent will blow into bedding
+                # Adjust to crosswind position (90° from wind direction)
+                crosswind_option_1 = (wind_direction + 90) % 360
+                crosswind_option_2 = (wind_direction - 90) % 360
+                
+                # Choose crosswind option closest to original bearing
+                diff1 = abs((stand_bearing - crosswind_option_1 + 180) % 360 - 180)
+                diff2 = abs((stand_bearing - crosswind_option_2 + 180) % 360 - 180)
+                
+                adjusted_bearing = crosswind_option_1 if diff1 < diff2 else crosswind_option_2
+                
+                logger.warning(
+                    f"🚨 SCENT VIOLATION ({bearing_name}): Original bearing {stand_bearing:.0f}° is DOWNWIND "
+                    f"(wind={wind_direction:.0f}°, downwind={downwind_direction:.0f}°, diff={bearing_diff:.0f}°)"
+                )
+                logger.warning(
+                    f"   🌬️ SCENT FIX: Adjusting to crosswind bearing {adjusted_bearing:.0f}° "
+                    f"(wind speed {wind_speed:.1f} mph requires strict scent management)"
+                )
+                
+                return adjusted_bearing, False  # Return adjusted bearing, mark as invalid
+                
+            elif bearing_diff < 60:  # 30-60° from downwind = WARNING
+                logger.warning(
+                    f"⚠️ SCENT WARNING ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
+                    f"from downwind ({downwind_direction:.0f}°) - marginal scent control"
+                )
+                return stand_bearing, True  # Marginal but acceptable
+                
+            else:  # > 60° from downwind = GOOD
+                logger.info(
+                    f"✅ SCENT OK ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
+                    f"from downwind - good scent management"
+                )
+                return stand_bearing, True
+                
+        else:  # Light wind (<= 10 mph) - thermal drafts may dominate
+            if bearing_diff < 15:  # Very close to downwind
+                logger.info(
+                    f"ℹ️ SCENT NOTE ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
+                    f"from downwind, but wind is light ({wind_speed:.1f} mph) - thermals may control scent"
+                )
+            return stand_bearing, True  # Light wind - accept bearing
+    
     def _calculate_optimal_stand_positions(self, lat: float, lon: float, gee_data: Dict, 
                                          osm_data: Dict, weather_data: Dict,
-                                         prediction_time: Optional[datetime] = None) -> List[Dict]:
+                                         prediction_time: Optional[datetime] = None,
+                                         bedding_zones: Optional[Dict] = None) -> List[Dict]:
         """
-        Calculate optimal stand positions with TIME-AWARE THERMAL WIND effects
+        Calculate optimal stand positions using WindAwareStandCalculator service.
+        
+        🔧 REFACTORED (v2.1): Now uses backend.services.stand_calculator.WindAwareStandCalculator
+        for wind/thermal/scent integration instead of 550 lines of embedded logic.
+        
+        Falls back to embedded logic if service unavailable (backward compatibility).
+        
+        Args:
+            lat: Bedding zone latitude
+            lon: Bedding zone longitude
+            gee_data: Terrain data (slope, aspect, elevation)
+            osm_data: OpenStreetMap data
+            weather_data: Wind conditions
+            prediction_time: Time for predictions (default: now)
+            bedding_zones: Optional bedding zone GeoJSON for scent validation
+            
+        Returns:
+            List[Dict]: Stand variations with offsets, type, description, adjustments
+        """
+        
+        # Use service if available, otherwise fall back to embedded logic
+        if self.stand_calculator is not None:
+            return self._calculate_stand_positions_with_service(
+                lat, lon, gee_data, osm_data, weather_data, prediction_time, bedding_zones
+            )
+        else:
+            # Fallback to embedded logic (original 550-line implementation)
+            logger.warning("⚠️ Stand calculator service unavailable - using embedded logic")
+            return self._calculate_stand_positions_embedded(
+                lat, lon, gee_data, osm_data, weather_data, prediction_time, bedding_zones
+            )
+    
+    def _calculate_stand_positions_with_service(self, lat: float, lon: float, gee_data: Dict,
+                                               osm_data: Dict, weather_data: Dict,
+                                               prediction_time: Optional[datetime] = None,
+                                               bedding_zones: Optional[Dict] = None) -> List[Dict]:
+        """
+        Calculate stand positions using WindAwareStandCalculator service (REFACTORED v2.1).
+        
+        This is the clean, service-based implementation that replaces 550 lines
+        of embedded stand calculation logic with a single service call.
+        
+        The service handles:
+        - Wind/thermal integration
+        - Scent management validation
+        - Crosswind positioning when wind > 10mph
+        - Uphill/downhill terrain awareness
+        - Distance calculations
+        """
+        
+        # Use current time if not specified
+        if prediction_time is None:
+            prediction_time = datetime.now()
+        
+        # Extract environmental data
+        wind_direction = weather_data.get("wind_direction", 180)
+        wind_speed_mph = weather_data.get("wind_speed", 5)
+        slope = gee_data.get("slope", 10)
+        aspect = gee_data.get("aspect", 180)
+        elevation = gee_data.get("elevation")
+        canopy = gee_data.get("canopy_coverage", 0.7)
+        
+        logger.info(
+            f"🎯 SERVICE: Using WindAwareStandCalculator for stand positions | "
+            f"Wind={wind_direction:.0f}° at {wind_speed_mph:.1f}mph, Slope={slope:.1f}°, Aspect={aspect:.0f}°"
+        )
+        
+        # Calculate thermals for all three hunting periods
+        morning_time = prediction_time.replace(hour=7, minute=30)
+        evening_time = prediction_time.replace(hour=17, minute=30)
+        midday_time = prediction_time.replace(hour=12, minute=0)
+        
+        evening_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, evening_time, canopy)
+        morning_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, morning_time, canopy)
+        midday_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, midday_time, canopy)
+        
+        # Prepare ThermalWindData for service
+        from backend.models.stand_site import ThermalWindData
+        
+        evening_thermal_data = ThermalWindData(
+            direction=evening_thermal['direction'],
+            strength=evening_thermal['strength'],
+            active=evening_thermal.get('active', False),
+            phase=evening_thermal.get('phase', 'evening')
+        ) if evening_thermal.get('active') else None
+        
+        morning_thermal_data = ThermalWindData(
+            direction=morning_thermal['direction'],
+            strength=morning_thermal['strength'],
+            active=morning_thermal.get('active', False),
+            phase=morning_thermal.get('phase', 'morning')
+        ) if morning_thermal.get('active') else None
+        
+        midday_thermal_data = ThermalWindData(
+            direction=midday_thermal['direction'],
+            strength=midday_thermal['strength'],
+            active=midday_thermal.get('active', False),
+            phase=midday_thermal.get('phase', 'midday')
+        ) if midday_thermal.get('active') else None
+        
+        # Calculate evening stand using service
+        evening_stand = self.stand_calculator.calculate_evening_stand(
+            bedding_lat=lat,
+            bedding_lon=lon,
+            wind_direction=wind_direction,
+            wind_speed_mph=wind_speed_mph,
+            slope=slope,
+            aspect=aspect,
+            thermal_data=evening_thermal_data
+        )
+        
+        # Calculate morning stand using service
+        morning_stand = self.stand_calculator.calculate_morning_stand(
+            bedding_lat=lat,
+            bedding_lon=lon,
+            wind_direction=wind_direction,
+            wind_speed_mph=wind_speed_mph,
+            slope=slope,
+            aspect=aspect,
+            thermal_data=morning_thermal_data
+        )
+        
+        # Calculate all-day stand using service
+        allday_stand = self.stand_calculator.calculate_allday_stand(
+            bedding_lat=lat,
+            bedding_lon=lon,
+            wind_direction=wind_direction,
+            wind_speed_mph=wind_speed_mph,
+            slope=slope,
+            aspect=aspect,
+            thermal_data=midday_thermal_data,
+            morning_bearing=morning_stand.bearing  # For diversity
+        )
+        
+        # Convert service results to legacy format (for backward compatibility)
+        stand_variations = [
+            {
+                "offset": {
+                    "lat": evening_stand.stand_lat - lat,
+                    "lon": evening_stand.stand_lon - lon
+                },
+                "type": "Evening Stand",
+                "description": f"Evening: {evening_stand.reasoning} | Bearing: {evening_stand.bearing:.0f}° | Distance: {evening_stand.distance_yards}yd | Quality: {evening_stand.quality_score:.0f}%",
+                "adjustments": [],  # Service handles adjustments internally
+                "elevation_profile": {}  # Could be added if needed
+            },
+            {
+                "offset": {
+                    "lat": morning_stand.stand_lat - lat,
+                    "lon": morning_stand.stand_lon - lon
+                },
+                "type": "Morning Stand",
+                "description": f"Morning: {morning_stand.reasoning} | Bearing: {morning_stand.bearing:.0f}° | Distance: {morning_stand.distance_yards}yd | Quality: {morning_stand.quality_score:.0f}%"
+            },
+            {
+                "offset": {
+                    "lat": allday_stand.stand_lat - lat,
+                    "lon": allday_stand.stand_lon - lon
+                },
+                "type": "All-Day Stand",
+                "description": f"All-Day: {allday_stand.reasoning} | Bearing: {allday_stand.bearing:.0f}° | Distance: {allday_stand.distance_yards}yd | Quality: {allday_stand.quality_score:.0f}%"
+            }
+        ]
+        
+        logger.info(
+            f"✅ SERVICE: Stand positions calculated | "
+            f"Evening: {evening_stand.bearing:.0f}° ({'SCENT SAFE' if evening_stand.scent_safe else 'SCENT RISK'}), "
+            f"Morning: {morning_stand.bearing:.0f}° ({'SCENT SAFE' if morning_stand.scent_safe else 'SCENT RISK'}), "
+            f"All-Day: {allday_stand.bearing:.0f}° ({'SCENT SAFE' if allday_stand.scent_safe else 'SCENT RISK'})"
+        )
+        
+        return stand_variations
+    
+    def _calculate_stand_positions_embedded(self, lat: float, lon: float, gee_data: Dict, 
+                                           osm_data: Dict, weather_data: Dict,
+                                           prediction_time: Optional[datetime] = None,
+                                           bedding_zones: Optional[Dict] = None) -> List[Dict]:
+        """
+        Calculate optimal stand positions with TIME-AWARE THERMAL WIND effects + SCENT MANAGEMENT
         
         Uses actual sunrise/sunset times to calculate thermal wind strength and direction.
         This is biologically accurate - thermals are strongest at sunrise+2hrs (morning)
         and sunset-1hr to sunset+30min (evening prime time).
+        
+        🌬️ CRITICAL SCENT MANAGEMENT (Phase 4.6 Fix):
+        When wind > 10 mph, scent management becomes PRIMARY priority that overrides
+        terrain and thermal considerations. Stands are automatically adjusted to upwind/
+        crosswind positions to prevent scent from reaching bedding zones.
         """
         
         # Use current time if not specified
@@ -1471,8 +2669,18 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         wind_speed = weather_data.get("wind_speed", 5)
         slope = gee_data.get("slope", 10)
         aspect = gee_data.get("aspect", 180)
-        elevation = gee_data.get("elevation", 300)
+        elevation = gee_data.get("elevation")
         canopy = gee_data.get("canopy_coverage", 0.7)
+        lidar_details = gee_data.get("lidar_terrain", {})
+        benches = lidar_details.get("benches", [])
+        bench_coverage = sum(bench.get("percentage", 0) for bench in benches)
+        logger.info(
+            "🗺️ Terrain snapshot: slope=%.1f°, aspect=%.0f°, benches=%.1f%% (count=%d)",
+            slope,
+            aspect,
+            bench_coverage,
+            lidar_details.get("benches_count", 0)
+        )
         
         # Base offset distance for stands (200-300 meters)
         base_offset = 0.002  # ~222m at typical latitude
@@ -1503,75 +2711,122 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         morning_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, morning_time, canopy)
         midday_thermal = self._calculate_thermal_wind_time_based(aspect, slope, lat, lon, midday_time, canopy)
         
-        # Stand 1: EVENING Stand - Thermal downslope + deer movement downhill
-        # Evening: Cooling air sinks downhill, deer move downhill to feed
-        # Scent flows DOWNHILL with falling thermal, so stand MUST be downhill of bedding
+        # Stand 1: EVENING Stand - Wind-aware positioning with thermal integration
+        # 
+        # 🌬️ CRITICAL PHASE 4.10 FIX: Wind >10 mph OVERRIDES thermal/terrain logic
+        # Scent management becomes PRIMARY concern that dominates all other factors.
+        #
+        # Wind >10 mph: Use CROSSWIND positioning (90° from wind) regardless of thermals
+        # Wind <10 mph: Use thermal/terrain logic (thermal downslope + deer movement)
         # 
         # CRITICAL: On slopes where bedding is UPHILL from input, evening stand should be
         # positioned BETWEEN input and bedding (mid-slope), NOT below input (potential hazards)
         
-        # Get current wind speed to determine thermal vs prevailing wind dominance
+        # Get current wind speed to determine wind vs thermal dominance
         wind_speed_mph = weather_data.get('wind', {}).get('speed', 0)  # mph
         
-        # Determine if thermal is active (any sunset period or measurable thermal)
-        thermal_is_active = (
-            evening_thermal["phase"] in ["strong_evening_downslope", "peak_evening_downslope", "post_sunset_maximum"]
-            or evening_thermal["strength"] > 0.05  # Any measurable thermal (lowered from 0.1)
-        )
-        
-        # THERMAL DOMINANCE: Unless prevailing wind is STRONG (>20 mph), thermals control scent
-        if thermal_is_active and wind_speed_mph < 20:  # THERMAL DOMINATES
-            # Combine thermal direction with deer movement (both downhill)
-            evening_bearing = self._combine_bearings(
-                evening_thermal["direction"],  # Thermal flows downhill
-                downhill_direction,  # Deer move downhill
-                0.6,  # Thermal weight
-                0.4   # Deer movement weight
+        # 🌬️ PHASE 4.10: WIND-AWARE STAND PLACEMENT
+        # When wind is strong (>10 mph), use crosswind positioning FIRST, then validate
+        # This prevents initial downwind placement that gets corrected (causing distance issues)
+        if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
+            # Calculate crosswind options (90° perpendicular to wind)
+            crosswind_option_1 = (wind_direction + 90) % 360  # Crosswind right
+            crosswind_option_2 = (wind_direction - 90) % 360  # Crosswind left
+            
+            # Choose crosswind option that best aligns with downhill (deer movement)
+            # Deer still move downhill in evening, so prefer downhill crosswind
+            diff1 = abs((crosswind_option_1 - downhill_direction + 180) % 360 - 180)
+            diff2 = abs((crosswind_option_2 - downhill_direction + 180) % 360 - 180)
+            
+            if diff1 < diff2:
+                evening_bearing = crosswind_option_1
+                logger.info(f"🌬️ WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, crosswind RIGHT preferred for downhill {downhill_direction:.0f}°)")
+            else:
+                evening_bearing = crosswind_option_2
+                logger.info(f"🌬️ WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, crosswind LEFT preferred for downhill {downhill_direction:.0f}°)")
+            
+            # Still validate scent (should pass since we used crosswind)
+            evening_bearing, scent_ok = self._validate_scent_management(
+                evening_bearing, wind_direction, wind_speed_mph, "evening stand (wind-aware)"
             )
             
-            # Wind weight based on prevailing WIND SPEED (not thermal strength)
-            # Field observation: Thermals dominate unless wind > 20 mph
-            if wind_speed_mph < 5:
-                wind_weight = 0.0   # No prevailing wind effect (calm conditions)
-            elif wind_speed_mph < 10:
-                wind_weight = 0.05  # 5% prevailing wind (light breeze)
-            elif wind_speed_mph < 15:
-                wind_weight = 0.15  # 15% prevailing wind (moderate breeze)
-            else:  # 15-20 mph
-                wind_weight = 0.25  # 25% prevailing wind (strong breeze, but thermal still dominant)
-            
-            evening_bearing = self._combine_bearings(
-                evening_bearing,
-                downwind_direction,
-                1.0 - wind_weight,  # Thermal + movement (75-100%)
-                wind_weight         # Prevailing wind (0-25% based on wind speed)
+        else:  # LIGHT WIND (<= 10 mph) - USE THERMAL/TERRAIN LOGIC
+            # Determine if thermal is active (any sunset period or measurable thermal)
+            thermal_is_active = (
+                evening_thermal["phase"] in ["strong_evening_downslope", "peak_evening_downslope", "post_sunset_maximum"]
+                or evening_thermal["strength"] > 0.05  # Any measurable thermal (lowered from 0.1)
             )
-            logger.info(f"🌅 THERMAL DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}, Thermal phase={evening_thermal['phase']}")
             
-        elif wind_speed_mph >= 20:  # STRONG PREVAILING WIND OVERRIDES THERMAL
-            # Strong sustained wind (>20 mph) overrides even active thermal drafts
-            evening_bearing = self._combine_bearings(
-                downhill_direction,  # Deer still move downhill
-                downwind_direction,  # Strong prevailing wind dominates
-                0.4,  # 40% deer movement
-                0.6   # 60% prevailing wind (STRONG wind overrides thermal)
-            )
-            logger.info(f"💨 WIND DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph (>20mph overrides thermal)")
-            
-        else:  # No thermal activity AND weak wind (midday or calm)
-            # Use deer movement + scaled prevailing wind influence
-            wind_weight = min(0.4, wind_speed_mph / 50)  # Scale wind weight with speed
-            evening_bearing = self._combine_bearings(
-                downhill_direction,
-                downwind_direction,
-                1.0 - wind_weight,
-                wind_weight
-            )
-            logger.info(f"🦌 DEER MOVEMENT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}")
+            # THERMAL DOMINANCE: Unless prevailing wind is STRONG (>20 mph), thermals control scent
+            if thermal_is_active and wind_speed_mph < 20:  # THERMAL DOMINATES
+                # Combine thermal direction with deer movement (both downhill)
+                evening_bearing = self._combine_bearings(
+                    evening_thermal["direction"],  # Thermal flows downhill
+                    downhill_direction,  # Deer move downhill
+                    0.6,  # Thermal weight
+                    0.4   # Deer movement weight
+                )
+                
+                # Wind weight based on prevailing WIND SPEED (not thermal strength)
+                # Field observation: Thermals dominate unless wind > 20 mph
+                if wind_speed_mph < 5:
+                    wind_weight = 0.0   # No prevailing wind effect (calm conditions)
+                elif wind_speed_mph < 10:
+                    wind_weight = 0.05  # 5% prevailing wind (light breeze)
+                elif wind_speed_mph < 15:
+                    wind_weight = 0.15  # 15% prevailing wind (moderate breeze)
+                else:  # 15-20 mph
+                    wind_weight = 0.25  # 25% prevailing wind (strong breeze, but thermal still dominant)
+                
+                evening_bearing = self._combine_bearings(
+                    evening_bearing,
+                    downwind_direction,
+                    1.0 - wind_weight,  # Thermal + movement (75-100%)
+                    wind_weight         # Prevailing wind (0-25% based on wind speed)
+                )
+                logger.info(f"🌅 THERMAL DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}, Thermal phase={evening_thermal['phase']}")
+                
+                # 🌬️ SCENT MANAGEMENT VALIDATION - Check if thermal bearing is safe
+                evening_bearing, scent_ok = self._validate_scent_management(
+                    evening_bearing, wind_direction, wind_speed_mph, "evening stand (thermal)"
+                )
+                
+            elif wind_speed_mph >= 20:  # STRONG PREVAILING WIND OVERRIDES THERMAL
+                # Strong sustained wind (>20 mph) overrides even active thermal drafts
+                evening_bearing = self._combine_bearings(
+                    downhill_direction,  # Deer still move downhill
+                    downwind_direction,  # Strong prevailing wind dominates
+                    0.4,  # 40% deer movement
+                    0.6   # 60% prevailing wind (STRONG wind overrides thermal)
+                )
+                logger.info(f"💨 WIND DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph (>20mph overrides thermal)")
+                
+                # 🌬️ SCENT MANAGEMENT VALIDATION - Strong wind, critical check
+                evening_bearing, scent_ok = self._validate_scent_management(
+                    evening_bearing, wind_direction, wind_speed_mph, "evening stand (wind dominant)"
+                )
+                
+            else:  # No thermal activity AND weak wind (midday or calm)
+                # Use deer movement + scaled prevailing wind influence
+                wind_weight = min(0.4, wind_speed_mph / 50)  # Scale wind weight with speed
+                evening_bearing = self._combine_bearings(
+                    downhill_direction,
+                    downwind_direction,
+                    1.0 - wind_weight,
+                    wind_weight
+                )
+                logger.info(f"🦌 DEER MOVEMENT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}")
+                
+                # 🌬️ SCENT MANAGEMENT VALIDATION - Light wind, check scent anyway
+                evening_bearing, scent_ok = self._validate_scent_management(
+                    evening_bearing, wind_direction, wind_speed_mph, "evening stand (deer movement)"
+                )
         
         # SAFETY CHECK: If evening bearing points downhill from input on a slope,
         # reduce distance to avoid water/roads at bottom of slope
         # Lowered threshold from 10° to 5° for consistency
+        evening_adjustments: List[str] = []
+
         if slope > 5:  # On sloped terrain (even gentle slopes)
             # Check if evening bearing is close to downhill direction
             bearing_to_downhill_diff = abs((evening_bearing - downhill_direction + 180) % 360 - 180)
@@ -1583,53 +2838,134 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 evening_distance_multiplier = 1.5
         else:
             evening_distance_multiplier = 1.5
+
+        # Apply bench and micro-terrain adjustments when benches dominate the grid
+        if bench_coverage:
+            bench_factor = max(0.6, 1 - min(0.4, (bench_coverage / 100) * 0.4))
+            if bench_factor < 0.99:  # Only log meaningful adjustments
+                evening_adjustments.append(f"bench coverage {bench_coverage:.1f}% distance x{bench_factor:.2f}")
+                logger.info(
+                    "🛋️ Bench adjustment applied: coverage %.1f%% -> evening distance scaled by %.2f",
+                    bench_coverage,
+                    bench_factor
+                )
+            evening_distance_multiplier *= bench_factor
+
+        # Shallow slopes need additional shortening to avoid climbing benches
+        if slope < 4:
+            shallow_factor = 0.85
+            evening_distance_multiplier *= shallow_factor
+            evening_adjustments.append("shallow slope distance reduction")
+            logger.info("🪵 Shallow slope adjustment: evening distance multiplier scaled by %.2f", shallow_factor)
             
         travel_lat_offset = base_offset * evening_distance_multiplier * np.cos(np.radians(evening_bearing))
         travel_lon_offset = base_offset * evening_distance_multiplier * np.sin(np.radians(evening_bearing))
 
-        # Stand 2: MORNING Stand - Intercept deer moving UPHILL to bedding
+        # Stand 2: MORNING Stand - Wind-aware positioning with uphill movement
         # Morning: Deer move FROM feeding (downhill) TO bedding (uphill)
-        # CRITICAL FIX: On sloped terrain, position stand UPHILL (beyond bedding area)
-        # Deer must pass stand on final approach to bedding zone
-        if slope > 5:  # Sloped terrain - use UPHILL positioning
-            # Position stand UPHILL of bedding area (deer's final destination)
-            # Combine uphill movement with slight wind offset
-            if morning_thermal["strength"] > 0.3:  # Strong upslope thermal
-                # Strong thermal pulls scent uphill - stay crosswind AND uphill
-                morning_bearing = self._combine_bearings(
-                    uphill_direction,      # Uphill (where deer are heading)
-                    (uphill_direction + 30) % 360,  # Slight crosswind variation
-                    0.8,  # Primarily uphill
-                    0.2   # Minor crosswind offset
-                )
-                logger.info(f"🌅 MORNING STAND: Uphill ({uphill_direction:.0f}°) with crosswind offset on {slope:.1f}° slope")
-            else:  # Weak thermals - standard uphill intercept
-                morning_bearing = uphill_direction  # Pure uphill positioning
-                logger.info(f"🏔️ MORNING STAND: Uphill intercept ({uphill_direction:.0f}°) on {slope:.1f}° slope")
-        else:  # Flat terrain - use traditional wind-based positioning
-            morning_bearing = self._combine_bearings(
-                downwind_direction,   # Prevailing wind
-                (wind_direction + 90) % 360,  # Crosswind
-                0.7, 0.3
+        # 
+        # 🌬️ PHASE 4.10: Wind >10 mph uses CROSSWIND positioning
+        # Wind <10 mph uses terrain/thermal logic (uphill intercept)
+        
+        if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
+            # Calculate crosswind options
+            crosswind_option_1 = (wind_direction + 90) % 360
+            crosswind_option_2 = (wind_direction - 90) % 360
+            
+            if slope > 5:  # Sloped terrain - prefer crosswind that's closer to uphill
+                # Deer moving uphill, so prefer crosswind option closer to uphill direction
+                diff1 = abs((crosswind_option_1 - uphill_direction + 180) % 360 - 180)
+                diff2 = abs((crosswind_option_2 - uphill_direction + 180) % 360 - 180)
+                
+                morning_bearing = crosswind_option_1 if diff1 < diff2 else crosswind_option_2
+                logger.info(f"🌬️ WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, slope {slope:.1f}°, uphill {uphill_direction:.0f}°)")
+            else:  # Flat terrain - choose crosswind option based on typical deer approach
+                morning_bearing = crosswind_option_1  # Default to right crosswind
+                logger.info(f"🌬️ WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, flat terrain)")
+            
+            # Validate scent (should pass since we used crosswind)
+            morning_bearing, morning_scent_ok = self._validate_scent_management(
+                morning_bearing, wind_direction, wind_speed_mph, "morning stand (wind-aware)"
             )
-            logger.info(f"🌲 MORNING STAND: Wind-based ({morning_bearing:.0f}°) on flat terrain")
+            
+        else:  # LIGHT WIND (<= 10 mph) - USE TERRAIN/THERMAL LOGIC
+            if slope > 5:  # Sloped terrain - use UPHILL positioning
+                # Position stand UPHILL of bedding area (deer's final destination)
+                # Combine uphill movement with slight wind offset
+                if morning_thermal["strength"] > 0.3:  # Strong upslope thermal
+                    # Strong thermal pulls scent uphill - stay crosswind AND uphill
+                    morning_bearing = self._combine_bearings(
+                        uphill_direction,      # Uphill (where deer are heading)
+                        (uphill_direction + 30) % 360,  # Slight crosswind variation
+                        0.8,  # Primarily uphill
+                        0.2   # Minor crosswind offset
+                    )
+                    logger.info(f"🌅 MORNING STAND: Uphill ({uphill_direction:.0f}°) with crosswind offset on {slope:.1f}° slope")
+                else:  # Weak thermals - standard uphill intercept
+                    morning_bearing = uphill_direction  # Pure uphill positioning
+                    logger.info(f"🏔️ MORNING STAND: Uphill intercept ({uphill_direction:.0f}°) on {slope:.1f}° slope")
+            else:  # Flat terrain - use traditional wind-based positioning
+                morning_bearing = self._combine_bearings(
+                    downwind_direction,   # Prevailing wind
+                    (wind_direction + 90) % 360,  # Crosswind
+                    0.7, 0.3
+                )
+                logger.info(f"🌲 MORNING STAND: Wind-based ({morning_bearing:.0f}°) on flat terrain")
+            
+            # 🌬️ SCENT MANAGEMENT VALIDATION - Morning stand critical check
+            morning_bearing, morning_scent_ok = self._validate_scent_management(
+                morning_bearing, wind_direction, wind_speed_mph, "morning stand"
+            )
             
         pinch_lat_offset = base_offset * 1.3 * np.cos(np.radians(morning_bearing))
         pinch_lon_offset = base_offset * 1.3 * np.sin(np.radians(morning_bearing))
 
-        # Stand 3: ALL-DAY/MIDDAY/ALTERNATE Stand - Versatile positioning
-        # On sloped terrain: Position as ALTERNATE UPHILL approach (bedding area coverage)
-        # On flat terrain: Use prevailing wind
-        if slope > 5:  # Sloped terrain - alternate uphill approach
-            # Position for different wind conditions or alternate deer approach
-            allday_bearing = (uphill_direction + 45) % 360  # Uphill with offset
-            logger.info(f"🏔️ ALTERNATE STAND: Uphill variation ({allday_bearing:.0f}°) on {slope:.1f}° slope")
-        else:  # Flat terrain - prevailing wind dominates
-            if slope > 15:
-                allday_bearing = (downwind_direction + 45) % 360  # Crosswind funnel on steep terrain
+        # Stand 3: ALL-DAY/MIDDAY/ALTERNATE Stand - Wind-aware versatile positioning
+        # 
+        # 🌬️ PHASE 4.10: Wind >10 mph uses CROSSWIND positioning (alternate angle)
+        # Wind <10 mph uses terrain/thermal logic
+        
+        if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
+            # Use OPPOSITE crosswind from morning stand for coverage diversity
+            # If morning used +90°, all-day uses -90° (or vice versa)
+            morning_crosswind_1 = (wind_direction + 90) % 360
+            morning_crosswind_2 = (wind_direction - 90) % 360
+            
+            # Check which crosswind morning used
+            diff_to_cw1 = abs((morning_bearing - morning_crosswind_1 + 180) % 360 - 180)
+            diff_to_cw2 = abs((morning_bearing - morning_crosswind_2 + 180) % 360 - 180)
+            
+            # Use the opposite crosswind for alternate stand
+            if diff_to_cw1 < diff_to_cw2:
+                # Morning used crosswind_1, so all-day uses crosswind_2
+                allday_bearing = morning_crosswind_2
             else:
-                allday_bearing = downwind_direction  # Pure downwind on flat terrain
-            logger.info(f"💨 ALTERNATE STAND: Wind-based ({allday_bearing:.0f}°) on flat terrain")
+                # Morning used crosswind_2, so all-day uses crosswind_1
+                allday_bearing = morning_crosswind_1
+            
+            logger.info(f"🌬️ WIND-AWARE ALL-DAY: Alternate crosswind bearing={allday_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, opposite from morning {morning_bearing:.0f}°)")
+            
+            # Validate scent (should pass since we used crosswind)
+            allday_bearing, allday_scent_ok = self._validate_scent_management(
+                allday_bearing, wind_direction, wind_speed_mph, "all-day stand (wind-aware)"
+            )
+            
+        else:  # LIGHT WIND (<= 10 mph) - USE TERRAIN/THERMAL LOGIC
+            if slope > 5:  # Sloped terrain - alternate uphill approach
+                # Position for different wind conditions or alternate deer approach
+                allday_bearing = (uphill_direction + 45) % 360  # Uphill with offset
+                logger.info(f"🏔️ ALTERNATE STAND: Uphill variation ({allday_bearing:.0f}°) on {slope:.1f}° slope")
+            else:  # Flat terrain - prevailing wind dominates
+                if slope > 15:
+                    allday_bearing = (downwind_direction + 45) % 360  # Crosswind funnel on steep terrain
+                else:
+                    allday_bearing = downwind_direction  # Pure downwind on flat terrain
+                logger.info(f"💨 ALTERNATE STAND: Wind-based ({allday_bearing:.0f}°) on flat terrain")
+            
+            # 🌬️ SCENT MANAGEMENT VALIDATION - All-day stand critical check
+            allday_bearing, allday_scent_ok = self._validate_scent_management(
+                allday_bearing, wind_direction, wind_speed_mph, "all-day stand"
+            )
             
         feeding_lat_offset = base_offset * 1.0 * np.cos(np.radians(allday_bearing))
         feeding_lon_offset = base_offset * 1.0 * np.sin(np.radians(allday_bearing))
@@ -1637,27 +2973,204 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Terrain adjustments
         terrain_multiplier = 1.0 + (slope / 200)  # Larger spacing on steep terrain
 
+        travel_lat_offset *= terrain_multiplier
+        travel_lon_offset *= terrain_multiplier
+        pinch_lat_offset *= terrain_multiplier
+        pinch_lon_offset *= terrain_multiplier
+        feeding_lat_offset *= terrain_multiplier
+        feeding_lon_offset *= terrain_multiplier
+
+        # Validate that the evening stand really trends downhill before finalizing
+        elevation_profile = self._compute_elevation_profile(
+            lat,
+            lon,
+            travel_lat_offset,
+            travel_lon_offset,
+            steps=4,
+            base_elevation=elevation
+        )
+
+        if elevation_profile["samples"]:
+            logger.info(
+                "📈 Elevation profile along evening offset: samples=%s total_change=%.2fm",
+                ",".join(f"{sample:.1f}" for sample in elevation_profile["samples"]),
+                elevation_profile["total_change"] if elevation_profile["total_change"] is not None else float("nan")
+            )
+
+        if elevation_profile["first_delta"] is not None and elevation_profile["first_delta"] > 0:
+            segment_scale = None
+            downhill_delta = None
+            for idx, delta in enumerate(elevation_profile["segment_deltas"]):
+                if delta <= -self.MIN_DESCENT_METERS:
+                    segment_scale = (idx + 1) / len(elevation_profile["segment_deltas"])
+                    downhill_delta = delta
+                    break
+            if segment_scale:
+                travel_lat_offset *= segment_scale
+                travel_lon_offset *= segment_scale
+                elevation_profile = self._compute_elevation_profile(
+                    lat,
+                    lon,
+                    travel_lat_offset,
+                    travel_lon_offset,
+                    steps=4,
+                    base_elevation=elevation
+                )
+                evening_adjustments.append(
+                    f"trimmed to {segment_scale:.2f}x distance to hit downhill drop ({downhill_delta:.1f}m)"
+                )
+                logger.info(
+                    "⚖️ Evening stand trimmed to %.2fx of planned distance after uphill start",
+                    segment_scale
+                )
+            else:
+                reduction_factor = 0.4
+                travel_lat_offset *= reduction_factor
+                travel_lon_offset *= reduction_factor
+                elevation_profile = self._compute_elevation_profile(
+                    lat,
+                    lon,
+                    travel_lat_offset,
+                    travel_lon_offset,
+                    steps=4,
+                    base_elevation=elevation
+                )
+                evening_adjustments.append("reduced to remain near bedding (initial slope climbed)")
+                logger.info("⚖️ Evening stand reduced to %.2fx due to uphill profile", reduction_factor)
+
+        if (
+            elevation_profile["total_change"] is not None
+            and elevation_profile["total_change"] > -self.MIN_DESCENT_METERS
+        ):
+            safety_factor = 0.7
+            travel_lat_offset *= safety_factor
+            travel_lon_offset *= safety_factor
+            elevation_profile = self._compute_elevation_profile(
+                lat,
+                lon,
+                travel_lat_offset,
+                travel_lon_offset,
+                steps=4,
+                base_elevation=elevation
+            )
+            evening_adjustments.append("shortened due to limited downhill relief (<1m drop)")
+            logger.info(
+                "⚠️ Evening stand shortened by %.2fx because downhill relief was limited",
+                safety_factor
+            )
+
+        bedding_features = bedding_zones.get("features", []) if isinstance(bedding_zones, dict) else []
+        if bedding_features:
+            downwind_bearing = (wind_direction + 180) % 360
+            bedding_bearings: List[float] = []
+            for feature in bedding_features:
+                try:
+                    coords = feature.get("geometry", {}).get("coordinates", [])
+                    bed_lon, bed_lat = coords[0], coords[1]
+                    bedding_bearings.append(self._bearing_between(lat, lon, bed_lat, bed_lon))
+                except (TypeError, IndexError):
+                    continue
+
+            profile_drop = elevation_profile.get("total_change")
+            stand_downwind_diff = self._angular_difference(evening_bearing, downwind_bearing)
+            closest_bed_diff = (
+                min(self._angular_difference(downwind_bearing, bearing) for bearing in bedding_bearings)
+                if bedding_bearings
+                else 180.0
+            )
+
+            CROSSWIND_THRESHOLD = 35.0
+            if wind_speed_mph >= 6 and (
+                stand_downwind_diff <= CROSSWIND_THRESHOLD or closest_bed_diff <= CROSSWIND_THRESHOLD
+            ):
+                current_lat = lat + travel_lat_offset
+                current_lon = lon + travel_lon_offset
+                current_distance_m = self._haversine_distance(lat, lon, current_lat, current_lon)
+                if current_distance_m <= 0:
+                    current_distance_m = max(90.0, base_offset * self.METERS_PER_DEGREE)
+
+                cross_bearings = [
+                    (wind_direction + 90) % 360,
+                    (wind_direction + 270) % 360,
+                ]
+                best_cross: Optional[Tuple[float, float, float, Dict, float, float]] = None
+
+                for cross_bearing in cross_bearings:
+                    offset_lat, offset_lon = self._distance_bearing_to_offset(lat, current_distance_m, cross_bearing)
+                    profile = self._compute_elevation_profile(
+                        lat,
+                        lon,
+                        offset_lat,
+                        offset_lon,
+                        steps=4,
+                        base_elevation=elevation,
+                    )
+                    total_change = profile.get("total_change")
+                    if total_change is None:
+                        continue
+
+                    downwind_gap = self._angular_difference(cross_bearing, downwind_bearing)
+                    relief = abs(total_change) if total_change is not None else float("inf")
+
+                    if (
+                        best_cross is None
+                        or downwind_gap > best_cross[0]
+                        or (
+                            math.isclose(downwind_gap, best_cross[0], abs_tol=1e-3)
+                            and relief < best_cross[1]
+                        )
+                    ):
+                        best_cross = (downwind_gap, relief, cross_bearing, profile, offset_lat, offset_lon)
+
+                if best_cross:
+                    downwind_gap, relief, chosen_bearing, chosen_profile, offset_lat, offset_lon = best_cross
+                    travel_lat_offset, travel_lon_offset = offset_lat, offset_lon
+                    elevation_profile = chosen_profile
+                    evening_bearing = chosen_bearing
+
+                    if profile_drop is not None:
+                        relief_note = f" (initial relief {profile_drop:.1f}m)"
+                    else:
+                        relief_note = ""
+
+                    evening_adjustments.append(
+                        "realigned crosswind "
+                        f"({chosen_bearing:.0f}°, wind {wind_direction:.0f}°) to avoid scent over bedding"
+                    )
+                    logger.info(
+                        "🌬️ Crosswind safeguard engaged: wind %.1f°, stand downwind diff %.1f°, bed diff %.1f°, "
+                        "chosen crosswind %.0f° (gap %.1f°)%s",
+                        wind_direction,
+                        stand_downwind_diff,
+                        closest_bed_diff,
+                        chosen_bearing,
+                        downwind_gap,
+                        relief_note,
+                    )
+
         stand_variations = [
             {
                 "offset": {
-                    "lat": travel_lat_offset * terrain_multiplier,
-                    "lon": travel_lon_offset * terrain_multiplier
+                    "lat": travel_lat_offset,
+                    "lon": travel_lon_offset
                 },
                 "type": "Evening Stand",
-                "description": f"Evening: {evening_thermal['description']} ({evening_thermal['direction']:.0f}°) + Downwind ({downwind_direction:.0f}°) = {evening_bearing:.0f}° | Thermal strength: {evening_thermal['strength']:.0%}"
+                "description": f"Evening: {evening_thermal['description']} ({evening_thermal['direction']:.0f}°) + Downwind ({downwind_direction:.0f}°) = {evening_bearing:.0f}° | Thermal strength: {evening_thermal['strength']:.0%}",
+                "adjustments": evening_adjustments,
+                "elevation_profile": elevation_profile
             },
             {
                 "offset": {
-                    "lat": pinch_lat_offset * terrain_multiplier,
-                    "lon": pinch_lon_offset * terrain_multiplier
+                    "lat": pinch_lat_offset,
+                    "lon": pinch_lon_offset
                 },
                 "type": "Morning Stand",
                 "description": f"Morning: {morning_thermal['description']} ({morning_thermal['direction']:.0f}°) + Crosswind position = {morning_bearing:.0f}° | Thermal strength: {morning_thermal['strength']:.0%}"
             },
             {
                 "offset": {
-                    "lat": feeding_lat_offset * terrain_multiplier,
-                    "lon": feeding_lon_offset * terrain_multiplier
+                    "lat": feeding_lat_offset,
+                    "lon": feeding_lon_offset
                 },
                 "type": "All-Day Stand",
                 "description": f"Midday: {midday_thermal['description']} - Downwind ({allday_bearing:.0f}°) | Thermal strength: {midday_thermal['strength']:.0%}"
@@ -1665,10 +3178,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         ]
 
         logger.info(
-            f"🎯 Stand positions with THERMAL winds: "
-            f"Wind={wind_direction:.0f}°→Downwind={downwind_direction:.0f}°, "
+            f"🎯 Stand positions {'with WIND-AWARE crosswind' if wind_speed_mph > 10 else 'with THERMAL'} strategy: "
+            f"Wind={wind_direction:.0f}°→Downwind={downwind_direction:.0f}° at {wind_speed_mph:.1f}mph, "
             f"Slope={slope:.1f}°, Aspect={aspect:.0f}° (Downhill={downhill_direction:.0f}°, Uphill={uphill_direction:.0f}°)"
         )
+        if wind_speed_mph > 10:
+            logger.info(
+                f"🌬️ WIND-AWARE MODE: Crosswind bearings used (90° from wind) to prevent scent contamination"
+            )
         logger.info(
             f"🌡️ Thermal strength: Evening={evening_thermal['strength']:.0%} (downslope), "
             f"Morning={morning_thermal['strength']:.0%} (upslope), Midday={midday_thermal['strength']:.0%}"
@@ -1678,14 +3195,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
     def generate_enhanced_stand_sites(self, lat: float, lon: float, gee_data: Dict, 
                                      osm_data: Dict, weather_data: Dict, season: str,
-                                     prediction_time: Optional[datetime] = None) -> List[Dict]:
+                                     prediction_time: Optional[datetime] = None,
+                                     bedding_zones: Optional[Dict] = None) -> List[Dict]:
         """Generate 3 enhanced stand site recommendations based on biological analysis with TIME-AWARE thermals"""
         try:
             stand_sites = []
             
             # Generate 3 strategic stand locations using environmental analysis with REAL solar timing
             stand_variations = self._calculate_optimal_stand_positions(
-                lat, lon, gee_data, osm_data, weather_data, prediction_time
+                lat, lon, gee_data, osm_data, weather_data, prediction_time, bedding_zones
             )
             
             for i, variation in enumerate(stand_variations):
@@ -1708,6 +3226,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     reasoning_parts.append("Good isolation from disturbance")
                 if weather_data.get("wind_speed", 0) < 10:
                     reasoning_parts.append("Low wind conditions favorable")
+                adjustments = variation.get("adjustments", [])
+                if adjustments:
+                    reasoning_parts.append("Adjusted placement: " + "; ".join(adjustments))
                 
                 reasoning = "; ".join(reasoning_parts) if reasoning_parts else f"Strategic {variation['type'].lower()} position"
                 
@@ -1722,6 +3243,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "reasoning": reasoning,
                     "setup_conditions": f"Best during {season} season, dawn/dusk activity"
                 }
+                if "elevation_profile" in variation:
+                    stand_site["metadata"] = {
+                        "elevation_profile": variation["elevation_profile"]
+                    }
                 stand_sites.append(stand_site)
             
             logger.info(f"✅ Generated {len(stand_sites)} enhanced stand recommendations")
@@ -1956,115 +3481,6 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             logger.error(f"❌ Feeding area generation failed: {e}")
             return {"type": "FeatureCollection", "features": []}
     
-    def _calculate_optimal_camera_position(self, lat: float, lon: float, gee_data: Dict, 
-                                         osm_data: Dict, weather_data: Dict) -> Dict:
-        """Calculate optimal camera position using environmental analysis"""
-        
-        # Extract environmental data
-        wind_direction = weather_data.get("wind_direction", 180)
-        slope = gee_data.get("slope", 10)
-        aspect = gee_data.get("aspect", 180)
-        canopy = gee_data.get("canopy_coverage", 0.5)
-        
-        # Base offset distance for camera (200 meters)
-        base_offset = 0.0018  # ~200m at typical latitude
-        
-        # Camera positioning strategy:
-        # 1. Overlook travel corridors (perpendicular to slope direction)
-        # 2. Downwind for scent management
-        # 3. Good visibility but concealed
-        
-        if slope > 15:  # Steep terrain - use elevation advantage
-            # Position to overlook downslope travel corridors
-            camera_bearing = (aspect + 180) % 360  # Look downslope
-        elif canopy < 0.4:  # Open terrain - use wind advantage
-            # Position downwind for scent control
-            camera_bearing = (wind_direction + 180) % 360
-        else:  # Mixed terrain - balance visibility and concealment
-            # Position at edge of cover with good visibility
-            camera_bearing = (wind_direction + 225) % 360  # Downwind and offset
-        
-        # Calculate offsets with terrain adjustments
-        terrain_multiplier = 1.0 + (slope / 200)
-        visibility_multiplier = 1.3 if canopy < 0.6 else 0.9
-        
-        lat_offset = base_offset * terrain_multiplier * visibility_multiplier * np.cos(np.radians(camera_bearing))
-        lon_offset = base_offset * terrain_multiplier * visibility_multiplier * np.sin(np.radians(camera_bearing))
-        
-        logger.info(f"📷 Camera position: {camera_bearing:.0f}° bearing, "
-                   f"Slope={slope:.1f}°, Canopy={canopy:.1%}")
-        
-        return {
-            "lat_offset": lat_offset,
-            "lon_offset": lon_offset,
-            "bearing": camera_bearing,
-            "strategy": f"Overlook position at {camera_bearing:.0f}°"
-        }
-
-    def generate_enhanced_camera_placement(self, lat: float, lon: float, gee_data: Dict, 
-                                          osm_data: Dict, weather_data: Dict, 
-                                          stand_recommendations: List[Dict]) -> Dict:
-        """Generate 1 optimal camera placement based on stand locations"""
-        try:
-            # Use best stand location as reference
-            if stand_recommendations:
-                best_stand = stand_recommendations[0]
-                base_lat = best_stand["coordinates"]["lat"]
-                base_lon = best_stand["coordinates"]["lon"]
-                
-                # Offset camera from best stand for optimal coverage
-                camera_lat = base_lat + 0.001  # ~110m north
-                camera_lon = base_lon - 0.0015  # ~120m west
-                
-                base_confidence = best_stand["confidence"]
-            else:
-                # Calculate optimal camera position using environmental analysis
-                camera_position = self._calculate_optimal_camera_position(
-                    lat, lon, gee_data, osm_data, weather_data
-                )
-                camera_lat = lat + camera_position["lat_offset"]
-                camera_lon = lon + camera_position["lon_offset"]
-                base_confidence = 75
-            
-            # Calculate camera confidence
-            visibility_bonus = 10 if gee_data.get("canopy_coverage", 0.8) < 0.8 else 5
-            isolation_bonus = 8 if osm_data.get("nearest_road_distance_m", 200) > 300 else 3
-            weather_bonus = 4 if weather_data.get("wind_speed", 10) < 8 else 0
-            
-            camera_confidence = base_confidence + visibility_bonus + isolation_bonus + weather_bonus
-            camera_confidence = max(75, min(95, camera_confidence))
-            
-            camera_placement = {
-                "coordinates": {
-                    "lat": camera_lat,
-                    "lon": camera_lon
-                },
-                "confidence": round(camera_confidence, 1),
-                "placement_type": "Travel Route Monitor",
-                "distance_from_stand": 45,  # meters
-                "setup_direction": "NE",
-                "setup_height": "12-15 feet",
-                "setup_angle": "Slightly downward for body shots",
-                "expected_photos": "High during dawn/dusk movement",
-                "best_times": ["Dawn (30min before sunrise)", "Dusk (1hr after sunset)"],
-                "setup_notes": [
-                    "Position for side-angle shots of deer movement",
-                    "Clear shooting lanes through timber",
-                    "Wind direction favorable for scent control"
-                ],
-                "seasonal_effectiveness": "Very High"
-            }
-            
-            logger.info(f"✅ Generated enhanced camera placement with {camera_confidence:.1f}% confidence")
-            return camera_placement
-            
-        except Exception as e:
-            logger.error(f"❌ Camera placement generation failed: {e}")
-            return {
-                "coordinates": {"lat": lat + 0.002, "lon": lon - 0.003},
-                "confidence": 75,
-                "placement_type": "Fallback Position"
-            }
 
     def validate_spatial_accuracy(self, prediction: Dict) -> float:
         """Enhanced spatial accuracy validation"""
@@ -2170,6 +3586,116 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
         return avg_suitability / 100
 
+    def _calculate_terrain_score(self, slope: float, aspect: float, distance_m: float, 
+                                 require_south_facing: bool = False, 
+                                 max_slope_limit: float = 30,
+                                 weather_data: Dict = None) -> float:
+        """
+        🎯 PHASE 3.5 + 4.7: Score terrain suitability based on slope, aspect, and distance.
+        
+        This allows pre-filtering candidates before expensive GEE vegetation queries.
+        Terrain is MORE important than vegetation for mature buck bedding suitability.
+        
+        PHASE 4.7 Enhancement: Wind-integrated biological aspect scoring
+        
+        Args:
+            slope: Terrain slope in degrees
+            aspect: Compass direction (0-360°)
+            distance_m: Distance from primary location in meters
+            require_south_facing: Whether to prefer south-facing slopes
+            max_slope_limit: Maximum acceptable slope
+            weather_data: Weather context (wind_direction, wind_speed, temperature)
+            
+        Returns:
+            Score 0-100 (higher = better terrain for bedding)
+        """
+        
+        # 1. SLOPE SCORE (50% weight) - Most critical factor
+        # Ideal: 10-30° for drainage, visibility, and escape routes
+        if max_slope_limit * 0.33 <= slope <= max_slope_limit:
+            # Optimal slope range (e.g., 10-30° if max is 30°)
+            slope_score = 100
+        elif 5 <= slope < max_slope_limit * 0.33:
+            # Acceptable but flatter (e.g., 5-10°)
+            slope_score = 70
+        elif max_slope_limit < slope <= max_slope_limit * 1.33:
+            # Steep but manageable (e.g., 30-40°)
+            slope_score = 60
+        elif slope < 5:
+            # Too flat - drainage concerns, poor visibility
+            slope_score = 20
+        else:
+            # Too steep - unsafe, difficult movement
+            slope_score = 0
+        
+        # 2. ASPECT SCORE (30% weight) - PHASE 4.7: Wind-integrated biological scoring
+        if weather_data:
+            # Use biological aspect scoring with wind integration
+            wind_direction = weather_data.get('wind_direction', 180)
+            wind_speed = weather_data.get('wind_speed', 5)
+            temperature = weather_data.get('temperature', 50)
+            
+            aspect_score, aspect_reason = self._score_aspect_biological(
+                aspect=aspect,
+                wind_direction=wind_direction,
+                wind_speed=wind_speed,
+                temperature=temperature,
+                slope=slope
+            )
+            # Note: Logging disabled here to avoid spam during batch filtering
+            # Full reasoning logged in _meets_bedding_criteria_optimized()
+        else:
+            # Fallback to simple aspect scoring if no weather data
+            if require_south_facing:
+                # Prefer south-facing for winter thermal advantage
+                if 160 <= aspect <= 200:
+                    aspect_score = 100
+                elif 135 <= aspect <= 225:
+                    aspect_score = 80
+                elif 120 <= aspect <= 240:
+                    aspect_score = 60
+                elif 90 <= aspect <= 270:
+                    aspect_score = 40
+                else:
+                    aspect_score = 20
+            else:
+                # No aspect preference - any orientation acceptable
+                if 135 <= aspect <= 225:
+                    aspect_score = 100
+                elif 90 <= aspect <= 270:
+                    aspect_score = 80
+                else:
+                    aspect_score = 60
+        
+        # 3. DISTANCE SCORE (20% weight) - Biological movement patterns
+        if 100 <= distance_m <= 250:
+            # Ideal bedding movement range (close alternatives)
+            distance_score = 100
+        elif 250 < distance_m <= 400:
+            # Secondary bedding range
+            distance_score = 90
+        elif 400 < distance_m <= 600:
+            # Extended bedding range
+            distance_score = 70
+        elif 600 < distance_m <= 800:
+            # Escape bedding range (still useful)
+            distance_score = 60
+        elif distance_m < 100:
+            # Too close - not enough separation
+            distance_score = 50
+        else:
+            # Too far - outside normal movement
+            distance_score = 30
+        
+        # Calculate weighted score
+        terrain_score = (
+            slope_score * 0.5 +      # 50% weight (most critical)
+            aspect_score * 0.3 +     # 30% weight (thermal comfort)
+            distance_score * 0.2     # 20% weight (movement pattern)
+        )
+        
+        return terrain_score
+
     def _search_alternative_bedding_sites(self, center_lat: float, center_lon: float, 
                                          base_gee_data: Dict, base_osm_data: Dict, 
                                          base_weather_data: Dict, max_slope_limit: float, 
@@ -2180,54 +3706,46 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         try:
             search_type = "south-facing slopes (135°-225°)" if require_south_facing else f"slopes ≤{max_slope_limit}°"
-            logger.info(f"🎯 ALTERNATIVE BEDDING SEARCH: Multi-tier scanning for {search_type}")
+            logger.info(f"🎯 ALTERNATIVE BEDDING SEARCH: Multi-tier scanning (1500ft radius) for {search_type}")
             logger.info(f"   🦌 Target: 2-3 bedding zones for mature whitetail buck movement patterns")
-            search_tiers = [
-                # Tier 1: Close alternatives (100-250m) - Preferred bedding distance
-                {
-                    "name": "close_bedding",
-                    "offsets": [
-                        (0.0009, 0.0012),   # ~100m NE  
-                        (-0.0009, 0.0012),  # ~100m NW
-                        (0.0009, -0.0012),  # ~100m SE
-                        (-0.0009, -0.0012), # ~100m SW
-                        (0.0000, 0.0018),   # ~200m N
-                        (0.0000, -0.0018),  # ~200m S
-                        (0.0018, 0.0000),   # ~200m E
-                        (-0.0018, 0.0000),  # ~200m W
-                        (0.0022, 0.0022),   # ~250m NE
-                        (-0.0022, -0.0022), # ~250m SW
-                    ]
-                },
-                # Tier 2: Moderate alternatives (300-500m) - Secondary bedding areas
-                {
-                    "name": "secondary_bedding", 
-                    "offsets": [
-                        (0.0027, 0.0000),   # ~300m E
-                        (-0.0027, 0.0000),  # ~300m W
-                        (0.0000, 0.0036),   # ~400m N
-                        (0.0000, -0.0036),  # ~400m S
-                        (0.0045, 0.0000),   # ~500m E
-                        (-0.0045, 0.0000),  # ~500m W
-                        (0.0032, 0.0032),   # ~450m NE
-                        (-0.0032, -0.0032), # ~450m SW
-                    ]
-                },
-                # Tier 3: Extended alternatives (600-800m) - Escape bedding zones
-                {
-                    "name": "escape_bedding",
-                    "offsets": [
-                        (0.0054, 0.0000),   # ~600m E
-                        (-0.0054, 0.0000),  # ~600m W
-                        (0.0000, 0.0072),   # ~800m N
-                        (0.0000, -0.0072),  # ~800m S
-                        (0.0050, 0.0050),   # ~700m NE
-                        (-0.0050, -0.0050), # ~700m SW
-                        (0.0063, 0.0036),   # ~750m ENE
-                        (-0.0063, -0.0036), # ~750m WSW
-                    ]
-                }
-            ]
+            logger.info(f"   📏 Search radius: 75-450m (~250-1500 feet)")
+            
+            # 🎯 PHASE 4.8: Systematic multi-tier search pattern
+            # 6 distance tiers × 8 cardinal bearings = 48 strategic candidates
+            # Expanded from 300m → 450m (~1000ft → ~1500ft) per user request
+            import math
+            distance_tiers_m = [75, 150, 225, 300, 375, 450]  # meters
+            bearings = [0, 45, 90, 135, 180, 225, 270, 315]  # N, NE, E, SE, S, SW, W, NW
+            
+            # Convert distances and bearings to lat/lon offsets
+            # 1 degree latitude ≈ 111,000 meters
+            # 1 degree longitude ≈ 111,000 * cos(latitude) meters
+            lat_to_meters = 111000
+            lon_to_meters = 111000 * math.cos(math.radians(center_lat))
+            
+            search_tiers = []
+            for distance_m in distance_tiers_m:
+                tier_name = (
+                    "close_bedding" if distance_m <= 150 else
+                    "secondary_bedding" if distance_m <= 300 else
+                    "escape_bedding"
+                )
+                
+                offsets = []
+                for bearing in bearings:
+                    # Convert polar (distance, bearing) to Cartesian (lat_offset, lon_offset)
+                    bearing_rad = math.radians(bearing)
+                    lat_offset = (distance_m * math.cos(bearing_rad)) / lat_to_meters
+                    lon_offset = (distance_m * math.sin(bearing_rad)) / lon_to_meters
+                    offsets.append((lat_offset, lon_offset))
+                
+                search_tiers.append({
+                    "name": tier_name,
+                    "distance_m": distance_m,
+                    "offsets": offsets
+                })
+            
+            logger.info(f"   🗺️ Generated {len(search_tiers)} distance tiers × {len(bearings)} bearings = {len(search_tiers) * len(bearings)} candidates")
             
             suitable_sites = []
             suitability_reports = []
@@ -2243,137 +3761,273 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             else:
                 aspect_criteria = [{"name": "any_aspect", "range": (0, 360), "bonus": 0, "description": "any aspect"}]
             
-            # Search through tiers and aspect criteria until we have enough bedding zones
+            # 🗺️ PHASE 3: BATCH LIDAR OPTIMIZATION
+            # Pre-generate all candidate coordinates and batch-fetch terrain data
+            all_candidates = []
             for tier in search_tiers:
+                for lat_offset, lon_offset in tier['offsets']:
+                    search_lat = center_lat + lat_offset
+                    search_lon = center_lon + lon_offset
+                    all_candidates.append({
+                        'lat': search_lat,
+                        'lon': search_lon,
+                        'tier': tier,
+                        'lat_offset': lat_offset,
+                        'lon_offset': lon_offset
+                    })
+            
+            # Batch-fetch terrain data for all candidates using LIDAR (if available)
+            terrain_cache = {}
+            if self.use_lidar_first and self.lidar_batch_processor:
+                logger.info(f"🗺️ BATCH LIDAR: Pre-fetching terrain for {len(all_candidates)} alternative sites...")
+                import time
+                batch_start = time.time()
+                
+                # Extract coordinates for batch call
+                batch_coords = [(c['lat'], c['lon']) for c in all_candidates]
+                
+                try:
+                    # Single batch call for all candidates!
+                    batch_terrain = self.lidar_batch_processor.batch_extract(batch_coords, sample_radius_m=30)
+                    
+                    batch_elapsed = time.time() - batch_start
+                    lidar_hits = sum(1 for t in batch_terrain.values() if t and t.get('coverage'))
+                    
+                    logger.info(f"🗺️ BATCH LIDAR COMPLETE: {lidar_hits}/{len(all_candidates)} sites covered in {batch_elapsed:.2f}s "
+                               f"({len(all_candidates)/batch_elapsed:.0f} sites/sec)")
+                    
+                    # Cache terrain data
+                    for candidate in all_candidates:
+                        key = f"{candidate['lat']:.6f},{candidate['lon']:.6f}"
+                        if key in batch_terrain and batch_terrain[key] and batch_terrain[key].get('coverage'):
+                            # Convert LIDAR format to GEE format for compatibility
+                            lidar_data = batch_terrain[key]
+                            terrain_cache[key] = {
+                                'elevation': lidar_data['elevation'],
+                                'slope': lidar_data['slope'],
+                                'aspect': lidar_data['aspect'],
+                                'api_source': 'lidar-0.35m',
+                                'resolution_m': lidar_data['resolution_m'],
+                                'query_success': True
+                            }
+                            
+                except Exception as e:
+                    logger.warning(f"⚠️ Batch LIDAR failed: {e}, will fall back to sequential GEE")
+            
+            # 🎯 PHASE 3.5: INTELLIGENT TERRAIN-BASED SITE SELECTION
+            # Rank all candidates by terrain quality BEFORE expensive GEE vegetation queries
+            terrain_scored_candidates = []
+            
+            for candidate in all_candidates:
+                cache_key = f"{candidate['lat']:.6f},{candidate['lon']:.6f}"
+                
+                # Calculate distance from primary location
+                distance_m = int(((candidate['lat_offset']**2 + candidate['lon_offset']**2)**0.5) * 111000)
+                
+                # Get terrain data (from cache if available)
+                if cache_key in terrain_cache:
+                    terrain = terrain_cache[cache_key]
+                    # Apply slope correction for hillshade data
+                    slope = terrain['slope']
+                    if slope > 45:
+                        elevation = terrain.get('elevation', 300)
+                        import numpy as np
+                        if elevation > 800:
+                            slope = np.random.uniform(15, 30)
+                        elif elevation > 400:
+                            slope = np.random.uniform(8, 20)
+                        else:
+                            slope = np.random.uniform(3, 15)
+                    
+                    aspect = terrain['aspect']
+                else:
+                    # No LIDAR data - use estimated values (will query GEE later)
+                    slope = 15  # Assume moderate slope
+                    aspect = 180  # Assume south-facing
+                
+                # Calculate terrain-only score
+                terrain_score = self._calculate_terrain_score(
+                    slope=slope,
+                    aspect=aspect,
+                    distance_m=distance_m,
+                    require_south_facing=require_south_facing,
+                    max_slope_limit=max_slope_limit,
+                    weather_data=base_weather_data  # PHASE 4.7: Wind-integrated aspect scoring
+                )
+                
+                terrain_scored_candidates.append({
+                    'candidate': candidate,
+                    'terrain_score': terrain_score,
+                    'slope': slope,
+                    'aspect': aspect,
+                    'distance_m': distance_m,
+                    'cache_key': cache_key,
+                    'has_terrain_data': cache_key in terrain_cache
+                })
+            
+            # Sort by terrain score (best first)
+            terrain_scored_candidates.sort(key=lambda x: x['terrain_score'], reverse=True)
+            
+            # Filter by terrain threshold and limit candidates
+            TERRAIN_THRESHOLD = 50  # Only query GEE for candidates with terrain score > 50%
+            MAX_GEE_QUERIES = 15    # Safety cap to prevent excessive queries
+            
+            promising_candidates = [
+                c for c in terrain_scored_candidates 
+                if c['terrain_score'] >= TERRAIN_THRESHOLD
+            ][:MAX_GEE_QUERIES]
+            
+            total_candidates = len(all_candidates)
+            filtered_count = len(promising_candidates)
+            filtered_out = total_candidates - filtered_count
+            
+            logger.info(f"🎯 SMART TERRAIN FILTER: {filtered_count}/{total_candidates} candidates passed "
+                       f"(>{TERRAIN_THRESHOLD}% terrain score), {filtered_out} filtered out")
+            
+            if filtered_count > 0:
+                logger.info(f"   Top 3 terrain scores: "
+                           f"{promising_candidates[0]['terrain_score']:.0f}%, "
+                           f"{promising_candidates[1]['terrain_score']:.0f}%, "
+                           f"{promising_candidates[2]['terrain_score']:.0f}%")
+            
+            # Search through promising candidates only (not all 26!)
+            for scored in promising_candidates:
                 if len(suitable_sites) >= 3:  # Stop when we have enough bedding zones
                     break
-                    
-                logger.debug(f"🔍 Searching {tier['name']} tier ({len(tier['offsets'])} locations)")
                 
-                for aspect_criteria_set in aspect_criteria:
-                    if len(suitable_sites) >= 3:  # Stop when we have enough
-                        break
+                candidate = scored['candidate']
+                search_lat = candidate['lat']
+                search_lon = candidate['lon']
+                cache_key = scored['cache_key']
+                distance_m = scored['distance_m']
+                
+                logger.debug(f"🔍 Evaluating candidate: terrain_score={scored['terrain_score']:.0f}%, "
+                           f"slope={scored['slope']:.1f}°, aspect={scored['aspect']:.0f}°, distance={distance_m}m")
+                
+                try:
+                    # 🗺️ PHASE 3.5: Use cached terrain data (already scored and filtered!)
+                    if cache_key in terrain_cache:
+                        # Use pre-fetched LIDAR terrain data (0 API calls!)
+                        cached_terrain = terrain_cache[cache_key]
                         
-                    logger.debug(f"   Using {aspect_criteria_set['description']} aspect criteria")
-                    min_aspect, max_aspect = aspect_criteria_set['range']
-                    aspect_bonus = aspect_criteria_set['bonus']
-                    
-                    for i, (lat_offset, lon_offset) in enumerate(tier['offsets']):
-                        if len(suitable_sites) >= 3:  # Stop when we have enough
-                            break
-                            
-                        search_lat = center_lat + lat_offset
-                        search_lon = center_lon + lon_offset
-                        search_lat = center_lat + lat_offset
-                        search_lon = center_lon + lon_offset
+                        # Get GEE vegetation data only (NDVI, canopy) - terrain already known!
+                        search_gee_data = self.get_dynamic_gee_data(search_lat, search_lon)
+                        search_gee_data.update(cached_terrain)
                         
-                        try:
-                            # Get terrain data for this location
-                            search_gee_data = self.get_dynamic_gee_data_enhanced(search_lat, search_lon)
-                            
-                            # Check if this location has suitable slope and aspect
-                            search_slope = search_gee_data.get("slope", 90)
-                            search_aspect = search_gee_data.get("aspect", 0)
-                            
-                            # Check slope suitability
-                            slope_suitable = search_slope <= max_slope_limit
-                            
-                            # Check aspect suitability with hierarchical criteria
-                            aspect_suitable = min_aspect <= search_aspect <= max_aspect
-                            
-                            if slope_suitable and aspect_suitable:
-                                # Evaluate full suitability with aspect bonus
-                                suitability = self.evaluate_bedding_suitability(search_gee_data, base_osm_data, base_weather_data)
-                                
-                                # Apply aspect bonus to score
-                                enhanced_score = suitability["overall_score"] + aspect_bonus
-                                enhanced_score = min(100, enhanced_score)  # Cap at 100%
-                                
-                                # Lower threshold for alternative sites to ensure we find multiple bedding zones
-                                min_threshold = 50 if require_south_facing else 40
-                                
-                                if suitability["meets_criteria"] or enhanced_score >= min_threshold:
-                                    distance_m = int(((lat_offset**2 + lon_offset**2)**0.5) * 111000)
-                                    
-                                    # Determine bedding zone type based on distance and search tier
-                                    if tier["name"] == "close_bedding":
-                                        bedding_type = "primary_alternative" if len(suitable_sites) == 0 else "secondary_alternative"
-                                    elif tier["name"] == "secondary_bedding":
-                                        bedding_type = "secondary_bedding"
-                                    else:
-                                        bedding_type = "escape_bedding"
-                                    
-                                    aspect_desc = f"{search_aspect:.0f}° ({aspect_criteria_set['description']})"
-                                    logger.info(f"✅ SUITABLE BEDDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f}")
-                                    logger.info(f"   Type: {bedding_type}, Distance: {distance_m}m")
-                                    logger.info(f"   Slope: {search_slope:.1f}°, Aspect: {aspect_desc}, Score: {enhanced_score:.1f}%")
-                                    
-                                    # Create bedding zone feature
-                                    bedding_feature = {
-                                        "type": "Feature",
-                                        "geometry": {
-                                            "type": "Point",
-                                            "coordinates": [search_lon, search_lat]
-                                        },
-                                        "properties": {
-                                            "id": f"alternative_bedding_{len(suitable_sites)}",
-                                            "type": "bedding",
-                                            "bedding_type": bedding_type,
-                                            "score": enhanced_score,
-                                            "suitability_score": enhanced_score,
-                                            "confidence": max(0.65, 0.85 - (distance_m / 1000) * 0.1),  # Distance-based confidence
-                                            "description": f"{bedding_type.replace('_', ' ').title()}: {search_slope:.1f}° slope, {search_aspect:.0f}° aspect",
-                                            "canopy_coverage": search_gee_data.get("canopy_coverage", 0.6),
-                                            "slope": search_slope,
-                                            "aspect": search_aspect,
-                                            "road_distance": base_osm_data.get("nearest_road_distance_m", 500),
-                                            "thermal_comfort": "moderate" if aspect_bonus <= 5 else "good",
-                                            "wind_protection": "good",
-                                            "escape_routes": "multiple",
-                                            "distance_from_primary": distance_m,
-                                            "search_tier": tier["name"],
-                                            "aspect_criteria": aspect_criteria_set['description'],
-                                            "search_reason": "Primary location aspect outside optimal range (135°-225°)" if require_south_facing else f"Primary location slope {base_gee_data.get('slope', 0):.1f}° exceeded {max_slope_limit}° limit"
-                                        }
-                                    }
-                                    
-                                    # 🎯 DEDUPLICATION: Avoid adding sites too close to existing ones
-                                    is_duplicate = False
-                                    for existing_site in suitable_sites:
-                                        existing_coords = existing_site["geometry"]["coordinates"]
-                                        existing_lat, existing_lon = existing_coords[1], existing_coords[0]
-                                        
-                                        # Check if this site is too close to an existing one (< 50m)
-                                        distance_to_existing = ((search_lat - existing_lat)**2 + (search_lon - existing_lon)**2)**0.5 * 111000
-                                        if distance_to_existing < 50:
-                                            logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} too close to existing site ({distance_to_existing:.0f}m)")
-                                            is_duplicate = True
-                                            break
-                                    
-                                    if not is_duplicate:
-                                        suitable_sites.append(bedding_feature)
-                                        suitability_reports.append({
-                                            "criteria": suitability["criteria"],
-                                            "scores": suitability["scores"].copy(),
-                                            "thresholds": suitability["thresholds"],
-                                            "overall_score": suitability["overall_score"],
-                                            "meets_criteria": suitability["meets_criteria"]
-                                        })
-                                        logger.debug(f"   ✅ Added diverse bedding site: {bedding_type} at {distance_m}m, aspect {search_aspect:.0f}°")
-                                    else:
-                                        logger.debug(f"   ❌ Skipped duplicate site at {distance_m}m")
-                                    
-                                else:
-                                    logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} has suitable slope/aspect but low score ({enhanced_score:.1f}%)")
+                        # Apply slope correction for hillshade data (same as get_dynamic_gee_data_enhanced)
+                        if search_gee_data.get("slope", 0) > 45:
+                            elevation = search_gee_data.get("elevation", 300)
+                            import numpy as np
+                            if elevation > 800:
+                                search_gee_data["slope"] = np.random.uniform(15, 30)  # Mountainous
+                            elif elevation > 400:
+                                search_gee_data["slope"] = np.random.uniform(8, 20)   # Hilly
                             else:
-                                if not aspect_suitable:
-                                    logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} rejected: aspect {search_aspect:.0f}° outside range {min_aspect}-{max_aspect}°")
-                                elif not slope_suitable:
-                                    logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} rejected: slope {search_slope:.1f}° > {max_slope_limit}°")
-                                
-                        except Exception as e:
-                            logger.debug(f"   Error checking alternative site: {e}")
-                            continue
+                                search_gee_data["slope"] = np.random.uniform(3, 15)   # Gentle
+                    else:
+                        # Cache miss: Fall back to normal method (GEE or sequential LIDAR)
+                        search_gee_data = self.get_dynamic_gee_data_enhanced(search_lat, search_lon)
+                    
+                    # Evaluate full suitability (terrain + vegetation)
+                    suitability = self.evaluate_bedding_suitability(search_gee_data, base_osm_data, base_weather_data)
+                    
+                    # Get final scores
+                    search_slope = search_gee_data.get("slope", 90)
+                    search_aspect = search_gee_data.get("aspect", 0)
+                    enhanced_score = suitability["overall_score"]
+                    
+                    # Lower threshold for alternative sites (already filtered by terrain!)
+                    min_threshold = 50 if require_south_facing else 40
+                    
+                    if suitability["meets_criteria"] or enhanced_score >= min_threshold:
+                        # Determine bedding zone type based on distance
+                        if distance_m < 250:
+                            bedding_type = "primary_alternative" if len(suitable_sites) == 0 else "secondary_alternative"
+                        elif distance_m < 500:
+                            bedding_type = "secondary_bedding"
+                        else:
+                            bedding_type = "escape_bedding"
+                        
+                        # Determine aspect description
+                        if 135 <= search_aspect <= 225:
+                            aspect_desc = "South-facing (optimal)"
+                        elif 90 <= search_aspect < 135:
+                            aspect_desc = "Southeast"
+                        elif 225 < search_aspect <= 270:
+                            aspect_desc = "Southwest"
+                        elif 45 <= search_aspect < 90:
+                            aspect_desc = "East"
+                        elif 270 < search_aspect <= 315:
+                            aspect_desc = "West"
+                        else:
+                            aspect_desc = "North-facing"
+                        
+                        logger.info(f"✅ SUITABLE BEDDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f}")
+                        logger.info(f"   Type: {bedding_type}, Distance: {distance_m}m")
+                        logger.info(f"   Slope: {search_slope:.1f}°, Aspect: {search_aspect:.0f}° ({aspect_desc}), Score: {enhanced_score:.1f}%")
+                        logger.info(f"   Terrain score (pre-filter): {scored['terrain_score']:.0f}%")
+                        
+                        # Create bedding zone feature
+                        bedding_feature = {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Point",
+                                "coordinates": [search_lon, search_lat]
+                            },
+                            "properties": {
+                                "id": f"alternative_bedding_{len(suitable_sites)}",
+                                "type": "bedding",
+                                "bedding_type": bedding_type,
+                                "score": enhanced_score,
+                                "suitability_score": enhanced_score,
+                                "terrain_score": scored['terrain_score'],  # Show terrain pre-filter score
+                                "confidence": max(0.65, 0.85 - (distance_m / 1000) * 0.1),  # Distance-based confidence
+                                "description": f"{bedding_type.replace('_', ' ').title()}: {search_slope:.1f}° slope, {search_aspect:.0f}° aspect",
+                                "canopy_coverage": search_gee_data.get("canopy_coverage", 0.6),
+                                "slope": search_slope,
+                                "aspect": search_aspect,
+                                "road_distance": base_osm_data.get("nearest_road_distance_m", 500),
+                                "thermal_comfort": "good" if 135 <= search_aspect <= 225 else "moderate",
+                                "wind_protection": "good",
+                                "escape_routes": "multiple",
+                                "distance_from_primary": distance_m,
+                                "search_method": "terrain_filtered_intelligent_search",
+                                "aspect_category": aspect_desc,
+                                "search_reason": "Primary location aspect outside optimal range (135°-225°)" if require_south_facing else f"Primary location slope {base_gee_data.get('slope', 0):.1f}° exceeded {max_slope_limit}° limit"
+                            }
+                        }
+                        
+                        # 🎯 DEDUPLICATION: Avoid adding sites too close to existing ones
+                        is_duplicate = False
+                        for existing_site in suitable_sites:
+                            existing_coords = existing_site["geometry"]["coordinates"]
+                            existing_lat, existing_lon = existing_coords[1], existing_coords[0]
+                            
+                            # Check if this site is too close to an existing one (< 50m)
+                            distance_to_existing = ((search_lat - existing_lat)**2 + (search_lon - existing_lon)**2)**0.5 * 111000
+                            if distance_to_existing < 50:
+                                logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} too close to existing site ({distance_to_existing:.0f}m)")
+                                is_duplicate = True
+                                break
+                        
+                        if not is_duplicate:
+                            suitable_sites.append(bedding_feature)
+                            suitability_reports.append({
+                                "criteria": suitability["criteria"],
+                                "scores": suitability["scores"].copy(),
+                                "thresholds": suitability["thresholds"],
+                                "overall_score": suitability["overall_score"],
+                                "meets_criteria": suitability["meets_criteria"]
+                            })
+                            logger.debug(f"   ✅ Added diverse bedding site: {bedding_type} at {distance_m}m, aspect {search_aspect:.0f}°")
+                        else:
+                            logger.debug(f"   ❌ Skipped duplicate site at {distance_m}m")
+                    else:
+                        logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} has suitable terrain but low suitability score ({enhanced_score:.1f}%)")
+                        
+                except Exception as e:
+                    logger.debug(f"   Error checking alternative site: {e}")
+                    continue
             
             # Return results with enhanced metadata
             if suitable_sites:

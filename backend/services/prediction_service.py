@@ -36,6 +36,33 @@ from typing import Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def convert_numpy_types(obj):
+    """
+    Recursively convert numpy types to Python native types for JSON serialization.
+    
+    Args:
+        obj: Object to convert
+        
+    Returns:
+        Converted object with Python native types
+    """
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    return obj
+
+
 class PredictionService:
     """
     Streamlined prediction service using EnhancedBeddingZonePredictor exclusively.
@@ -233,18 +260,26 @@ class PredictionService:
                 # Collect wind analysis if analyzer provided
                 if analyzer:
                     try:
-                        # Properly serialize wind analysis data
-                        serialized_analyses = [asdict(analysis) for analysis in wind_analyses]
+                        # Properly serialize wind analysis data - convert numpy types
+                        serialized_analyses = []
+                        for analysis in wind_analyses:
+                            analysis_dict = asdict(analysis)
+                            analysis_dict = convert_numpy_types(analysis_dict)
+                            serialized_analyses.append(analysis_dict)
+                        
+                        # Convert wind summary
+                        wind_summary_clean = convert_numpy_types(wind_summary)
+                        
                         analyzer.collect_wind_analysis(
-                            wind_summary.get('overall_wind_conditions', {}),
+                            wind_summary_clean.get('overall_wind_conditions', {}),
                             serialized_analyses,
-                            wind_summary
+                            wind_summary_clean
                         )
                     except Exception as e:
-                        logger.warning(f"⚠️ Wind analysis collection failed: {e}")
+                        logger.warning(f"⚠️ Wind analysis collection failed: {e}", exc_info=True)
                 
             except Exception as e:
-                logger.warning(f"⚠️ Wind analysis failed: {e}")
+                logger.error(f"⚠️ Wind analysis failed: {e}", exc_info=True)
                 wind_analyses = []
                 wind_summary = {}
             
@@ -377,6 +412,9 @@ class PredictionService:
             # Apply real-time hunting context analysis
             try:
                 effective_time = target_datetime or datetime.now()
+                # Ensure timezone-naive datetime for context analysis
+                if effective_time.tzinfo is not None:
+                    effective_time = effective_time.replace(tzinfo=None)
                 logger.info(
                     "🕐 Applying real-time context analysis for %s on %s",
                     effective_time.strftime('%H:%M'),
@@ -386,6 +424,9 @@ class PredictionService:
                 logger.info(f"✅ Context applied: {result.get('context_summary', {}).get('situation', 'unknown')}")
             except Exception as e:
                 logger.warning(f"⚠️ Context analysis failed: {e}")
+            
+            # Convert any numpy types to Python native types before returning
+            result = convert_numpy_types(result)
             
             return result
             
@@ -408,7 +449,7 @@ class PredictionService:
                     scores += 0.5
                     
             return scores
-        except:
+        except (KeyError, TypeError, ValueError, AttributeError):
             return np.ones((10, 10)) * 3.0
 
     def _extract_bedding_scores(self, result: Dict) -> np.ndarray:
@@ -423,7 +464,7 @@ class PredictionService:
             
             scores = np.ones((grid_size, grid_size)) * base_score
             return scores
-        except:
+        except (KeyError, TypeError, AttributeError):
             return np.ones((10, 10)) * 5.0
 
     def _extract_feeding_scores(self, result: Dict, lat: float = None, lon: float = None, season: str = 'early_season') -> np.ndarray:

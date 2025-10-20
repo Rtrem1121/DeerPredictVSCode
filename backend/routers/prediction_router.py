@@ -9,9 +9,10 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 import logging
 from zoneinfo import ZoneInfo
+import numpy as np
 
 # Import the prediction service and analyzer
-from backend.services.prediction_service import get_prediction_service
+from backend.services.prediction_service import get_prediction_service, convert_numpy_types
 from backend.analysis.prediction_analyzer import create_prediction_analyzer
 from pydantic import BaseModel
 
@@ -75,6 +76,9 @@ async def predict_movement(request: PredictionRequest) -> PredictionResponse:
             target_datetime=target_dt
         )
         
+        # Convert any numpy types to ensure JSON serialization compatibility
+        result = convert_numpy_types(result)
+        
         return PredictionResponse(success=True, data=result)
         
     except Exception as e:
@@ -125,6 +129,10 @@ async def analyze_prediction_detailed(request: PredictionRequest) -> DetailedAna
         
         # Get comprehensive analysis
         detailed_analysis = analyzer.get_comprehensive_analysis()
+        
+        # Convert numpy types to ensure JSON serialization
+        result = convert_numpy_types(result)
+        detailed_analysis = convert_numpy_types(detailed_analysis)
         
         logger.info(f"🔍 Detailed analysis generated: {detailed_analysis['analysis_metadata']['completion_percentage']:.1f}% complete")
         

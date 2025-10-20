@@ -13,15 +13,15 @@ python main.py
 
 # Start frontend (new terminal)
 streamlit run frontend/app.py
-```
-
 ### Docker Deployment (Recommended)
+docker-compose up --build
+docker-compose up -d --build
 ```bash
 # Build and start all services
-docker-compose up --build
+
 
 # Background deployment
-docker-compose up -d --build
+# View logs
 
 # View logs
 docker-compose logs -f
@@ -94,7 +94,7 @@ cloudflared tunnel login
 # Create tunnel
 cloudflared tunnel create deer-prediction-app
 
-# Configure tunnel (see cloudflare-config.yml)
+# Configure tunnel (see docker/cloudflare-config.yml)
 cloudflared tunnel route dns deer-prediction-app app.deerpredictapp.org
 
 # Start tunnel
@@ -259,16 +259,16 @@ logging.basicConfig(
 1. **Backend Connection Failed**
    ```bash
    # Check backend service
-   docker-compose logs backend
+    docker-compose -f docker/docker-compose.yml logs backend
    
    # Restart services
-   docker-compose restart backend
+    docker-compose -f docker/docker-compose.yml restart backend
    ```
 
 2. **Frontend Not Loading**
    ```bash
    # Check frontend logs
-   docker-compose logs frontend
+    docker-compose -f docker/docker-compose.yml logs frontend
    
    # Verify backend connectivity
    curl http://localhost:8000/health
@@ -296,16 +296,16 @@ logging.basicConfig(
 ### Debug Commands
 ```bash
 # View all container logs
-docker-compose logs -f
+docker-compose -f docker/docker-compose.yml logs -f
 
 # Access container shell
-docker-compose exec backend /bin/bash
+docker-compose -f docker/docker-compose.yml exec backend /bin/bash
 
 # Check network connectivity
-docker-compose exec frontend ping backend
+docker-compose -f docker/docker-compose.yml exec frontend ping backend
 
 # Restart specific service
-docker-compose restart frontend
+docker-compose -f docker/docker-compose.yml restart frontend
 ```
 
 ## 📈 Scaling Considerations

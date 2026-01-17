@@ -11,6 +11,7 @@ This two-phase approach is much more efficient than running predictions everywhe
 import requests
 import json
 import numpy as np
+import math
 from shapely.geometry import Point, Polygon
 from sklearn.cluster import DBSCAN
 from datetime import datetime
@@ -22,21 +23,17 @@ from pathlib import Path
 import sys
 import os
 
-# Add backend to path for LIDAR access
-# Adjusted for location in analysis/ folder (parent -> backend)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend')))
+# Add project root and backend to path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, project_root)
+sys.path.insert(0, os.path.join(project_root, 'backend'))
 
 try:
-    from services.lidar_processor import DEMFileManager, TerrainExtractor
+    from backend.services.lidar_processor import DEMFileManager, TerrainExtractor
     LIDAR_AVAILABLE = True
 except ImportError as e:
-    # Try alternative import if backend is in path but not as root
-    try:
-        from backend.services.lidar_processor import DEMFileManager, TerrainExtractor
-        LIDAR_AVAILABLE = True
-    except ImportError:
-        print(f"⚠️  LIDAR not available: {e}")
-        LIDAR_AVAILABLE = False
+    print(f"⚠️  LIDAR not available: {e}")
+    LIDAR_AVAILABLE = False
 
 # Import Google Earth Engine for land cover filtering
 try:
@@ -63,10 +60,10 @@ except ImportError:
 
 # Property boundaries
 PROPERTY_CORNERS = {
-    'NW': (43.31923, -73.23043),
-    'NE': (43.32449, -73.20835),
-    'SE': (43.30251, -73.20987),
-    'SW': (43.30111, -73.23971)
+    'NW': (44.35061, -72.92899),
+    'NE': (44.34347, -72.90646),
+    'SE': (44.3302, -72.91153),
+    'SW': (44.33597, -72.93736)
 }
 
 # API Configuration
@@ -89,6 +86,7 @@ class PropertyHotspotAnalyzer:
         self.predictions = []
         self.all_stands = []
         self.hotspots = []
+        self.buck_bed = None
         
         # Initialize LIDAR if available
         if LIDAR_AVAILABLE:
@@ -380,7 +378,7 @@ class PropertyHotspotAnalyzer:
                 'resolution': t['resolution']
             })
             
-            if (i % 5) == 0:
+            if (i % 1000) == 0:
                 print(f"  [{i}/{len(all_terrain)}] Scored: slope={slope:.1f}°, aspect={aspect:.0f}°, elev={elevation:.1f}m → {total_score:.0f}/100 "
                       f"(B:{bedding_score:.0f} T:{travel_score:.0f} F:{feeding_score:.0f} R:{rut_score:.0f})")
         
@@ -463,7 +461,7 @@ class PropertyHotspotAnalyzer:
         """Extract all predicted stand locations from all predictions."""
         print(f"\n📍 Extracting stand locations from predictions...")
         
-        all_stands = []
+        all_stands: List[Dict] = []
         for pred in self.predictions:
             source = pred['source_point']
             prediction_data = pred['prediction']
@@ -472,26 +470,48 @@ class PropertyHotspotAnalyzer:
             if 'data' in prediction_data:
                 prediction_data = prediction_data['data']
             
-            # Extract optimized points (stands)
-            if 'optimized_points' in prediction_data:
-                opt_points = prediction_data['optimized_points']
-                if 'stand_sites' in opt_points:
-                    stands = opt_points['stand_sites']
-                    
-                    for i, stand in enumerate(stands[:3], 1):  # Stand 1, 2, 3
-                        stand_lat = stand.get('lat')
-                        stand_lon = stand.get('lon')
-                        
-                        if stand_lat and stand_lon:
-                            all_stands.append({
-                                'stand_num': i,
-                                'lat': stand_lat,
-                                'lon': stand_lon,
-                                'score': stand.get('score', 0),
-                                'strategy': stand.get('strategy', 'Unknown'),
-                                'source_point': source,
-                                'inside_property': self.is_inside_property(stand_lat, stand_lon)
-                            })
+            # Extract optimized points (stand sites)
+            opt_points = prediction_data.get('optimized_points', {})
+            stand_sites = opt_points.get('stand_sites', []) if isinstance(opt_points, dict) else []
+            for i, stand in enumerate(stand_sites, 1):
+                stand_lat = stand.get('lat')
+                stand_lon = stand.get('lon')
+                if stand_lat is None or stand_lon is None:
+                    continue
+
+                all_stands.append({
+                    'stand_num': i,
+                    'lat': float(stand_lat),
+                    'lon': float(stand_lon),
+                    'score': float(stand.get('score', 0) or 0),
+                    'strategy': stand.get('strategy', 'Unknown'),
+                    'source_point': source,
+                    'inside_property': self.is_inside_property(float(stand_lat), float(stand_lon)),
+                    'source': 'optimized_points'
+                })
+
+            # ALSO ingest mature_buck_analysis stand recommendations if present (some runs may omit optimized_points)
+            # These are kept separate via 'source' and can be used in fallbacks.
+            mba = prediction_data.get('mature_buck_analysis', {})
+            stand_recs = mba.get('stand_recommendations', []) if isinstance(mba, dict) else []
+            for i, rec in enumerate(stand_recs, 1):
+                coords = rec.get('coordinates', {}) if isinstance(rec, dict) else {}
+                stand_lat = coords.get('lat')
+                stand_lon = coords.get('lon')
+                if stand_lat is None or stand_lon is None:
+                    continue
+
+                all_stands.append({
+                    'stand_num': i,
+                    'lat': float(stand_lat),
+                    'lon': float(stand_lon),
+                    # Normalize any confidence-like value onto the same 0-10 band used elsewhere
+                    'score': float(rec.get('confidence', 0) or 0) / 10.0,
+                    'strategy': rec.get('type', rec.get('strategy', 'Stand Recommendation')),
+                    'source_point': source,
+                    'inside_property': self.is_inside_property(float(stand_lat), float(stand_lon)),
+                    'source': 'mature_buck_analysis'
+                })
         
         self.all_stands = all_stands
         inside_count = sum(1 for s in all_stands if s['inside_property'])
@@ -499,6 +519,24 @@ class PropertyHotspotAnalyzer:
         print(f"   📍 {inside_count} inside property, {len(all_stands) - inside_count} outside")
         
         return all_stands
+
+    def _cluster_points_haversine(self, points: List[Dict], epsilon_meters: float, min_samples: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Cluster lat/lon points using haversine distance (meters-correct).
+
+        Returns:
+            coords_deg: Nx2 array in degrees
+            labels: DBSCAN cluster labels
+        """
+        if not points:
+            return np.empty((0, 2)), np.array([])
+
+        coords_deg = np.array([[p['lat'], p['lon']] for p in points], dtype=float)
+        coords_rad = np.radians(coords_deg)
+        eps_rad = float(epsilon_meters) / 6371000.0  # Earth radius (m)
+
+        clustering = DBSCAN(eps=eps_rad, min_samples=min_samples, metric='haversine')
+        labels = clustering.fit_predict(coords_rad)
+        return coords_deg, labels
     
     def find_clusters(self, epsilon_meters: float = 50, min_samples: int = 3) -> List[Dict]:
         """Find clusters of predicted stands using DBSCAN."""
@@ -508,16 +546,8 @@ class PropertyHotspotAnalyzer:
             print("❌ No stands to cluster")
             return []
         
-        # Prepare coordinates for clustering
-        coords = np.array([[s['lat'], s['lon']] for s in self.all_stands])
-        
-        # Convert epsilon from meters to degrees (approximate)
-        # At this latitude, 1 degree ≈ 111km
-        epsilon_deg = epsilon_meters / 111000
-        
-        # Run DBSCAN clustering
-        clustering = DBSCAN(eps=epsilon_deg, min_samples=min_samples).fit(coords)
-        labels = clustering.labels_
+        # Run DBSCAN clustering in meters-correct space
+        coords, labels = self._cluster_points_haversine(self.all_stands, epsilon_meters, min_samples)
         
         # Group stands by cluster
         clusters = {}
@@ -546,8 +576,8 @@ class PropertyHotspotAnalyzer:
                 'center_lat': center_lat,
                 'center_lon': center_lon,
                 'num_predictions': len(stands),
-                'avg_score': np.mean([s['score'] for s in stands]),
-                'strategies': list(set([s['strategy'] for s in stands])),
+                'avg_score': float(np.mean([float(s.get('score', 0) or 0) for s in stands])) if stands else 0.0,
+                'strategies': list({s.get('strategy', 'Unknown') for s in stands}),
                 'inside_property': inside,
                 'stands': stands
             }
@@ -555,7 +585,260 @@ class PropertyHotspotAnalyzer:
         
         self.hotspots = hotspots
         return hotspots
+
+    def get_baseline_stand(self, epsilon_meters: float = 60, min_samples: int = 3) -> Dict:
+        """Return the single most conservative, consensus-based stand location.
+
+        Heuristic (simple + robust):
+        - Prefer stands inside property.
+        - Prefer the densest consensus cluster (most predictions within epsilon).
+        - Choose the medoid (closest-to-centroid) within that cluster.
+        - Fallback to top-scoring inside-property stand if no cluster forms.
+        """
+        inside = [s for s in self.all_stands if s.get('inside_property')]
+        if not inside:
+            return {}
+
+        coords, labels = self._cluster_points_haversine(inside, epsilon_meters, min_samples)
+
+        # Build clusters
+        clusters: Dict[int, List[int]] = {}
+        for idx, label in enumerate(labels):
+            if label == -1:
+                continue
+            clusters.setdefault(int(label), []).append(idx)
+
+        # No consensus cluster: pick the highest score inside property
+        if not clusters:
+            best = max(inside, key=lambda s: float(s.get('score', 0) or 0))
+            return {
+                'lat': best['lat'],
+                'lon': best['lon'],
+                'reason': 'No consensus cluster formed; selected highest-scoring inside-property stand.',
+                'supporting_predictions': 1,
+                'sources': sorted({best.get('source', 'unknown')}),
+            }
+
+        # Pick densest cluster; tie-break by mean score
+        best_cluster_id = None
+        best_cluster_key = None
+        for cluster_id, idxs in clusters.items():
+            scores = [float(inside[i].get('score', 0) or 0) for i in idxs]
+            key = (len(idxs), float(np.mean(scores) if scores else 0.0))
+            if best_cluster_key is None or key > best_cluster_key:
+                best_cluster_key = key
+                best_cluster_id = cluster_id
+
+        idxs = clusters[best_cluster_id]
+        cluster_coords = coords[idxs]
+        centroid = np.mean(cluster_coords, axis=0)
+        # Medoid = point with minimum distance to centroid (in meters)
+        best_i = None
+        best_dist = None
+        for i in idxs:
+            d = self.calculate_distance(inside[i]['lat'], inside[i]['lon'], float(centroid[0]), float(centroid[1]))
+            if best_dist is None or d < best_dist:
+                best_dist = d
+                best_i = i
+
+        chosen = inside[best_i]
+        sources = sorted({inside[i].get('source', 'unknown') for i in idxs})
+        return {
+            'lat': chosen['lat'],
+            'lon': chosen['lon'],
+            'reason': f"Selected medoid of densest consensus cluster (n={len(idxs)} within {epsilon_meters}m).",
+            'supporting_predictions': len(idxs),
+            'sources': sources,
+        }
     
+    def get_best_time(self, strategies: List[str]) -> str:
+        """Determine best time to hunt based on strategies."""
+        strategies_lower = [s.lower() for s in strategies]
+        
+        is_bedding = any('bedding' in s for s in strategies_lower)
+        is_feeding = any('feeding' in s for s in strategies_lower)
+        is_rut = any('rut' in s or 'travel' in s or 'corridor' in s for s in strategies_lower)
+        
+        if is_rut:
+            return "All Day"
+        elif is_bedding and is_feeding:
+            return "All Day"
+        elif is_bedding:
+            return "Morning (AM)"
+        elif is_feeding:
+            return "Evening (PM)"
+        else:
+            return "Morning/Evening"
+
+    def get_best_wind(self, aspect: float) -> str:
+        """Determine best wind direction based on slope aspect.
+        General rule: Hunt crosswinds relative to slope direction.
+        """
+        if aspect is None:
+            return "Variable"
+            
+        # Aspect is direction slope faces (0=N, 90=E, 180=S, 270=W)
+        # We want wind blowing ACROSS the slope, not up (thermal) or down (swirling)
+        
+        if 315 <= aspect or aspect < 45:  # North facing
+            return "West or East"
+        elif 45 <= aspect < 135:  # East facing
+            return "North or South"
+        elif 135 <= aspect < 225:  # South facing
+            return "West or East"
+        elif 225 <= aspect < 315:  # West facing
+            return "North or South"
+        return "Variable"
+
+    def calculate_bearing(self, lat1, lon1, lat2, lon2):
+        """Calculate bearing between two points."""
+        # Convert to radians
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        
+        d_lon = lon2 - lon1
+        
+        x = math.sin(d_lon) * math.cos(lat2)
+        y = math.cos(lat1) * math.sin(lat2) - (math.sin(lat1) * math.cos(lat2) * math.cos(d_lon))
+        
+        initial_bearing = math.atan2(x, y)
+        
+        # Convert to degrees
+        initial_bearing = math.degrees(initial_bearing)
+        
+        # Normalize to 0-360
+        bearing = (initial_bearing + 360) % 360
+        return bearing
+
+    def calculate_distance(self, lat1, lon1, lat2, lon2):
+        """Calculate distance between two points in meters."""
+        R = 6371000  # Earth radius in meters
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        
+        a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        return R * c
+
+    def identify_buck_bedroom(self, top_hotspots: List[Dict] = None):
+        """
+        Identify the single best mature buck bedding site by reverse-engineering 
+        from the identified Rut Hotspots.
+        
+        Logic:
+        1. Find 'Rut Center' (centroid of top hotspots).
+        2. Find a secure ridge (High/Steep/Leeward) that overlooks this center.
+        3. Ideal distance: 200-600m (Satellite Ridge).
+        """
+        if not self.lidar_analysis:
+            return
+
+        print(f"\n👑 Reverse-Engineering Mature Buck Bedding (The 'Rut Command Center')...")
+        
+        if not top_hotspots:
+            print("   ⚠️ No hotspots provided for reverse analysis. Using terrain-only mode.")
+            return
+
+        # 1. Calculate Rut Center
+        lats = [h.get('center_lat', h.get('lat')) for h in top_hotspots]
+        lons = [h.get('center_lon', h.get('lon')) for h in top_hotspots]
+        center_lat = np.mean(lats)
+        center_lon = np.mean(lons)
+        
+        print(f"   📍 Rut Activity Center: ({center_lat:.6f}, {center_lon:.6f})")
+        print(f"      (Calculated from centroid of Top {len(top_hotspots)} Hotspots)")
+
+        # Get elevation stats for property
+        elevations = [p['elevation'] for p in self.lidar_analysis]
+        max_elev = max(elevations)
+        min_elev = min(elevations)
+        elev_range = max_elev - min_elev
+        
+        # Threshold for "High Ground" (Top 30% - slightly expanded search)
+        high_ground_threshold = min_elev + (elev_range * 0.70)
+        
+        candidates = []
+        
+        for p in self.lidar_analysis:
+            # 1. Security Filter (The "Shield")
+            # Must be high ground
+            if p['elevation'] < high_ground_threshold:
+                continue
+            
+            # Must be steep enough (12-35 degrees)
+            if not (12 <= p['slope'] <= 35):
+                continue
+                
+            # Must be Leeward (East/South-East/South) for West Wind
+            # 45 (NE) to 200 (SSW)
+            if not (45 <= p['aspect'] <= 200):
+                continue
+            
+            # 2. Proximity Filter (The "Commute")
+            # Calculate distance to Rut Center
+            # Approx distance in meters (1 deg lat ~ 111km)
+            d_lat = (p['lat'] - center_lat) * 111000
+            d_lon = (p['lon'] - center_lon) * 111000 * np.cos(np.radians(center_lat))
+            dist_meters = np.sqrt(d_lat**2 + d_lon**2)
+            
+            # Ideal: 200m - 600m (Staging distance)
+            if dist_meters < 150: continue # Too close to the party
+            if dist_meters > 800: continue # Too far to commute
+            
+            # 3. Scoring
+            score = 0
+            
+            # Security Score (50%)
+            elev_score = ((p['elevation'] - min_elev) / elev_range) * 25
+            slope_score = (1 - abs(p['slope'] - 20)/20) * 25 # Peak at 20 deg
+            security_score = elev_score + slope_score
+            
+            # Strategic Score (50%)
+            # Distance: Peak at 350m
+            dist_score = (1 - abs(dist_meters - 350)/450) * 30
+            
+            # Aspect Bonus (SE is best for morning thermal + leeward)
+            aspect_diff = abs(p['aspect'] - 135)
+            if aspect_diff > 180: aspect_diff = 360 - aspect_diff
+            aspect_score = ((180 - aspect_diff) / 180) * 20
+            
+            total_score = security_score + dist_score + aspect_score
+            
+            candidates.append({
+                'point': p,
+                'score': total_score,
+                'dist': dist_meters,
+                'security': security_score,
+                'strategic': dist_score + aspect_score
+            })
+            
+        if not candidates:
+            print("   ⚠️ No perfect 'Hub' bedding sites found. Buck may be bedding off-property or in non-ideal terrain.")
+            self.buck_bed = None
+            return
+
+        # Sort by score
+        candidates.sort(key=lambda x: x['score'], reverse=True)
+        best = candidates[0]
+        p = best['point']
+        
+        self.buck_bed = {
+            'lat': p['lat'], 
+            'lon': p['lon'], 
+            'elevation': p['elevation'],
+            'score': best['score']
+        }
+        
+        print(f"\n   ✅ TARGET ACQUIRED: The 'General's Quarters'")
+        print(f"      Location: ({p['lat']:.6f}, {p['lon']:.6f})")
+        print(f"      Distance to Rut Center: {best['dist']:.0f}m (Perfect Staging Distance)")
+        print(f"      Elevation: {p['elevation']:.1f}m (Overwatch Position)")
+        print(f"      Slope: {p['slope']:.1f}° | Aspect: {p['aspect']:.0f}°")
+        print(f"      Tactical Score: {best['score']:.1f}/100")
+        print(f"      Analysis: This bed allows him to scent-check the hotspot cluster from {best['dist']:.0f}m away")
+        print(f"                while remaining virtually invisible on high, steep, leeward terrain.")
+
     def rank_hotspots(self) -> List[Dict]:
         """Rank hotspots by quality and return top 5 inside property."""
         print(f"\n🏆 Ranking hotspots...")
@@ -592,17 +875,24 @@ class PropertyHotspotAnalyzer:
                 matching = [p for p in self.lidar_analysis 
                            if abs(p['lat'] - source_lat) < 0.0001 and abs(p['lon'] - source_lon) < 0.0001]
                 terrain_quality = matching[0]['score'] if matching else 50
+                aspect = matching[0]['aspect'] if matching else None
+                
+                strategies = [stand['strategy']]
+                best_time = self.get_best_time(strategies)
+                best_wind = self.get_best_wind(aspect)
                 
                 top_5.append({
                     'center_lat': stand['lat'],
                     'center_lon': stand['lon'],
                     'num_predictions': 1,
                     'avg_score': stand['score'],
-                    'strategies': [stand['strategy']],
+                    'strategies': strategies,
                     'inside_property': True,
                     'total_score': terrain_quality + (stand['score'] * 5),  # Terrain + API confidence
                     'terrain_quality': terrain_quality,
-                    'stands': [stand]
+                    'stands': [stand],
+                    'best_time': best_time,
+                    'best_wind': best_wind
                 })
             return top_5
         
@@ -615,6 +905,7 @@ class PropertyHotspotAnalyzer:
             
             # Extract LIDAR scores from source points
             lidar_scores = []
+            aspects = []
             for stand in hotspot['stands']:
                 source_lat, source_lon = stand['source_point']
                 # Find matching LIDAR analysis
@@ -622,9 +913,24 @@ class PropertyHotspotAnalyzer:
                            if abs(p['lat'] - source_lat) < 0.0001 and abs(p['lon'] - source_lon) < 0.0001]
                 if matching:
                     lidar_scores.append(matching[0]['score'])
+                    aspects.append(matching[0]['aspect'])
             
             # Average LIDAR terrain score (0-100)
             terrain_quality = np.mean(lidar_scores) if lidar_scores else 50
+            
+            # Calculate circular mean for aspect
+            if aspects:
+                # Convert to radians
+                rads = np.radians(aspects)
+                # Average the sin and cos components
+                avg_sin = np.mean(np.sin(rads))
+                avg_cos = np.mean(np.cos(rads))
+                # Convert back to degrees
+                avg_aspect = np.degrees(np.arctan2(avg_sin, avg_cos))
+                if avg_aspect < 0:
+                    avg_aspect += 360
+            else:
+                avg_aspect = None
             
             # Prediction confidence from API (0-10 scale)
             api_confidence = hotspot['avg_score']
@@ -640,23 +946,81 @@ class PropertyHotspotAnalyzer:
             hotspot['total_score'] = terrain_quality + (api_confidence * 5) + density_bonus + diversity_bonus
             hotspot['terrain_quality'] = terrain_quality
             hotspot['lidar_scores'] = lidar_scores
+            
+            # Add Best Time and Wind
+            hotspot['best_time'] = self.get_best_time(hotspot['strategies'])
+            hotspot['best_wind'] = self.get_best_wind(avg_aspect)
         
         # Sort by score
         ranked = sorted(valid_hotspots, key=lambda h: h['total_score'], reverse=True)
         
-        # Return top 5
-        top_5 = ranked[:5]
+        # Return top 10
+        top_10 = ranked[:10]
         
-        print(f"\n✅ Top 5 Hotspots (all inside property):")
-        for i, hotspot in enumerate(top_5, 1):
-            print(f"\n   #{i} - ({hotspot['center_lat']:.6f}, {hotspot['center_lon']:.6f})")
-            print(f"      Predictions: {hotspot['num_predictions']}")
-            print(f"      Terrain Quality: {hotspot.get('terrain_quality', 0):.1f}/100 (LIDAR)")
-            print(f"      API Confidence: {hotspot['avg_score']:.1f}/10")
-            print(f"      Strategies: {', '.join(hotspot['strategies'])}")
-            print(f"      Total Score: {hotspot['total_score']:.1f}")
+        # Identify Buck Bedroom
+        self.identify_buck_bedroom(top_hotspots=top_10)
         
-        return top_5
+        print(f"\n✅ Top 10 Hotspots (all inside property):")
+        for i, hotspot in enumerate(top_10, 1):
+            is_primary = (i == 1) # Assume #1 is primary
+            
+            if is_primary:
+                print(f"\n   🏆 PRIMARY HOTSPOT")
+                print(f"   #{i} - ({hotspot['center_lat']:.6f}, {hotspot['center_lon']:.6f})")
+            else:
+                print(f"\n   #{i} - ({hotspot['center_lat']:.6f}, {hotspot['center_lon']:.6f})")
+                
+            print(f"      Score: {hotspot['total_score']:.1f} | Predictions: {hotspot['num_predictions']} | Confidence: {hotspot['avg_score']:.1f}/10")
+            print(f"      Strategy: {', '.join(hotspot['strategies'])}")
+            print(f"      Best Time: {hotspot['best_time']}")
+            
+            # Wind analysis based on buck travel from bed
+            if self.buck_bed:
+                dist = self.calculate_distance(self.buck_bed['lat'], self.buck_bed['lon'], hotspot['center_lat'], hotspot['center_lon'])
+                bearing = self.calculate_bearing(self.buck_bed['lat'], self.buck_bed['lon'], hotspot['center_lat'], hotspot['center_lon'])
+                yards = dist * 1.09361
+                
+                # Determine cardinal direction buck travels FROM bed TO hotspot
+                dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+                ix = round(bearing / 45) % 8
+                buck_travel_dir = dirs[ix]
+                
+                # Buck approaches FROM the opposite direction
+                approach_bearing = (bearing + 180) % 360
+                approach_ix = round(approach_bearing / 45) % 8
+                buck_approaches_from = dirs[approach_ix]
+                
+                def get_cardinal(deg):
+                    dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+                    ix = round(deg / 45) % 8
+                    return dirs[ix]
+                
+                # Calculate GOOD winds (blow scent AWAY from buck's approach)
+                # Good winds are roughly perpendicular to his approach, blowing away from it
+                good_wind_1 = (bearing + 90) % 360  # Crosswind option 1
+                good_wind_2 = (bearing - 90) % 360  # Crosswind option 2
+                # Also good: winds blowing same direction buck travels (behind him)
+                good_wind_3 = bearing  # Blows where he's going, not where he's coming from
+                
+                good_winds = [get_cardinal(good_wind_1), get_cardinal(good_wind_2)]
+                
+                # Calculate BAD winds (blow scent TOWARD buck's approach path)
+                bad_wind = (bearing + 180) % 360  # Blows toward where buck comes from
+                bad_wind_dir = get_cardinal(bad_wind)
+                # Adjacent bad winds
+                bad_wind_adj1 = get_cardinal((bad_wind + 45) % 360)
+                bad_wind_adj2 = get_cardinal((bad_wind - 45) % 360)
+                
+                print(f"      ─────────────────────────────────────────")
+                print(f"      🦌 BUCK COMMUTE: {yards:.0f} yds from bed")
+                print(f"         He travels {buck_travel_dir} from bed → approaches from {buck_approaches_from}")
+                print(f"      🌬️  WIND STRATEGY:")
+                print(f"         ✅ HUNT ON: {good_winds[0]} or {good_winds[1]} wind")
+                print(f"            (Your scent blows away from his approach)")
+                print(f"         ❌ AVOID:   {bad_wind_dir} wind")
+                print(f"            (Your scent blows toward his approach path)")
+        
+        return top_10
     
     def find_nearby_clusters(self, max_distance_meters: float = 100) -> list:
         """Find clusters that are outside property but within specified distance of boundary."""
@@ -683,6 +1047,124 @@ class PropertyHotspotAnalyzer:
         
         return nearby
     
+    def get_quadrant(self, lat: float, lon: float) -> str:
+        """Determine which quadrant (NW, NE, SW, SE) a point falls into."""
+        center_lat = np.mean([c[0] for c in self.corners.values()])
+        center_lon = np.mean([c[1] for c in self.corners.values()])
+        
+        is_north = lat >= center_lat
+        is_east = lon >= center_lon
+        
+        if is_north and is_east: return 'NE'
+        if is_north and not is_east: return 'NW'
+        if not is_north and is_east: return 'SE'
+        return 'SW'
+
+    def select_diverse_candidates(self, sites: List[Dict], total: int = 20, min_per_quad: int = 2) -> List[Dict]:
+        """Select top sites but ensure geographic diversity across quadrants."""
+        print(f"\n⚖️  Selecting {total} candidates with diversity check (min {min_per_quad} per quadrant)...")
+        
+        quadrants = {'NE': [], 'NW': [], 'SE': [], 'SW': []}
+        for site in sites:
+            q = self.get_quadrant(site['lat'], site['lon'])
+            quadrants[q].append(site)
+            
+        selected = []
+        # Force min_per_quad
+        for q, q_sites in quadrants.items():
+            # Sort by score
+            q_sites.sort(key=lambda x: x['score'], reverse=True)
+            # Take top N
+            taking = q_sites[:min_per_quad]
+            selected.extend(taking)
+            print(f"   - {q}: Selected {len(taking)} forced candidates (Best: {taking[0]['score']:.1f})" if taking else f"   - {q}: No sites available!")
+            
+        # Fill rest with best remaining
+        current_ids = {id(s) for s in selected}
+        remaining = [s for s in sites if id(s) not in current_ids]
+        remaining.sort(key=lambda x: x['score'], reverse=True)
+        
+        needed = total - len(selected)
+        if needed > 0:
+            filled = remaining[:needed]
+            selected.extend(filled)
+            print(f"   - Filled remaining {len(filled)} slots with highest scoring sites")
+            
+        return selected
+
+    def print_balanced_summary(self):
+        """Print Top 5 Global + Best of Other Quadrants."""
+        print(f"\n" + "="*70)
+        print("🏆 BALANCED HOTSPOT REPORT")
+        print("="*70)
+        
+        # 1. Get Global Top 5
+        # We need to re-rank all hotspots/stands first to be sure
+        valid_hotspots = [h for h in self.hotspots if h['inside_property']]
+        
+        # If no hotspots, use stands
+        if not valid_hotspots:
+            items = [s for s in self.all_stands if s['inside_property']]
+            # Add dummy total_score if missing
+            for i in items:
+                if 'total_score' not in i: i['total_score'] = i['score'] * 10 # Rough conversion
+        else:
+            items = valid_hotspots
+            
+        # Sort by total score
+        items.sort(key=lambda x: x.get('total_score', 0), reverse=True)
+        top_10 = items[:10]
+        
+        print("\n🌟 TOP 10 PREDICTED SITES (GLOBAL)")
+        print("-" * 40)
+        for i, item in enumerate(top_10, 1):
+            lat = item.get('center_lat', item.get('lat'))
+            lon = item.get('center_lon', item.get('lon'))
+            score = item.get('total_score', 0)
+            quad = self.get_quadrant(lat, lon)
+            type_str = "Cluster" if 'num_predictions' in item else "Stand"
+            best_time = item.get('best_time', 'Unknown')
+            best_wind = item.get('best_wind', 'Unknown')
+            # Get aspect if available (it's not stored in item directly, need to re-calculate or store it)
+            # For now, we won't print aspect here to keep it simple, but the wind is based on the corrected aspect.
+            print(f"   #{i} [{quad}] Score: {score:.1f} - ({lat:.5f}, {lon:.5f}) - {type_str}")
+            print(f"       Time: {best_time} | Wind: {best_wind}")
+
+        # 2. Identify "Best Area" (Quadrant with most in Top 5)
+        quad_counts = {'NE': 0, 'NW': 0, 'SE': 0, 'SW': 0}
+        for item in top_10[:5]:
+            lat = item.get('center_lat', item.get('lat'))
+            lon = item.get('center_lon', item.get('lon'))
+            q = self.get_quadrant(lat, lon)
+            quad_counts[q] += 1
+            
+        best_quad = max(quad_counts, key=quad_counts.get)
+        print(f"\n   👉 Dominant Sector: {best_quad} ({quad_counts[best_quad]}/5 top spots)")
+        
+        # 3. Find best in other quadrants
+        print(f"\n🌍 BEST LOCATION IN OTHER SECTORS")
+        print("-" * 40)
+        
+        other_quads = [q for q in ['NE', 'NW', 'SE', 'SW'] if q != best_quad]
+        
+        for q in other_quads:
+            # Find best item in this quadrant from ALL items (not just top 5)
+            q_items = []
+            for item in items:
+                lat = item.get('center_lat', item.get('lat'))
+                lon = item.get('center_lon', item.get('lon'))
+                if self.get_quadrant(lat, lon) == q:
+                    q_items.append(item)
+            
+            if q_items:
+                best = q_items[0] # Already sorted
+                lat = best.get('center_lat', best.get('lat'))
+                lon = best.get('center_lon', best.get('lon'))
+                score = best.get('total_score', 0)
+                print(f"   📍 {q} Sector Best: Score {score:.1f} - ({lat:.5f}, {lon:.5f})")
+            else:
+                print(f"   ⚠️  {q} Sector: No huntable predictions found (Terrain score too low)")
+
     def generate_map(self, output_file: str = "hotspot_map.html"):
         """Generate interactive map showing analysis results."""
         print(f"\n🗺️  Generating map...")
@@ -727,9 +1209,9 @@ class PropertyHotspotAnalyzer:
                 opacity=0.3
             ).add_to(m)
         
-        # Add top 5 hotspots (large markers)
-        top_5 = self.rank_hotspots()
-        for i, hotspot in enumerate(top_5, 1):
+        # Add top hotspots (large markers)
+        top_hotspots = self.rank_hotspots()
+        for i, hotspot in enumerate(top_hotspots, 1):
             folium.Marker(
                 location=[hotspot['center_lat'], hotspot['center_lon']],
                 popup=f"""
@@ -737,6 +1219,8 @@ class PropertyHotspotAnalyzer:
                     Predictions: {hotspot['num_predictions']}<br>
                     Avg Score: {hotspot['avg_score']:.1f}/10<br>
                     Strategies: {', '.join(hotspot['strategies'])}<br>
+                    Best Time: {hotspot.get('best_time', 'Unknown')}<br>
+                    Best Wind: {hotspot.get('best_wind', 'Unknown')}<br>
                     Score: {hotspot['total_score']:.1f}
                 """,
                 icon=folium.Icon(color='red', icon='star')
@@ -751,7 +1235,9 @@ class PropertyHotspotAnalyzer:
     
     def generate_report(self, output_file: str = "hotspot_report.json"):
         """Generate detailed JSON report of analysis."""
-        top_5 = self.rank_hotspots()
+        top_hotspots = self.rank_hotspots()
+
+        baseline = self.get_baseline_stand(epsilon_meters=60, min_samples=3)
         
         # Find nearby clusters (outside but close to boundary)
         nearby_clusters = self.find_nearby_clusters(max_distance_meters=500)
@@ -765,7 +1251,7 @@ class PropertyHotspotAnalyzer:
             'stands_inside_property': sum(1 for s in self.all_stands if s['inside_property']),
             'total_hotspots_found': len(self.hotspots),
             'hotspots_inside_property': len([h for h in self.hotspots if h['inside_property']]),
-            'top_5_hotspots': [
+            'top_hotspots': [
                 {
                     'rank': i,
                     'latitude': h['center_lat'],
@@ -775,10 +1261,13 @@ class PropertyHotspotAnalyzer:
                     'terrain_quality': h.get('terrain_quality', 0),
                     'total_score': h['total_score'],
                     'strategies': h['strategies'],
+                    'best_time': h.get('best_time', 'Unknown'),
+                    'best_wind': h.get('best_wind', 'Unknown'),
                     'lidar_scores': h.get('lidar_scores', [])
                 }
-                for i, h in enumerate(top_5, 1)
+                for i, h in enumerate(top_hotspots, 1)
             ],
+            'baseline_stand': baseline,
             'nearby_clusters_outside_boundary': [
                 {
                     'latitude': c['center_lat'],
@@ -808,6 +1297,14 @@ class PropertyHotspotAnalyzer:
                 print(f"   Strategies: {', '.join(cluster['strategies'])}")
         
         print(f"✅ Report saved to: {output_path.absolute()}")
+
+        if baseline:
+            print(f"\n🎯 BASELINE CONSENSUS STAND")
+            print(f"   Location: ({baseline['lat']:.6f}, {baseline['lon']:.6f})")
+            print(f"   Support: {baseline.get('supporting_predictions', 0)} predictions")
+            print(f"   Sources: {', '.join(baseline.get('sources', []))}")
+            print(f"   Why: {baseline.get('reason', '')}")
+
         return str(output_path.absolute())
 
 
@@ -826,8 +1323,8 @@ def main():
     print("   Goal: Analyze 3000 sites using LIDAR (NO API calls yet)")
     print("-" * 70)
     
-    # Generate 3000 grid points across property
-    analyzer.generate_grid(num_points=3000)
+    # Generate 100,000 grid points across property (100 points/acre for 1000 acres)
+    analyzer.generate_grid(num_points=100000)
     
     # Score all 1500 points with LIDAR
     if LIDAR_AVAILABLE:
@@ -885,10 +1382,10 @@ def main():
     
     print(f"\n✅ Land cover filtering complete!")
     print(f"   {len(forest_sites)} forest sites identified from top 50")
-    print(f"   Taking top 20 for API predictions")
+    print(f"   Taking top 20 for API predictions (with diversity check)")
     
-    # Use top 20 forest sites for API predictions
-    analyzer.candidate_points = forest_sites[:20]
+    # Use top 20 forest sites for API predictions (with diversity check)
+    analyzer.candidate_points = analyzer.select_diverse_candidates(forest_sites, total=20, min_per_quad=2)
     analyzer.grid_points = [(p['lat'], p['lon']) for p in analyzer.candidate_points]
     
     # PHASE 2: API Predictions for Top Candidates
@@ -910,6 +1407,7 @@ def main():
     
     analyzer.generate_map()
     analyzer.generate_report()
+    analyzer.print_balanced_summary()
     
     print("\n" + "=" * 70)
     print("✅ ANALYSIS COMPLETE")

@@ -1,14 +1,16 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 import requests
 import json
 import os
 import hashlib
 import math
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from map_config import MAP_SOURCES
 from enhanced_data_validation import (
@@ -539,7 +541,131 @@ st.title("🏔️ Vermont Deer Movement Predictor with Real-Time Scouting")
 st.markdown("*Vermont-legal hunting hours, enhanced predictions, and real-time scouting data integration*")
 
 # Create main navigation tabs
-tab_predict, tab_scout, tab_analytics = st.tabs(["🎯 Hunt Predictions", "🔍 Scouting Data", "📊 Analytics"])
+tab_predict, tab_scout, tab_analytics, tab_hotspots = st.tabs([
+    "🎯 Hunt Predictions",
+    "🔍 Scouting Data",
+    "📊 Analytics",
+    "🗺️ Property Hotspots",
+])
+
+
+def _find_hotspot_artifact(filename: str) -> str | None:
+    candidates = [
+        os.path.join(os.getcwd(), filename),
+        os.path.join(os.path.dirname(__file__), filename),
+        os.path.join(os.path.dirname(__file__), "artifacts", filename),
+        os.path.join(os.path.dirname(__file__), "..", filename),
+        os.path.join(os.path.dirname(__file__), "..", "analysis", filename),
+    ]
+    for path in candidates:
+        try:
+            if os.path.exists(path):
+                return os.path.abspath(path)
+        except OSError:
+            continue
+    return None
+
+
+def _parse_corners_text(text: str) -> list[dict[str, float]]:
+    corners: list[dict[str, float]] = []
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # allow "NW 43.31, -73.21" or "43.31,-73.21"
+        parts = line.replace("\t", " ").replace(";", ",").split(",")
+        if len(parts) < 2:
+            # try split by whitespace
+            bits = [b for b in line.split(" ") if b]
+            if len(bits) >= 2:
+                parts = [bits[-2], bits[-1]]
+            else:
+                continue
+
+        try:
+            lat = float(str(parts[0]).split()[-1])
+            lon = float(str(parts[1]).split()[0])
+        except Exception:
+            continue
+
+        corners.append({"lat": lat, "lon": lon})
+    return corners
+
+
+def _corners_centroid(corners: list[dict[str, float]]) -> tuple[float, float] | None:
+    if not corners:
+        return None
+    lats = [c.get("lat") for c in corners if isinstance(c, dict) and isinstance(c.get("lat"), (int, float))]
+    lons = [c.get("lon") for c in corners if isinstance(c, dict) and isinstance(c.get("lon"), (int, float))]
+    if not lats or not lons:
+        return None
+    return (sum(lats) / len(lats), sum(lons) / len(lons))
+
+
+def _noaa_sun_event_utc(date_local, lat: float, lon: float, *, is_sunrise: bool) -> datetime | None:
+    """Approx sunrise/sunset time in UTC using NOAA algorithm.
+
+    Good enough for scheduling +/- 30 minutes. Returns None if the event
+    doesn't occur (e.g., polar regions).
+    """
+
+    # https://gml.noaa.gov/grad/solcalc/solareqns.PDF (classic approximate method)
+    zenith = 90.833  # official
+    n = int(date_local.timetuple().tm_yday)
+    lng_hour = float(lon) / 15.0
+    base_hour = 6.0 if is_sunrise else 18.0
+    t = n + ((base_hour - lng_hour) / 24.0)
+
+    m = (0.9856 * t) - 3.289
+    l = m + (1.916 * math.sin(math.radians(m))) + (0.020 * math.sin(math.radians(2 * m))) + 282.634
+    l = l % 360.0
+
+    ra = math.degrees(math.atan(0.91764 * math.tan(math.radians(l))))
+    ra = ra % 360.0
+    l_quadrant = (math.floor(l / 90.0)) * 90.0
+    ra_quadrant = (math.floor(ra / 90.0)) * 90.0
+    ra = ra + (l_quadrant - ra_quadrant)
+    ra_hours = ra / 15.0
+
+    sin_dec = 0.39782 * math.sin(math.radians(l))
+    cos_dec = math.cos(math.asin(sin_dec))
+
+    cos_h = (
+        math.cos(math.radians(zenith)) - (sin_dec * math.sin(math.radians(lat)))
+    ) / (cos_dec * math.cos(math.radians(lat)))
+
+    if cos_h > 1.0 or cos_h < -1.0:
+        return None
+
+    if is_sunrise:
+        h = 360.0 - math.degrees(math.acos(cos_h))
+    else:
+        h = math.degrees(math.acos(cos_h))
+
+    h_hours = h / 15.0
+
+    t_local = h_hours + ra_hours - (0.06571 * t) - 6.622
+    ut = (t_local - lng_hour) % 24.0
+
+    hour = int(ut)
+    minute = int((ut - hour) * 60.0)
+    second = int(round((((ut - hour) * 60.0) - minute) * 60.0))
+    if second == 60:
+        second = 59
+
+    return datetime(date_local.year, date_local.month, date_local.day, hour, minute, second, tzinfo=timezone.utc)
+
+
+def _noaa_sunrise_utc(date_local, lat: float, lon: float) -> datetime | None:
+    return _noaa_sun_event_utc(date_local, lat, lon, is_sunrise=True)
+
+
+def _noaa_sunset_utc(date_local, lat: float, lon: float) -> datetime | None:
+    return _noaa_sun_event_utc(date_local, lat, lon, is_sunrise=False)
+
+
+def _dt_to_iso_z(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 # Initialize session state for map data
 if 'hunt_location' not in st.session_state:
@@ -619,11 +745,308 @@ with tab_predict:
             st.success(
                 f"🪵 Next hunt window: {start_label} → {end_label} · {wind_label} · Confidence {confidence_pct:.0f}% · Boost +{boost:.1f} {triggers_text}"
             )
+
+        # Debug/trace panel for LiDAR+GEE pipeline
+        trace_summary = active_prediction.get('trace_summary') if isinstance(active_prediction.get('trace_summary'), dict) else {}
+        scouting_summary = active_prediction.get('scouting_prior_summary') if isinstance(active_prediction.get('scouting_prior_summary'), dict) else {}
+        gee_data = active_prediction.get('gee_data') if isinstance(active_prediction.get('gee_data'), dict) else {}
+        ndvi_trend = gee_data.get('ndvi_trend') if isinstance(gee_data.get('ndvi_trend'), dict) else {}
+        canopy_source = gee_data.get('canopy_data_source')
+        canopy_pct = gee_data.get('canopy_coverage')
+        corridor_score = None
+        bedding_props = active_prediction.get('bedding_zones', {}).get('properties', {}) if isinstance(active_prediction.get('bedding_zones'), dict) else {}
+        suitability = bedding_props.get('suitability_analysis', {}) if isinstance(bedding_props.get('suitability_analysis'), dict) else {}
+        scores = suitability.get('scores', {}) if isinstance(suitability.get('scores'), dict) else {}
+        if isinstance(scores.get('corridor'), (int, float)):
+            corridor_score = scores.get('corridor')
+
+        key_bits = []
+        if isinstance(canopy_pct, (int, float)):
+            label = f"Canopy: {canopy_pct:.0%}"
+            if canopy_source:
+                label += f" ({canopy_source})"
+            key_bits.append(label)
+        if ndvi_trend:
+            trend = ndvi_trend.get('trend')
+            delta = ndvi_trend.get('delta')
+            if trend:
+                trend_label = f"NDVI trend: {trend}"
+                if delta is not None:
+                    trend_label += f" ({delta:+.2f})"
+                key_bits.append(trend_label)
+        if corridor_score is not None:
+            key_bits.append(f"Corridor score: {corridor_score:.0f}/100")
+        if trace_summary:
+            candidates = trace_summary.get('candidates_generated')
+            coverage = trace_summary.get('lidar_coverage_pct')
+            if candidates:
+                key_bits.append(f"LiDAR candidates: {candidates}")
+            if coverage is not None:
+                key_bits.append(f"LiDAR coverage: {coverage:.1f}%")
+
+        if key_bits:
+            st.info(" · ".join(key_bits))
+        if trace_summary or scouting_summary:
+            with st.expander("🔍 Prediction Trace Summary", expanded=False):
+                if trace_summary:
+                    st.markdown("**LiDAR/GEE Trace**")
+                    st.json(trace_summary)
+                if scouting_summary:
+                    st.markdown("**Scouting Prior Summary**")
+                    st.json(scouting_summary)
+
+
+# ==========================================
+# TAB 4: PROPERTY HOTSPOTS (VIEWER)
+# ==========================================
+with tab_hotspots:
+    st.header("🗺️ Property Hotspots")
+    st.caption(
+        "Shows the latest outputs from the standalone Property Hotspot Analyzer. "
+        "Run the analyzer to regenerate the map/report, then refresh this tab."
+    )
+    st.info("Tip: start with 8–15 sample points to validate, then increase for higher confidence.")
+
+    st.subheader("Run hotspot analysis")
+    default_corners = "\n".join(
+        [
+            "NW 43.31925, -73.23064",
+            "NE 43.32165, -73.20444",
+            "SE 43.29906, -73.21121",
+            "SW 43.30036, -73.24005",
+        ]
+    )
+    corners_text = st.text_area(
+        "Property corners (one per line)",
+        value=st.session_state.get("hotspot_corners_text", default_corners),
+        height=120,
+        help="Format examples: 'NW 43.31, -73.21' or '43.31, -73.21'",
+    )
+    st.session_state["hotspot_corners_text"] = corners_text
+
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        mode = st.selectbox(
+            "Mode",
+            ["lidar_first", "sample_predict"],
+            index=0,
+            help="lidar_first: score ~100k points using local LiDAR/DEM, then run full prediction only on top K. sample_predict: run full prediction on random samples.",
+        )
+    with col_b:
+        epsilon_m = st.number_input("Cluster radius (m)", min_value=10, max_value=300, value=75, step=5)
+    with col_c:
+        min_samples = st.number_input("Min cluster size", min_value=2, max_value=10, value=2, step=1)
+
+    if mode == "lidar_first":
+        col_d, col_e, col_f = st.columns(3)
+        with col_d:
+            lidar_grid_points = st.number_input("LiDAR grid points", min_value=5000, max_value=200000, value=100000, step=5000)
+        with col_e:
+            lidar_top_k = st.number_input("Shortlist (top K)", min_value=5, max_value=50, value=20, step=1)
+        with col_f:
+            lidar_radius_m = st.number_input("LiDAR sample radius (m)", min_value=5, max_value=120, value=30, step=5)
+        num_points = 25
+    else:
+        num_points = st.number_input("Sample points", min_value=5, max_value=200, value=25, step=5)
+        lidar_grid_points = 100000
+        lidar_top_k = 20
+        lidar_radius_m = 30
+
+    dt_mode = st.radio(
+        "Time",
+        ["Manual (ISO UTC)", "Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"],
+        index=0,
+        horizontal=True,
+        help="Bracket mode submits two jobs around sunrise/sunset for the property centroid.",
+    )
+
+    dt = st.text_input("ISO datetime (UTC)", value="2025-10-15T10:30:00Z", disabled=(dt_mode != "Manual (ISO UTC)"))
+
+    sunrise_date = None
+    if dt_mode != "Manual (ISO UTC)":
+        sunrise_date = st.date_input("Date (local)")
+    pressure = st.selectbox("Hunting pressure", ["low", "medium", "high"], index=2)
+
+    if st.button("Run property hotspot analysis", type="primary"):
+        corners = _parse_corners_text(corners_text)
+        if len(corners) < 3:
+            st.error("Please provide at least 3 corners (lat/lon).")
+        else:
+            try:
+                base_payload = {
+                    "corners": corners,
+                    "mode": mode,
+                    "num_sample_points": int(num_points),
+                    "lidar_grid_points": int(lidar_grid_points),
+                    "lidar_top_k": int(lidar_top_k),
+                    "lidar_sample_radius_m": int(lidar_radius_m),
+                    "epsilon_meters": float(epsilon_m),
+                    "min_samples": int(min_samples),
+                    "season": "fall",
+                    "hunting_pressure": pressure,
+                }
+
+                job_choices: list[tuple[str, str]] = []
+
+                if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
+                    centroid = _corners_centroid(corners)
+                    if not centroid:
+                        st.error("Could not compute property centroid from corners.")
+                    else:
+                        lat_c, lon_c = centroid
+                        # App is Vermont-focused; use Eastern time for local sunrise.
+                        tz = ZoneInfo("America/New_York")
+                        is_sunrise = dt_mode.startswith("Sunrise")
+                        event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
+                        if not event_utc:
+                            st.error("Sunrise/sunset could not be computed for this date/location.")
+                        else:
+                            event_local = event_utc.astimezone(tz)
+                            dt_a = event_local - timedelta(minutes=30)
+                            dt_b = event_local + timedelta(minutes=30)
+                            event_name = "Sunrise" if is_sunrise else "Sunset"
+                            pairs = [(f"{event_name} -30m", dt_a), (f"{event_name} +30m", dt_b)]
+                            for label, local_dt in pairs:
+                                payload = dict(base_payload)
+                                payload["date_time"] = _dt_to_iso_z(local_dt)
+                                resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                                if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                                    job_choices.append((f"{label} ({local_dt.strftime('%Y-%m-%d %H:%M %Z')})", data["job_id"]))
+                                else:
+                                    st.error(f"Could not start {label}: {data.get('error') or resp.text}")
+
+                else:
+                    payload = dict(base_payload)
+                    payload["date_time"] = dt
+                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                        job_choices.append(("Manual", data["job_id"]))
+                    else:
+                        st.error(f"Could not start job: {data.get('error') or resp.text}")
+
+                if job_choices:
+                    st.session_state["hotspot_job_choices"] = job_choices
+                    st.session_state["hotspot_job_id"] = job_choices[0][1]
+                    if len(job_choices) == 1:
+                        st.success(f"Started hotspot job: {job_choices[0][1]}")
+                    else:
+                        st.success("Started hotspot jobs:")
+                        for label, jid in job_choices:
+                            st.write(f"- {label}: {jid}")
+            except Exception as e:
+                st.error(f"Could not start job: {e}")
+
+    job_choices = st.session_state.get("hotspot_job_choices")
+    if isinstance(job_choices, list) and job_choices:
+        labels = [c[0] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
+        ids = [c[1] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
+        if labels and ids and len(labels) == len(ids):
+            selected = st.selectbox("View job", options=list(range(len(ids))), format_func=lambda i: labels[i])
+            st.session_state["hotspot_job_id"] = ids[int(selected)]
+
+    job_id = st.session_state.get("hotspot_job_id")
+    if job_id:
+        st.subheader("Job status")
+        try:
+            status_resp = requests.get(f"{BACKEND_URL}/property-hotspots/status/{job_id}", timeout=30)
+            status_data = status_resp.json() if status_resp.headers.get("content-type", "").startswith("application/json") else {}
+            job = status_data.get("job") if isinstance(status_data, dict) else None
+            if isinstance(job, dict):
+                st.write(f"Status: **{job.get('status')}**")
+                total = int(job.get("total") or 0)
+                completed = int(job.get("completed") or 0)
+                if total > 0:
+                    st.progress(min(1.0, completed / max(1, total)))
+                    st.caption(f"{completed}/{total} · {job.get('message','')}")
+                else:
+                    st.caption(job.get("message", ""))
+                if job.get("error"):
+                    st.error(job["error"])
+            else:
+                st.warning("Could not read job status")
+        except Exception as e:
+            st.warning(f"Status unavailable: {e}")
+
+        st.button("Refresh status")
+
+    map_path = _find_hotspot_artifact("hotspot_map.html")
+    report_path = _find_hotspot_artifact("hotspot_report.json")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write("**Map**")
+        if map_path:
+            st.success(f"Found: {os.path.basename(map_path)}")
+        else:
+            st.warning("No hotspot map found (expected hotspot_map.html)")
+    with col2:
+        st.write("**Report**")
+        if report_path:
+            st.success(f"Found: {os.path.basename(report_path)}")
+        else:
+            st.warning("No hotspot report found (expected hotspot_report.json)")
+
+    # Prefer backend job output if available; otherwise fall back to local artifacts.
+    backend_html: str | None = None
+    backend_report: dict | None = None
+    if job_id:
+        try:
+            map_resp = requests.get(f"{BACKEND_URL}/property-hotspots/map/{job_id}", timeout=30)
+            if map_resp.status_code == 200 and map_resp.text:
+                backend_html = map_resp.text
+        except Exception:
+            backend_html = None
+
+        try:
+            rep_resp = requests.get(f"{BACKEND_URL}/property-hotspots/report/{job_id}", timeout=30)
+            if rep_resp.status_code == 200 and rep_resp.headers.get("content-type", "").startswith("application/json"):
+                backend_report = rep_resp.json()
+        except Exception:
+            backend_report = None
+
+    if backend_html:
+        components.html(backend_html, height=650, scrolling=True)
+    elif map_path:
+        try:
+            with open(map_path, "r", encoding="utf-8") as f:
+                html = f.read()
+            components.html(html, height=650, scrolling=True)
+        except Exception as e:
+            st.error(f"Could not load hotspot map: {e}")
+
+    report_obj = backend_report
+    if report_obj is None and report_path:
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                report_obj = json.load(f)
+        except Exception as e:
+            st.error(f"Could not load hotspot report: {e}")
+            report_obj = None
+
+    if isinstance(report_obj, dict):
+        best_site = report_obj.get("best_stand_site") or report_obj.get("baseline_stand")
+        if best_site:
+            st.subheader("🎯 Best Stand Site")
+            st.json(best_site)
+
+        clusters = report_obj.get("clusters")
+        if isinstance(clusters, list) and clusters:
+            st.subheader("🧩 Clusters")
+            st.json(clusters[:5])
         else:
             st.info("🪵 No forecast-aligned hunt window detected in the next 24 hours. Monitor wind shifts for updates.")
 
-        wind_summary = active_prediction.get('wind_summary', {}) if isinstance(active_prediction.get('wind_summary'), dict) else {}
-        weather_snapshot = active_prediction.get('weather_data', {}) if isinstance(active_prediction.get('weather_data'), dict) else {}
+        active_prediction_snapshot = st.session_state.get('prediction_results')
+        safe_prediction = {}
+        if isinstance(active_prediction_snapshot, dict):
+            if isinstance(active_prediction_snapshot.get('data'), dict):
+                safe_prediction = active_prediction_snapshot.get('data', {})
+            else:
+                safe_prediction = active_prediction_snapshot
+        wind_summary = safe_prediction.get('wind_summary', {}) if isinstance(safe_prediction.get('wind_summary'), dict) else {}
+        weather_snapshot = safe_prediction.get('weather_data', {}) if isinstance(safe_prediction.get('weather_data'), dict) else {}
         if wind_summary:
             overall_conditions = wind_summary.get('overall_wind_conditions', {}) if isinstance(wind_summary.get('overall_wind_conditions'), dict) else {}
             prevailing = overall_conditions.get('prevailing_wind', 'Unknown wind')
@@ -1040,6 +1463,20 @@ with tab_predict:
     
     # Display current coordinates
     st.write(f"📍 **Current Location:** {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
+    
+    # Display Stand Coordinates
+    if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+        prediction = st.session_state.prediction_results
+        if 'optimized_points' in prediction and prediction['optimized_points']:
+            stand_sites = prediction['optimized_points'].get('stand_sites', [])
+            if stand_sites:
+                st.markdown("### 🎯 Stand Coordinates")
+                cols = st.columns(3)
+                for i, stand in enumerate(stand_sites[:3], 1):  # Show first 3 stands
+                    with cols[i-1]:
+                        st.markdown(f"**Stand {i}:** {stand.get('strategy', 'Unknown')}")
+                        st.code(f"{stand['lat']:.6f}, {stand['lon']:.6f}")
+                        st.caption(f"Score: {stand.get('score', 0):.1f}/10")
     
     # DEBUG: Show map refresh status
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:

@@ -346,12 +346,13 @@ class WindAnalyzer:
             angle_adjustment = 30
             confidence_bonus = -0.3
         
-        # Calculate optimal position coordinates
-        optimal_angle = downwind_angle + angle_adjustment
-        distance_degrees = distance_yards / 111000.0  # Rough conversion to degrees
-        
-        optimal_lat = target_lat + distance_degrees * math.cos(math.radians(optimal_angle))
-        optimal_lon = target_lon + distance_degrees * math.sin(math.radians(optimal_angle))
+        # Calculate optimal position coordinates (meters-correct great-circle)
+        optimal_angle = (downwind_angle + angle_adjustment) % 360
+        distance_m = float(distance_yards) * 0.9144
+
+        optimal_lat, optimal_lon = self._destination_point(
+            target_lat, target_lon, optimal_angle, distance_m
+        )
         
         # Calculate wind advantage score
         wind_advantage = self._calculate_wind_advantage_score(wind_data, strategy_type)
@@ -361,18 +362,18 @@ class WindAnalyzer:
         
         # Calculate optimal entry route (approach from crosswind)
         entry_angle = (optimal_angle + 90) % 360
-        entry_distance = distance_yards * 0.3  # 30% of stand distance
-        entry_distance_deg = entry_distance / 111000.0
-        
-        entry_lat = optimal_lat + entry_distance_deg * math.cos(math.radians(entry_angle))
-        entry_lon = optimal_lon + entry_distance_deg * math.sin(math.radians(entry_angle))
+        entry_distance_m = distance_m * 0.3  # 30% of stand distance
+        entry_lat, entry_lon = self._destination_point(
+            optimal_lat, optimal_lon, entry_angle, entry_distance_m
+        )
         
         # Calculate fallback positions for wind shifts
         fallback_positions = []
         for shift in [-45, 45]:
             fallback_angle = (optimal_angle + shift) % 360
-            fallback_lat = target_lat + distance_degrees * math.cos(math.radians(fallback_angle))
-            fallback_lon = target_lon + distance_degrees * math.sin(math.radians(fallback_angle))
+            fallback_lat, fallback_lon = self._destination_point(
+                target_lat, target_lon, fallback_angle, distance_m
+            )
             fallback_positions.append((fallback_lat, fallback_lon))
         
         # Calculate confidence modifiers
@@ -393,6 +394,39 @@ class WindAnalyzer:
             fallback_positions=fallback_positions,
             confidence_modifiers=confidence_modifiers
         )
+
+    @staticmethod
+    def _destination_point(lat: float, lon: float, bearing_deg: float, distance_m: float) -> Tuple[float, float]:
+        """Great-circle destination point.
+
+        Args:
+            lat, lon: start point in degrees
+            bearing_deg: bearing (0°=N, 90°=E)
+            distance_m: distance in meters
+
+        Returns:
+            (lat2, lon2) in degrees
+        """
+        R = 6371000.0
+        lat1 = math.radians(lat)
+        lon1 = math.radians(lon)
+        brng = math.radians(bearing_deg)
+        ang = float(distance_m) / R
+
+        sin_lat1 = math.sin(lat1)
+        cos_lat1 = math.cos(lat1)
+        sin_ang = math.sin(ang)
+        cos_ang = math.cos(ang)
+
+        lat2 = math.asin(sin_lat1 * cos_ang + cos_lat1 * sin_ang * math.cos(brng))
+        lon2 = lon1 + math.atan2(
+            math.sin(brng) * sin_ang * cos_lat1,
+            cos_ang - sin_lat1 * math.sin(lat2),
+        )
+
+        # Normalize lon to [-180, 180]
+        lon2 = (lon2 + 3 * math.pi) % (2 * math.pi) - math.pi
+        return (math.degrees(lat2), math.degrees(lon2))
     
     def _calculate_wind_advantage_score(self, wind_data: WindData, strategy_type: str) -> float:
         """Calculate wind advantage score based on conditions and strategy"""

@@ -210,6 +210,16 @@ deer_prediction_config:
     supported_formats:
       - gpx
 
+  # Optional dense LiDAR pre-scan (terrain-only) before GEE refinement
+  lidar_dense_scan:
+    enabled: false
+    points: 200000
+    radius_m: 800
+    top_k: 20
+    terrain_threshold: 0
+    chunk_size: 2000
+    min_separation_m: 75
+
   # Validation and Constraints
   validation:
     confidence_range: [0, 100]         # Valid confidence score range

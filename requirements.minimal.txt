@@ -1,0 +1,41 @@
+# Core FastAPI/Uvicorn
+fastapi==0.116.1
+uvicorn[standard]==0.34.0
+pydantic==2.11.1
+python-multipart==0.0.20
+starlette==0.45.1
+
+# Streamlit for frontend
+streamlit==1.42.0
+altair==5.5.0
+
+# Data processing
+pandas==2.2.3
+numpy==1.26.4
+
+# Geospatial
+geopandas==1.1.1
+shapely==2.1.0
+folium==0.20.0
+streamlit-folium==0.23.2
+rasterio==1.4.2
+pyproj==3.7.0
+
+# HTTP requests
+requests==2.32.0
+
+# Weather
+pyowm==3.3.0
+
+# Scientific
+scipy==1.13.1
+networkx==3.3
+
+# Google Earth Engine
+earthengine-api==1.0.1
+
+# Redis
+redis==5.2.1
+
+# Environment
+python-dotenv==1.0.1

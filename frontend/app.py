@@ -601,12 +601,39 @@ with tab_hotspots:
                     payload["date_time"] = dt
 
                 if payload:
-                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=300)
-                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    with st.spinner("Running Max Accuracy analysis..."):
+                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=300)
+                        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                     if resp.status_code == 200 and data.get("success") and data.get("job_id"):
-                        st.session_state["max_accuracy_job_id"] = data["job_id"]
+                        job_id = data["job_id"]
+                        st.session_state["max_accuracy_job_id"] = job_id
                         st.session_state["max_accuracy_auto_loaded"] = False
-                        st.success("Max Accuracy job started. Use refresh to load results.")
+                        # Auto-poll until report is ready
+                        status_msg = st.empty()
+                        progress_bar = st.progress(0)
+                        max_poll = 120  # up to 10 minutes (120 × 5s)
+                        loaded = False
+                        for i in range(max_poll):
+                            status_msg.info(f"⏳ Waiting for report... ({(i + 1) * 5}s)")
+                            progress_bar.progress(min(0.95, (i + 1) / max_poll))
+                            time.sleep(5)
+                            try:
+                                rpt = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{job_id}", timeout=30)
+                                rpt_data = rpt.json() if rpt.headers.get("content-type", "").startswith("application/json") else {}
+                                if rpt.status_code == 200 and rpt_data.get("success") and rpt_data.get("report"):
+                                    st.session_state["max_accuracy_report"] = rpt_data["report"]
+                                    st.session_state["max_accuracy_auto_loaded"] = True
+                                    progress_bar.progress(1.0)
+                                    status_msg.success("✅ Max Accuracy report loaded!")
+                                    loaded = True
+                                    time.sleep(1)
+                                    st.rerun()
+                                    break
+                            except Exception:
+                                pass
+                        if not loaded:
+                            progress_bar.progress(1.0)
+                            status_msg.warning("Report is still processing. Use the refresh button below.")
                     else:
                         st.error(f"Max Accuracy failed: {data.get('error') or resp.text}")
             except Exception as e:
@@ -625,48 +652,20 @@ with tab_hotspots:
         except Exception:
             pass
     if st.session_state.get("max_accuracy_job_id"):
-        col_refresh, col_auto = st.columns(2)
-        with col_refresh:
-            refresh_clicked = st.button("Refresh max-accuracy report")
-        with col_auto:
-            auto_clicked = st.button("Auto-load when ready")
-
-        if refresh_clicked:
-            job_id = st.session_state.get("max_accuracy_job_id")
-            try:
-                resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{job_id}", timeout=30)
-                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                if resp.status_code == 200 and data.get("success") and data.get("report"):
-                    st.session_state["max_accuracy_report"] = data["report"]
-                    max_accuracy_report = data["report"]
-                    st.success("Max-accuracy report refreshed.")
-                else:
-                    st.error(f"Could not refresh report: {data.get('error') or resp.text}")
-            except Exception as e:
-                st.error(f"Could not refresh report: {e}")
-
-        if auto_clicked:
-            job_id = st.session_state.get("max_accuracy_job_id")
-            status = st.empty()
-            progress = st.progress(0)
-            max_attempts = 60
-            for i in range(max_attempts):
+        if not isinstance(max_accuracy_report, dict):
+            if st.button("🔄 Refresh report"):
+                job_id = st.session_state.get("max_accuracy_job_id")
                 try:
-                    status.info(f"Checking report... ({i + 1}/{max_attempts})")
                     resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{job_id}", timeout=30)
                     data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                     if resp.status_code == 200 and data.get("success") and data.get("report"):
                         st.session_state["max_accuracy_report"] = data["report"]
                         max_accuracy_report = data["report"]
-                        status.success("Max-accuracy report loaded.")
-                        progress.progress(1.0)
-                        break
-                except Exception:
-                    pass
-                progress.progress((i + 1) / max_attempts)
-                time.sleep(5)
-            else:
-                status.warning("Report not ready yet. Try refresh in a bit.")
+                        st.success("Report loaded.")
+                    else:
+                        st.warning("Report not ready yet.")
+                except Exception as e:
+                    st.error(f"Could not load report: {e}")
     with st.expander("Load max-accuracy report by job id", expanded=False):
         if max_accuracy_job_id:
             st.caption(f"Last max-accuracy job id: {max_accuracy_job_id}")

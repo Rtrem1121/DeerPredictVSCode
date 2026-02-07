@@ -57,5 +57,8 @@ class MaxAccuracyConfig:
     min_per_quadrant: int = 6
 
     # Tiling for large-area DEM processing
+    # Smaller tiles (512px ≈ 350m) improve resilience to corrupted DEM blocks
+    # — a single bad TIFF tile only kills one small pipeline tile instead of
+    # a 2048px quadrant covering the entire property.
     enable_tiling: bool = True
-    tile_size_px: int = 2048
+    tile_size_px: int = 512

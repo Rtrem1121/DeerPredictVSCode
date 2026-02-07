@@ -680,13 +680,22 @@ class MaxAccuracyPipeline:
             len(buckets["SW"]),
         )
 
+        # Exclude bedding zones from stand selection — you can't sit in the bed
+        bedding_keys = set()
+        for bz in bedding_zones:
+            bedding_keys.add((round(bz["lat"], 6), round(bz["lon"], 6)))
+        if bedding_keys:
+            logger.info("MaxAccuracy: excluding %s bedding zones from stand candidates", len(bedding_keys))
+
         selected: List[Dict[str, Any]] = []
         selected_keys = set()
 
         for q in ("NE", "NW", "SE", "SW"):
-            for candidate in buckets[q][: self.config.min_per_quadrant]:
-                key = (candidate["lat"], candidate["lon"])
-                if key in selected_keys:
+            for candidate in buckets[q][: self.config.min_per_quadrant * 3]:
+                if len([s for s in selected if s.get("quadrant") == q]) >= self.config.min_per_quadrant:
+                    break
+                key = (round(candidate["lat"], 6), round(candidate["lon"], 6))
+                if key in selected_keys or key in bedding_keys:
                     continue
                 selected_keys.add(key)
                 selected.append(candidate)
@@ -694,8 +703,8 @@ class MaxAccuracyPipeline:
         for candidate in candidates:
             if len(selected) >= self.config.top_k_stands:
                 break
-            key = (candidate["lat"], candidate["lon"])
-            if key in selected_keys:
+            key = (round(candidate["lat"], 6), round(candidate["lon"], 6))
+            if key in selected_keys or key in bedding_keys:
                 continue
             selected_keys.add(key)
             selected.append(candidate)

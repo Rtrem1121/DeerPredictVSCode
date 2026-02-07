@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from backend.services.hotspot_job_service import get_hotspot_job_service
+from backend.services.hotspot import get_hotspot_job_service
 
 
 hotspot_router = APIRouter(tags=["property-hotspots"])

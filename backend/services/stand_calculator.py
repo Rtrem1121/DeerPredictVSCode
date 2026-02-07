@@ -141,7 +141,8 @@ class WindAwareStandCalculator:
         downhill_direction: float,
         downwind_direction: float,
         thermal_data: Optional[ThermalWindData],
-        slope: float
+        slope: float,
+        season: Optional[str] = None
     ) -> StandCalculationResult:
         """
         Calculate evening stand position.
@@ -209,11 +210,16 @@ class WindAwareStandCalculator:
             
             if thermal_active and wind_speed_mph < self.STRONG_WIND_MPH:
                 # THERMAL DOMINATES: Combine thermal + deer movement
+                thermal_weight = 0.6
+                if season in ["late_season", "winter"]:
+                    thermal_weight = 0.7
+                elif season in ["rut", "pre_rut"]:
+                    thermal_weight = 0.5
                 bearing = self._combine_bearings(
                     thermal_data.direction,  # Thermal flows downhill
                     downhill_direction,      # Deer move downhill
-                    0.6,  # Thermal weight
-                    0.4   # Deer movement weight
+                    thermal_weight,  # Thermal weight
+                    1.0 - thermal_weight   # Deer movement weight
                 )
                 
                 # Add prevailing wind influence based on speed
@@ -287,7 +293,8 @@ class WindAwareStandCalculator:
         uphill_direction: float,
         downwind_direction: float,
         thermal_data: Optional[ThermalWindData],
-        slope: float
+        slope: float,
+        season: Optional[str] = None
     ) -> StandCalculationResult:
         """
         Calculate morning stand position.
@@ -352,11 +359,16 @@ class WindAwareStandCalculator:
             if slope > 5:  # Sloped terrain
                 if thermal_data is not None and thermal_data.strength > 0.3:  # Strong upslope thermal
                     # Combine uphill with slight crosswind offset
+                    uphill_weight = 0.8
+                    if season in ["late_season", "winter"]:
+                        uphill_weight = 0.7
+                    elif season in ["rut", "pre_rut"]:
+                        uphill_weight = 0.85
                     bearing = self._combine_bearings(
                         uphill_direction,
                         (uphill_direction + 30) % 360,  # Crosswind variation
-                        0.8,  # Primarily uphill
-                        0.2   # Minor crosswind
+                        uphill_weight,  # Primarily uphill
+                        1.0 - uphill_weight   # Minor crosswind
                     )
                     strategy = f"Uphill with crosswind offset (slope {slope:.1f}°)"
                     logger.info(
@@ -401,7 +413,8 @@ class WindAwareStandCalculator:
         morning_bearing: float,
         uphill_direction: float,
         downwind_direction: float,
-        slope: float
+        slope: float,
+        season: Optional[str] = None
     ) -> StandCalculationResult:
         """
         Calculate all-day/alternate stand position.

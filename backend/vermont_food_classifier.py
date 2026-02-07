@@ -257,20 +257,25 @@ class VermontFoodClassifier:
         """
         try:
             logger.info(f"🍂 Analyzing Vermont food sources for {season}")
+
+            season_key = season if season in self.VERMONT_SEASONAL_PRIORITIES else "rut"
             
             # 1. Agricultural Classification (CDL)
-            ag_results = self._analyze_vermont_agriculture(area, season, analysis_year)
+            ag_results = self._analyze_vermont_agriculture(area, season_key, analysis_year) or {}
             
             # 2. Hardwood Mast Analysis (NDVI + Forest Type)
-            mast_results = self._analyze_vermont_mast_production(area, season)
+            mast_results = self._analyze_vermont_mast_production(area, season_key) or {}
             
             # 3. Browse Availability (Edge Habitat + Young Forest)
-            browse_results = self._analyze_vermont_browse(area, season)
+            browse_results = self._analyze_vermont_browse(area, season_key) or {}
             
             # 4. Combine into unified food source map
             combined_results = self._combine_vermont_food_sources(
-                ag_results, mast_results, browse_results, season
+                ag_results, mast_results, browse_results, season_key
             )
+            if not isinstance(combined_results, dict):
+                logger.warning("Combined food analysis returned invalid data, using fallback")
+                return self._fallback_vermont_food_analysis(season_key)
             
             logger.info(f"✅ Found {len(combined_results.get('food_patches', []))} Vermont food sources")
             
@@ -289,12 +294,34 @@ class VermontFoodClassifier:
         Focuses on Vermont crops: corn, hay, pastures.
         """
         try:
-            # Get USDA Cropland Data Layer
-            cdl = ee.ImageCollection("USDA/NASS/CDL") \
-                .filter(ee.Filter.date(f'{year}-01-01', f'{year}-12-31')) \
-                .first() \
-                .select('cropland') \
-                .clip(area)
+            # Get USDA Cropland Data Layer with fallback to most recent year (2024)
+            fallback_year = 2024
+            candidate_years = []
+            if year >= fallback_year:
+                candidate_years.append(year)
+                if year != fallback_year:
+                    candidate_years.append(fallback_year)
+            else:
+                candidate_years.append(year)
+
+            cdl = None
+            selected_year = None
+            for candidate_year in dict.fromkeys(candidate_years):
+                cdl_collection = ee.ImageCollection("USDA/NASS/CDL") \
+                    .filter(ee.Filter.date(f'{candidate_year}-01-01', f'{candidate_year}-12-31'))
+                if cdl_collection.size().getInfo() == 0:
+                    if candidate_year == year and year >= fallback_year:
+                        logger.info("No CDL images available for %s, trying %s", candidate_year, fallback_year)
+                    else:
+                        logger.warning("No CDL images available for %s", candidate_year)
+                    continue
+                cdl = cdl_collection.first().select('cropland').clip(area)
+                selected_year = candidate_year
+                break
+
+            if cdl is None:
+                logger.warning("No CDL imagery available for requested year or fallback")
+                return {'ag_patches': [], 'dominant_ag': None, 'ag_count': 0, 'analysis_method': 'USDA_CDL'}
             
             # Calculate crop statistics
             crop_histogram = cdl.reduceRegion(
@@ -303,8 +330,8 @@ class VermontFoodClassifier:
                 scale=30,
                 maxPixels=1e9
             ).getInfo()
-            
-            crop_stats = crop_histogram.get('cropland', {})
+
+            crop_stats = (crop_histogram or {}).get('cropland', {})
             
             # Analyze Vermont-relevant crops
             ag_patches = []
@@ -353,7 +380,8 @@ class VermontFoodClassifier:
                 'ag_patches': ag_patches,
                 'dominant_ag': dominant,
                 'ag_count': len(ag_patches),
-                'analysis_method': 'USDA_CDL'
+                'analysis_method': 'USDA_CDL',
+                'analysis_year': selected_year
             }
             
         except Exception as e:
@@ -527,10 +555,17 @@ class VermontFoodClassifier:
         Combine all Vermont food sources into unified scoring.
         """
         # Get seasonal weights
+        if season not in self.VERMONT_SEASONAL_PRIORITIES:
+            season = "rut"
         weights = self.VERMONT_SEASONAL_PRIORITIES[season]['weights']
         
         # Calculate weighted food score
-        ag_score = ag_results.get('dominant_ag', {}).get('quality_score', 0.4)
+        dominant_ag = ag_results.get('dominant_ag') or {}
+        ag_patches = ag_results.get('ag_patches') or []
+        if isinstance(ag_patches, list) and not ag_patches:
+            ag_score = 0.0
+        else:
+            ag_score = dominant_ag.get('quality_score', 0.4)
         mast_score = mast_results.get('mast_score', 0.5)
         browse_score = browse_results.get('browse_score', 0.5)
         

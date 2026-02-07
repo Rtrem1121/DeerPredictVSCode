@@ -9,7 +9,7 @@ Author: Vermont Deer Prediction System
 Version: 1.0.0
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Optional, Union, Any
 from datetime import datetime, timezone
 from enum import Enum
@@ -53,14 +53,14 @@ class ScrapeDetails(BaseModel):
     licking_branch: bool = Field(default=False, description="Active licking branch present")
     multiple_scrapes: bool = Field(default=False, description="Multiple scrapes in area")
     
-    @validator('size')
+    @field_validator('size')
     def validate_size(cls, v):
         valid_sizes = ["Small", "Medium", "Large", "Huge"]
         if v not in valid_sizes:
             raise ValueError(f"Size must be one of: {valid_sizes}")
         return v
     
-    @validator('freshness')
+    @field_validator('freshness')
     def validate_freshness(cls, v):
         valid_freshness = ["Old", "Recent", "Fresh", "Very Fresh"]
         if v not in valid_freshness:
@@ -76,7 +76,7 @@ class RubDetails(BaseModel):
     tree_species: Optional[str] = Field(None, description="Type of tree if known")
     multiple_rubs: bool = Field(default=False, description="Multiple rubs in line")
     
-    @validator('direction')
+    @field_validator('direction')
     def validate_direction(cls, v):
         valid_directions = ["North", "South", "East", "West", "Northeast", "Northwest", 
                            "Southeast", "Southwest", "Multiple"]
@@ -93,7 +93,7 @@ class BeddingDetails(BaseModel):
     visibility: str = Field(..., description="Visibility from bed")
     escape_routes: int = Field(..., ge=1, le=8, description="Number of escape routes")
     
-    @validator('bed_size')
+    @field_validator('bed_size')
     def validate_bed_size(cls, v):
         valid_sizes = ["Small (doe/fawn)", "Medium (young buck)", "Large (mature buck)", "Mixed sizes"]
         if v not in valid_sizes:
@@ -118,9 +118,10 @@ class TrailCameraDetails(BaseModel):
     mature_buck_seen_at: Optional[datetime] = Field(None, description="Timestamp of the most recent mature buck capture")
     mature_buck_notes: Optional[str] = Field(None, description="Additional notes about the mature buck sighting")
     
-    @validator('deer_photos')
-    def validate_deer_photos(cls, v, values):
-        if 'total_photos' in values and v > values['total_photos']:
+    @field_validator('deer_photos')
+    def validate_deer_photos(cls, v, info):
+        total_photos = info.data.get('total_photos')
+        if total_photos is not None and v > total_photos:
             raise ValueError("Deer photos cannot exceed total photos")
         return v
 
@@ -133,7 +134,7 @@ class TracksDetails(BaseModel):
     direction_of_travel: str = Field(..., description="Direction deer were traveling")
     gait_pattern: str = Field(..., description="Walking, trotting, or running")
     
-    @validator('track_depth')
+    @field_validator('track_depth')
     def validate_track_depth(cls, v):
         valid_depths = ["Shallow", "Medium", "Deep", "Very Deep"]
         if v not in valid_depths:
@@ -166,13 +167,13 @@ class ScoutingObservation(BaseModel):
     weather_conditions: Optional[str] = Field(None, description="Weather when observed")
     
     # Validation
-    @validator('confidence')
+    @field_validator('confidence')
     def validate_confidence(cls, v):
         if not 1 <= v <= 10:
             raise ValueError("Confidence must be between 1 and 10")
         return v
     
-    @validator('photo_urls')
+    @field_validator('photo_urls')
     def validate_photo_urls(cls, v):
         if len(v) > 10:
             raise ValueError("Maximum 10 photos per observation")
@@ -189,7 +190,7 @@ class ScoutingObservation(BaseModel):
         }
         return detail_map.get(self.observation_type)
     
-    @validator('timestamp', pre=True, always=True)
+    @field_validator('timestamp', mode='before')
     def ensure_timezone(cls, value):
         if value is None:
             return datetime.now(timezone.utc)

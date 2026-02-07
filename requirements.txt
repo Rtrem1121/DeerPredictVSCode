@@ -31,7 +31,7 @@ geopandas==1.1.1
 shapely==2.1.0
 folium==0.20.0
 streamlit-folium==0.23.2
-rasterio==1.4.5
+rasterio==1.4.3
 fiona==1.10.1
 pyproj==3.7.0
 geopy==2.4.1
@@ -39,7 +39,7 @@ geopy==2.4.1
 # ============================================================================
 # HTTP Clients & APIs
 # ============================================================================
-requests==2.33.0
+requests==2.32.0
 httpx==0.28.1
 aiohttp==3.12.15
 python-dotenv==1.0.1
@@ -53,15 +53,16 @@ sqlalchemy==2.0.37
 # Scientific Computing
 # ============================================================================
 matplotlib==3.10.5
-scipy==1.15.4
-networkx==3.5
+scipy==1.13.1
+# Graph/Network Analysis
+networkx==3.3  # Changed from 3.5 - compatible with Python 3.10
 
 # ============================================================================
 # Machine Learning (Optional)
 # ============================================================================
-scikit-learn==1.6.2
+scikit-learn==1.5.2  # Changed from 1.6.2 - compatible with Python 3.10
 joblib==1.5.1
-xgboost==2.2.1
+xgboost==2.1.2  # Changed from 2.2.1 - compatible with Python 3.10
 
 # ============================================================================
 # Google Earth Engine (Optional)
@@ -85,7 +86,7 @@ psutil==7.0.0
 # ============================================================================
 # Testing Dependencies (Development)
 # ============================================================================
-pytest==8.5.0
+pytest==8.4.2  # Changed from 8.5.0 - compatible with Python 3.10
 pytest-asyncio==0.25.3
 pytest-cov==6.0.0
 pytest-xdist==3.6.1
@@ -94,6 +95,6 @@ pytest-timeout==2.3.1
 # ============================================================================
 # Browser Testing (Development)
 # ============================================================================
-playwright==1.50.1
-pytest-playwright==0.6.3
-selenium==4.31.1
+playwright==1.50.0
+pytest-playwright==0.7.1
+selenium==4.31.0

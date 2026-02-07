@@ -1,14 +1,17 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 import requests
 import json
 import os
 import hashlib
 import math
 import logging
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from map_config import MAP_SOURCES
 from enhanced_data_validation import (
@@ -160,20 +163,7 @@ def enhanced_deer_approach_calculation(prediction_data):
     
     return calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type)
 
-def calculate_bearing_between_points(lat1, lon1, lat2, lon2):
-    """Calculate bearing between two points"""
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    dlon_rad = math.radians(lon2 - lon1)
-    
-    y = math.sin(dlon_rad) * math.cos(lat2_rad)
-    x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad)
-    
-    bearing = math.atan2(y, x)
-    bearing = math.degrees(bearing)
-    bearing = (bearing + 360) % 360
-    
-    return bearing
+from geo_utils import bearing_between as calculate_bearing_between_points
 
 
 def _parse_iso_datetime(value):
@@ -470,7 +460,7 @@ def add_scouting_observation(observation_data):
         st.error(f"Error adding observation: {e}")
         return None
 
-def get_scouting_observations(lat, lon, radius_miles=5):
+def get_scouting_observations(lat, lon, radius_miles=2):
     """Get scouting observations near a location"""
     try:
         response = requests.get(
@@ -539,7 +529,114 @@ st.title("🏔️ Vermont Deer Movement Predictor with Real-Time Scouting")
 st.markdown("*Vermont-legal hunting hours, enhanced predictions, and real-time scouting data integration*")
 
 # Create main navigation tabs
-tab_predict, tab_scout, tab_analytics = st.tabs(["🎯 Hunt Predictions", "🔍 Scouting Data", "📊 Analytics"])
+tab_predict, tab_scout, tab_analytics, tab_hotspots = st.tabs([
+    "🎯 Hunt Predictions",
+    "🔍 Scouting Data",
+    "📊 Analytics",
+    "🗺️ Property Hotspots",
+])
+
+
+def _parse_corners_text(text: str) -> list[dict[str, float]]:
+    corners: list[dict[str, float]] = []
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        # allow "NW 43.31, -73.21" or "43.31,-73.21"
+        parts = line.replace("\t", " ").replace(";", ",").split(",")
+        if len(parts) < 2:
+            # try split by whitespace
+            bits = [b for b in line.split(" ") if b]
+            if len(bits) >= 2:
+                parts = [bits[-2], bits[-1]]
+            else:
+                continue
+
+        try:
+            lat = float(str(parts[0]).split()[-1])
+            lon = float(str(parts[1]).split()[0])
+        except Exception:
+            continue
+
+        corners.append({"lat": lat, "lon": lon})
+    return corners
+
+
+def _corners_centroid(corners: list[dict[str, float]]) -> tuple[float, float] | None:
+    if not corners:
+        return None
+    lats = [c.get("lat") for c in corners if isinstance(c, dict) and isinstance(c.get("lat"), (int, float))]
+    lons = [c.get("lon") for c in corners if isinstance(c, dict) and isinstance(c.get("lon"), (int, float))]
+    if not lats or not lons:
+        return None
+    return (sum(lats) / len(lats), sum(lons) / len(lons))
+
+
+def _noaa_sun_event_utc(date_local, lat: float, lon: float, *, is_sunrise: bool) -> datetime | None:
+    """Approx sunrise/sunset time in UTC using NOAA algorithm.
+
+    Good enough for scheduling +/- 30 minutes. Returns None if the event
+    doesn't occur (e.g., polar regions).
+    """
+
+    # https://gml.noaa.gov/grad/solcalc/solareqns.PDF (classic approximate method)
+    zenith = 90.833  # official
+    n = int(date_local.timetuple().tm_yday)
+    lng_hour = float(lon) / 15.0
+    base_hour = 6.0 if is_sunrise else 18.0
+    t = n + ((base_hour - lng_hour) / 24.0)
+
+    m = (0.9856 * t) - 3.289
+    l = m + (1.916 * math.sin(math.radians(m))) + (0.020 * math.sin(math.radians(2 * m))) + 282.634
+    l = l % 360.0
+
+    ra = math.degrees(math.atan(0.91764 * math.tan(math.radians(l))))
+    ra = ra % 360.0
+    l_quadrant = (math.floor(l / 90.0)) * 90.0
+    ra_quadrant = (math.floor(ra / 90.0)) * 90.0
+    ra = ra + (l_quadrant - ra_quadrant)
+    ra_hours = ra / 15.0
+
+    sin_dec = 0.39782 * math.sin(math.radians(l))
+    cos_dec = math.cos(math.asin(sin_dec))
+
+    cos_h = (
+        math.cos(math.radians(zenith)) - (sin_dec * math.sin(math.radians(lat)))
+    ) / (cos_dec * math.cos(math.radians(lat)))
+
+    if cos_h > 1.0 or cos_h < -1.0:
+        return None
+
+    if is_sunrise:
+        h = 360.0 - math.degrees(math.acos(cos_h))
+    else:
+        h = math.degrees(math.acos(cos_h))
+
+    h_hours = h / 15.0
+
+    t_local = h_hours + ra_hours - (0.06571 * t) - 6.622
+    ut = (t_local - lng_hour) % 24.0
+
+    hour = int(ut)
+    minute = int((ut - hour) * 60.0)
+    second = int(round((((ut - hour) * 60.0) - minute) * 60.0))
+    if second == 60:
+        second = 59
+
+    return datetime(date_local.year, date_local.month, date_local.day, hour, minute, second, tzinfo=timezone.utc)
+
+
+def _noaa_sunrise_utc(date_local, lat: float, lon: float) -> datetime | None:
+    return _noaa_sun_event_utc(date_local, lat, lon, is_sunrise=True)
+
+
+def _noaa_sunset_utc(date_local, lat: float, lon: float) -> datetime | None:
+    return _noaa_sun_event_utc(date_local, lat, lon, is_sunrise=False)
+
+
+def _dt_to_iso_z(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 # Initialize session state for map data
 if 'hunt_location' not in st.session_state:
@@ -619,67 +716,701 @@ with tab_predict:
             st.success(
                 f"🪵 Next hunt window: {start_label} → {end_label} · {wind_label} · Confidence {confidence_pct:.0f}% · Boost +{boost:.1f} {triggers_text}"
             )
-        else:
-            st.info("🪵 No forecast-aligned hunt window detected in the next 24 hours. Monitor wind shifts for updates.")
 
-        wind_summary = active_prediction.get('wind_summary', {}) if isinstance(active_prediction.get('wind_summary'), dict) else {}
-        weather_snapshot = active_prediction.get('weather_data', {}) if isinstance(active_prediction.get('weather_data'), dict) else {}
-        if wind_summary:
-            overall_conditions = wind_summary.get('overall_wind_conditions', {}) if isinstance(wind_summary.get('overall_wind_conditions'), dict) else {}
-            prevailing = overall_conditions.get('prevailing_wind', 'Unknown wind')
-            effective = overall_conditions.get('effective_wind', 'Unknown effective wind')
-            rating = overall_conditions.get('hunting_rating', 'N/A')
-            thermal_active = overall_conditions.get('thermal_activity')
+        # Debug/trace panel for LiDAR+GEE pipeline
+        trace_summary = active_prediction.get('trace_summary') if isinstance(active_prediction.get('trace_summary'), dict) else {}
+        scouting_summary = active_prediction.get('scouting_prior_summary') if isinstance(active_prediction.get('scouting_prior_summary'), dict) else {}
+        gee_data = active_prediction.get('gee_data') if isinstance(active_prediction.get('gee_data'), dict) else {}
+        ndvi_trend = gee_data.get('ndvi_trend') if isinstance(gee_data.get('ndvi_trend'), dict) else {}
+        canopy_source = gee_data.get('canopy_data_source')
+        canopy_pct = gee_data.get('canopy_coverage')
+        corridor_summary = trace_summary.get('corridor_summary') if isinstance(trace_summary.get('corridor_summary'), dict) else {}
+        corridor_score = None
+        bedding_props = active_prediction.get('bedding_zones', {}).get('properties', {}) if isinstance(active_prediction.get('bedding_zones'), dict) else {}
+        suitability = bedding_props.get('suitability_analysis', {}) if isinstance(bedding_props.get('suitability_analysis'), dict) else {}
+        scores = suitability.get('scores', {}) if isinstance(suitability.get('scores'), dict) else {}
+        if isinstance(scores.get('corridor'), (int, float)):
+            corridor_score = scores.get('corridor')
 
-            wind_source = weather_snapshot.get('wind_source') if isinstance(weather_snapshot, dict) else None
-            source_labels = {
-                'current': 'live obs',
-                'current_override': 'live override',
-                'forecast': 'forecast hour'
-            }
-            prevailing_label = prevailing + (f" ({source_labels.get(wind_source, wind_source)})" if wind_source else "")
+        key_bits = []
+        if isinstance(canopy_pct, (int, float)):
+            label = f"Canopy: {canopy_pct:.0%}"
+            if canopy_source:
+                label += f" ({canopy_source})"
+            key_bits.append(label)
+        if ndvi_trend:
+            trend = ndvi_trend.get('trend')
+            delta = ndvi_trend.get('delta')
+            if trend:
+                trend_label = f"NDVI trend: {trend}"
+                if delta is not None:
+                    trend_label += f" ({delta:+.2f})"
+                key_bits.append(trend_label)
+        if corridor_score is not None:
+            key_bits.append(f"Corridor score: {corridor_score:.0f}/100")
+        if corridor_summary:
+            paths = corridor_summary.get('paths')
+            top_path_score = corridor_summary.get('top_path_score')
+            if paths:
+                label = f"Corridor paths: {paths}"
+                if isinstance(top_path_score, (int, float)):
+                    label += f" (top {top_path_score:.0f})"
+                key_bits.append(label)
+        if trace_summary:
+            candidates = trace_summary.get('candidates_generated')
+            coverage = trace_summary.get('lidar_coverage_pct')
+            if candidates:
+                key_bits.append(f"LiDAR candidates: {candidates}")
+            if coverage is not None:
+                key_bits.append(f"LiDAR coverage: {coverage:.1f}%")
 
-            summary_bits = [
-                f"Prevailing: {prevailing_label}",
-                f"Effective: {effective}",
-                f"Rating: {rating}"
-            ]
+        if key_bits:
+            st.info(" · ".join(key_bits))
+        if trace_summary or scouting_summary:
+            with st.expander("🔍 Prediction Trace Summary", expanded=False):
+                if trace_summary:
+                    st.markdown("**LiDAR/GEE Trace**")
+                    st.json(trace_summary)
+                if scouting_summary:
+                    st.markdown("**Scouting Prior Summary**")
+                    st.json(scouting_summary)
 
-            current_snapshot = weather_snapshot.get('current_snapshot', {}) if isinstance(weather_snapshot.get('current_snapshot'), dict) else {}
-            if current_snapshot:
-                live_reading = format_wind_reading(
-                    current_snapshot.get('wind_direction'),
-                    current_snapshot.get('wind_speed')
+
+
+# ==========================================
+# TAB 4: PROPERTY HOTSPOTS (VIEWER)
+# ==========================================
+with tab_hotspots:
+    st.header("🗺️ Property Hotspots")
+    st.caption(
+        "Shows the latest outputs from the standalone Property Hotspot Analyzer. "
+        "Run the analyzer to regenerate the map/report, then refresh this tab."
+    )
+    st.info("Tip: start with 8–15 sample points to validate, then increase for higher confidence.")
+
+    st.subheader("Run hotspot analysis")
+    ma_settings_path = os.path.join("data", "max_accuracy_ui.json")
+    if not st.session_state.get("ma_settings_loaded"):
+        try:
+            if os.path.exists(ma_settings_path):
+                with open(ma_settings_path, "r", encoding="utf-8") as f:
+                    stored = json.load(f)
+                if isinstance(stored, dict):
+                    for key, value in stored.items():
+                        st.session_state.setdefault(key, value)
+        except Exception:
+            pass
+        st.session_state["ma_settings_loaded"] = True
+    use_max_accuracy = st.checkbox(
+        "Use Max Accuracy pipeline (experimental, slower)",
+        value=False,
+        help="Runs the dense LiDAR + behavior pipeline and returns stand recommendations immediately.",
+    )
+    max_accuracy_config: dict[str, object] = {}
+    if use_max_accuracy:
+        with st.expander("Max Accuracy settings", expanded=False):
+            col_ma_a, col_ma_b, col_ma_c = st.columns(3)
+            with col_ma_a:
+                grid_spacing_m = st.number_input(
+                    "Grid spacing (m)",
+                    min_value=5,
+                    max_value=100,
+                    value=st.session_state.get("ma_grid_spacing_m", 20),
+                    step=5,
+                    help="Distance between LiDAR sample points. Smaller = more detail, slower.",
+                    key="ma_grid_spacing_m",
                 )
-                live_label = f"Live: {live_reading}"
-                if live_reading and live_label not in summary_bits:
-                    # Only append when forecast still drives the prevailing label
-                    if wind_source != 'current_override' or live_reading not in prevailing_label:
-                        summary_bits.append(live_label)
+                max_candidates = st.number_input(
+                    "Max candidates",
+                    min_value=500,
+                    max_value=20000,
+                    value=st.session_state.get("ma_max_candidates", 5000),
+                    step=500,
+                    help="How many top terrain points are kept before final ranking.",
+                    key="ma_max_candidates",
+                )
+            with col_ma_b:
+                gee_sample_k = st.number_input(
+                    "GEE sample K",
+                    min_value=0,
+                    max_value=2000,
+                    value=st.session_state.get("ma_gee_sample_k", 200),
+                    step=50,
+                    help="How many candidates get canopy/NDVI enrichment. Higher = better but slower.",
+                    key="ma_gee_sample_k",
+                )
+                behavior_weight = st.slider(
+                    "Behavior weight",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=st.session_state.get("ma_behavior_weight", 0.4),
+                    step=0.05,
+                    help="Blend between terrain and behavior scores (0=terrain only, 1=behavior only).",
+                    key="ma_behavior_weight",
+                )
+            with col_ma_c:
+                tpi_small_m = st.number_input(
+                    "TPI small window (m)",
+                    min_value=20,
+                    max_value=200,
+                    value=st.session_state.get("ma_tpi_small_m", 60),
+                    step=10,
+                    help="Small-scale terrain context for benches/saddles.",
+                    key="ma_tpi_small_m",
+                )
+                tpi_large_m = st.number_input(
+                    "TPI large window (m)",
+                    min_value=60,
+                    max_value=600,
+                    value=st.session_state.get("ma_tpi_large_m", 200),
+                    step=20,
+                    help="Large-scale terrain context for corridors/ridges.",
+                    key="ma_tpi_large_m",
+                )
 
-            target_lookup = weather_snapshot.get('target_forecast_lookup', {})
-            if isinstance(target_lookup, dict):
-                override_reason = target_lookup.get('override_reason')
-                status = target_lookup.get('status')
-                matched_hour = target_lookup.get('matched_hour')
-                if matched_hour:
-                    matched_label = format_local_time(matched_hour)
-                    summary_bits.append(f"Forecast hour: {matched_label}")
-                elif status == 'current_only':
-                    summary_bits.append("Forecast hour: current conditions")
-                if override_reason:
-                    summary_bits.append("Override: current conditions within 45 min")
+            col_ma_d, col_ma_e, col_ma_f = st.columns(3)
+            with col_ma_d:
+                top_k_stands = st.number_input(
+                    "Top K stands",
+                    min_value=5,
+                    max_value=100,
+                    value=st.session_state.get("ma_top_k_stands", 30),
+                    step=5,
+                    help="Number of stand recommendations returned.",
+                    key="ma_top_k_stands",
+                )
+            with col_ma_e:
+                wind_offset_m = st.number_input(
+                    "Wind offset (m)",
+                    min_value=10,
+                    max_value=250,
+                    value=int(round(float(st.session_state.get("ma_wind_offset_m", 80.0)))),
+                    step=10,
+                    help="Distance to offset a stand downwind for scent control.",
+                    key="ma_wind_offset_m",
+                )
+            with col_ma_f:
+                min_per_quadrant = st.number_input(
+                    "Min per quadrant",
+                    min_value=0,
+                    max_value=20,
+                    value=st.session_state.get("ma_min_per_quadrant", 6),
+                    step=1,
+                    help="Ensures spatial diversity across the property.",
+                    key="ma_min_per_quadrant",
+                )
 
-            if thermal_active:
-                summary_bits.append("Thermals active")
+            st.markdown(
+                """
+**Settings legend**
+- **Grid spacing:** Smaller = more detail, slower.
+- **Max candidates:** Size of the candidate pool before final ranking.
+- **GEE sample K:** How many candidates get canopy/NDVI enrichment.
+- **Behavior weight:** Blend terrain vs behavior score.
+- **TPI windows:** Terrain context at small/large scales.
+- **Top K stands:** Number of recommendations returned.
+- **Wind offset:** Stand offset distance for wind/scent.
+- **Min per quadrant:** Enforces spatial diversity.
+"""
+            )
 
-            st.markdown("**🌬️ Wind Gameplan:** " + " · ".join(summary_bits))
+            max_accuracy_config = {
+                "grid_spacing_m": int(grid_spacing_m),
+                "max_candidates": int(max_candidates),
+                "top_k_stands": int(top_k_stands),
+                "gee_sample_k": int(gee_sample_k),
+                "wind_offset_m": float(wind_offset_m),
+                "behavior_weight": float(behavior_weight),
+                "tpi_small_m": int(tpi_small_m),
+                "tpi_large_m": int(tpi_large_m),
+                "min_per_quadrant": int(min_per_quadrant),
+            }
+            try:
+                os.makedirs(os.path.dirname(ma_settings_path), exist_ok=True)
+                with open(ma_settings_path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        {
+                            "ma_grid_spacing_m": int(grid_spacing_m),
+                            "ma_max_candidates": int(max_candidates),
+                            "ma_gee_sample_k": int(gee_sample_k),
+                            "ma_behavior_weight": float(behavior_weight),
+                            "ma_tpi_small_m": int(tpi_small_m),
+                            "ma_tpi_large_m": int(tpi_large_m),
+                            "ma_top_k_stands": int(top_k_stands),
+                            "ma_wind_offset_m": float(wind_offset_m),
+                            "ma_min_per_quadrant": int(min_per_quadrant),
+                        },
+                        f,
+                        indent=2,
+                    )
+            except Exception:
+                pass
+    default_corners = "\n".join(
+        [
+            "NW 43.31925, -73.23064",
+            "NE 43.32165, -73.20444",
+            "SE 43.29906, -73.21121",
+            "SW 43.30036, -73.24005",
+        ]
+    )
+    corners_text = st.text_area(
+        "Property corners (one per line)",
+        value=st.session_state.get("hotspot_corners_text", default_corners),
+        height=120,
+        help="Format examples: 'NW 43.31, -73.21' or '43.31, -73.21'",
+    )
+    st.session_state["hotspot_corners_text"] = corners_text
 
-            tactical = wind_summary.get('tactical_recommendations', [])
-            if tactical:
-                for tip in tactical[:3]:
-                    st.caption(f"• {tip}")
-    
+    mode = "lidar_first"
+    st.caption("All property scans run LiDAR-first to shortlist terrain, then refine with GEE.")
+
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+        lidar_grid_points = st.number_input("LiDAR grid points", min_value=5000, max_value=200000, value=120000, step=5000)
+    with col_b:
+        lidar_top_k = st.number_input("Shortlist (top K)", min_value=5, max_value=50, value=30, step=1)
+    with col_c:
+        lidar_radius_m = st.number_input("LiDAR sample radius (m)", min_value=5, max_value=120, value=30, step=5)
+
+    col_d, col_e = st.columns(2)
+    with col_d:
+        num_points = st.number_input("Fallback sample points", min_value=5, max_value=200, value=25, step=5)
+    with col_e:
+        epsilon_m = st.number_input("Cluster radius (m)", min_value=10, max_value=300, value=75, step=5)
+
+    min_samples = st.number_input("Min cluster size", min_value=2, max_value=10, value=2, step=1)
+
+    dt_mode = st.radio(
+        "Time",
+        ["Manual (ISO UTC)", "Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"],
+        index=0,
+        horizontal=True,
+        help="Bracket mode submits two jobs around sunrise/sunset for the property centroid.",
+    )
+
+    dt = st.text_input("ISO datetime (UTC)", value="2025-10-15T10:30:00Z", disabled=(dt_mode != "Manual (ISO UTC)"))
+
+    sunrise_date = None
+    if dt_mode != "Manual (ISO UTC)":
+        sunrise_date = st.date_input("Date (local)")
+    pressure = st.selectbox("Hunting pressure", ["low", "medium", "high"], index=2)
+
+    if st.button("Run property hotspot analysis", type="primary"):
+        corners = _parse_corners_text(corners_text)
+        if len(corners) < 3:
+            st.error("Please provide at least 3 corners (lat/lon).")
+        else:
+            try:
+                base_payload = {
+                    "corners": corners,
+                    "mode": mode,
+                    "num_sample_points": int(num_points),
+                    "lidar_grid_points": int(lidar_grid_points),
+                    "lidar_top_k": int(lidar_top_k),
+                    "lidar_sample_radius_m": int(lidar_radius_m),
+                    "epsilon_meters": float(epsilon_m),
+                    "min_samples": int(min_samples),
+                    "season": "fall",
+                    "hunting_pressure": pressure,
+                }
+
+                if use_max_accuracy:
+                    payload = dict(base_payload)
+                    payload["config"] = max_accuracy_config
+                    if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
+                        centroid = _corners_centroid(corners)
+                        if not centroid:
+                            st.error("Could not compute property centroid from corners.")
+                            payload = None
+                        else:
+                            lat_c, lon_c = centroid
+                            is_sunrise = dt_mode.startswith("Sunrise")
+                            event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
+                            if not event_utc:
+                                st.error("Sunrise/sunset could not be computed for this date/location.")
+                                payload = None
+                            else:
+                                payload["date_time"] = _dt_to_iso_z(event_utc)
+                    else:
+                        payload["date_time"] = dt
+
+                    if payload:
+                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=60)
+                        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                            st.session_state["max_accuracy_job_id"] = data["job_id"]
+                            st.session_state["max_accuracy_auto_loaded"] = False
+                            st.success("Max Accuracy job started. Use refresh to load results.")
+                        else:
+                            st.error(f"Max Accuracy failed: {data.get('error') or resp.text}")
+                else:
+                    job_choices: list[tuple[str, str]] = []
+
+                    if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
+                        centroid = _corners_centroid(corners)
+                        if not centroid:
+                            st.error("Could not compute property centroid from corners.")
+                        else:
+                            lat_c, lon_c = centroid
+                            # App is Vermont-focused; use Eastern time for local sunrise.
+                            tz = ZoneInfo("America/New_York")
+                            is_sunrise = dt_mode.startswith("Sunrise")
+                            event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
+                            if not event_utc:
+                                st.error("Sunrise/sunset could not be computed for this date/location.")
+                            else:
+                                event_local = event_utc.astimezone(tz)
+                                dt_a = event_local - timedelta(minutes=30)
+                                dt_b = event_local + timedelta(minutes=30)
+                                event_name = "Sunrise" if is_sunrise else "Sunset"
+                                pairs = [(f"{event_name} -30m", dt_a), (f"{event_name} +30m", dt_b)]
+                                for label, local_dt in pairs:
+                                    payload = dict(base_payload)
+                                    payload["date_time"] = _dt_to_iso_z(local_dt)
+                                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                                    if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                                        job_choices.append((f"{label} ({local_dt.strftime('%Y-%m-%d %H:%M %Z')})", data["job_id"]))
+                                    else:
+                                        st.error(f"Could not start {label}: {data.get('error') or resp.text}")
+
+                    else:
+                        payload = dict(base_payload)
+                        payload["date_time"] = dt
+                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                            job_choices.append(("Manual", data["job_id"]))
+                        else:
+                            st.error(f"Could not start job: {data.get('error') or resp.text}")
+
+                    if job_choices:
+                        st.session_state["hotspot_job_choices"] = job_choices
+                        st.session_state["hotspot_job_id"] = job_choices[0][1]
+                        if len(job_choices) == 1:
+                            st.success(f"Started hotspot job: {job_choices[0][1]}")
+                        else:
+                            st.success("Started hotspot jobs:")
+                            for label, jid in job_choices:
+                                st.write(f"- {label}: {jid}")
+            except Exception as e:
+                st.error(f"Could not start job: {e}")
+
+    job_choices = st.session_state.get("hotspot_job_choices")
+    if isinstance(job_choices, list) and job_choices:
+        labels = [c[0] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
+        ids = [c[1] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
+        if labels and ids and len(labels) == len(ids):
+            selected = st.selectbox("View job", options=list(range(len(ids))), format_func=lambda i: labels[i])
+            st.session_state["hotspot_job_id"] = ids[int(selected)]
+
+    job_id = st.session_state.get("hotspot_job_id")
+    if job_id:
+        st.subheader("Job status")
+        try:
+            status_resp = requests.get(f"{BACKEND_URL}/property-hotspots/status/{job_id}", timeout=30)
+            status_data = status_resp.json() if status_resp.headers.get("content-type", "").startswith("application/json") else {}
+            job = status_data.get("job") if isinstance(status_data, dict) else None
+            if isinstance(job, dict):
+                st.write(f"Status: **{job.get('status')}**")
+                total = int(job.get("total") or 0)
+                completed = int(job.get("completed") or 0)
+                if total > 0:
+                    st.progress(min(1.0, completed / max(1, total)))
+                    st.caption(f"{completed}/{total} · {job.get('message','')}")
+                else:
+                    st.caption(job.get("message", ""))
+                if job.get("error"):
+                    st.error(job["error"])
+            else:
+                st.warning("Could not read job status")
+        except Exception as e:
+            st.warning(f"Status unavailable: {e}")
+
+        st.button("Refresh status")
+
+    max_accuracy_report = st.session_state.get("max_accuracy_report")
+    max_accuracy_job_id = st.session_state.get("max_accuracy_job_id")
+    if max_accuracy_job_id and not isinstance(max_accuracy_report, dict) and not st.session_state.get("max_accuracy_auto_loaded"):
+        try:
+            resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{max_accuracy_job_id}", timeout=30)
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            if resp.status_code == 200 and data.get("success") and data.get("report"):
+                st.session_state["max_accuracy_report"] = data["report"]
+                max_accuracy_report = data["report"]
+                st.session_state["max_accuracy_auto_loaded"] = True
+        except Exception:
+            pass
+    if st.session_state.get("max_accuracy_job_id"):
+        col_refresh, col_auto = st.columns(2)
+        with col_refresh:
+            refresh_clicked = st.button("Refresh max-accuracy report")
+        with col_auto:
+            auto_clicked = st.button("Auto-load when ready")
+
+        if refresh_clicked:
+            job_id = st.session_state.get("max_accuracy_job_id")
+            try:
+                resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{job_id}", timeout=30)
+                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                if resp.status_code == 200 and data.get("success") and data.get("report"):
+                    st.session_state["max_accuracy_report"] = data["report"]
+                    max_accuracy_report = data["report"]
+                    st.success("Max-accuracy report refreshed.")
+                else:
+                    st.error(f"Could not refresh report: {data.get('error') or resp.text}")
+            except Exception as e:
+                st.error(f"Could not refresh report: {e}")
+
+        if auto_clicked:
+            job_id = st.session_state.get("max_accuracy_job_id")
+            status = st.empty()
+            progress = st.progress(0)
+            max_attempts = 60
+            for i in range(max_attempts):
+                try:
+                    status.info(f"Checking report... ({i + 1}/{max_attempts})")
+                    resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{job_id}", timeout=30)
+                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    if resp.status_code == 200 and data.get("success") and data.get("report"):
+                        st.session_state["max_accuracy_report"] = data["report"]
+                        max_accuracy_report = data["report"]
+                        status.success("Max-accuracy report loaded.")
+                        progress.progress(1.0)
+                        break
+                except Exception:
+                    pass
+                progress.progress((i + 1) / max_attempts)
+                time.sleep(5)
+            else:
+                status.warning("Report not ready yet. Try refresh in a bit.")
+    with st.expander("Load max-accuracy report by job id", expanded=False):
+        if max_accuracy_job_id:
+            st.caption(f"Last max-accuracy job id: {max_accuracy_job_id}")
+        load_job_id = st.text_input(
+            "Max-accuracy job id",
+            value=max_accuracy_job_id or "",
+            placeholder="Paste job id",
+            key="ma_load_job_id",
+        )
+        if st.button("Load max-accuracy report"):
+            if not load_job_id.strip():
+                st.warning("Enter a job id.")
+            else:
+                try:
+                    resp = requests.get(f"{BACKEND_URL}/property-hotspots/max-accuracy/report/{load_job_id.strip()}", timeout=30)
+                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    if resp.status_code == 200 and data.get("success") and data.get("report"):
+                        st.session_state["max_accuracy_report"] = data["report"]
+                        st.success("Loaded max-accuracy report.")
+                        max_accuracy_report = data["report"]
+                    else:
+                        st.error(f"Could not load report: {data.get('error') or resp.text}")
+                except Exception as e:
+                    st.error(f"Could not load report: {e}")
+    if isinstance(max_accuracy_report, dict):
+        st.subheader("🚀 Max Accuracy Stand Recommendations")
+        stand_recs = max_accuracy_report.get("stand_recommendations")
+        bedding_zones = max_accuracy_report.get("bedding_zones", [])
+        if isinstance(stand_recs, list) and stand_recs:
+            def build_top_stand_explanation(rec: dict) -> str:
+                parts: list[str] = []
+                # Use final_score if available (includes bedding proximity), else combined_score
+                final = rec.get("final_score")
+                combined = rec.get("combined_score")
+                if isinstance(final, (int, float)):
+                    parts.append(f"Final score: {float(final):.3f}")
+                elif isinstance(combined, (int, float)):
+                    parts.append(f"Combined score: {float(combined):.3f}")
+                slope = rec.get("slope_deg")
+                if isinstance(slope, (int, float)):
+                    parts.append(f"Slope: {float(slope):.1f}°")
+                elev = rec.get("elevation_m")
+                if isinstance(elev, (int, float)):
+                    parts.append(f"Elevation: {float(elev):.0f} m")
+
+                def add_if_high(label: str, value: object, threshold: float = 0.7) -> None:
+                    if isinstance(value, (int, float)) and float(value) >= threshold:
+                        parts.append(f"{label}: {float(value):.2f}")
+
+                add_if_high("Bench", rec.get("bench_score"))
+                add_if_high("Saddle", rec.get("saddle_score"))
+                add_if_high("Corridor", rec.get("corridor_score"))
+                add_if_high("Shelter", rec.get("shelter_score"), threshold=0.6)
+                add_if_high("Aspect", rec.get("aspect_score"), threshold=0.6)
+                add_if_high("Roughness", rec.get("roughness"), threshold=5.0)
+
+                if not parts:
+                    return "Top site selected based on overall terrain + behavior ranking."
+                return " · ".join(parts)
+
+            top_rec = stand_recs[0]
+            st.markdown("**Top stand (#1) summary**")
+            st.write(build_top_stand_explanation(top_rec))
+            
+            # Bedding proximity info
+            bedding_prox = top_rec.get("bedding_proximity_score")
+            nearest_bed = top_rec.get("nearest_bedding")
+            if isinstance(bedding_prox, (int, float)) and isinstance(nearest_bed, dict):
+                bed_dist = nearest_bed.get("distance_m")
+                bed_bearing = nearest_bed.get("bearing_deg")
+                wind_score = nearest_bed.get("wind_score")
+                st.write(f"🛏️ **Bedding proximity:** {float(bedding_prox):.2f} — nearest bed {bed_dist}m @ {bed_bearing}° (wind score: {wind_score})")
+            
+            # Wind rotation (which winds to hunt vs avoid)
+            huntable_winds = top_rec.get("huntable_winds", [])
+            avoid_winds = top_rec.get("avoid_winds", [])
+            if huntable_winds or avoid_winds:
+                st.write(f"🌬️ **Wind rotation:**")
+                if huntable_winds:
+                    st.write(f"  ✅ Hunt: {', '.join(huntable_winds)}")
+                if avoid_winds:
+                    st.write(f"  ❌ Avoid: {', '.join(avoid_winds)}")
+            
+            top_winds = top_rec.get("wind_options")
+            if isinstance(top_winds, list) and top_winds:
+                best = top_winds[0]
+                wind_from = best.get("wind_from_deg")
+                wind_to = best.get("wind_to_deg")
+                offset_m = best.get("offset_m")
+                wind_bits = []
+                if wind_from is not None:
+                    wind_bits.append(f"from {wind_from}°")
+                if wind_to is not None:
+                    wind_bits.append(f"to {wind_to}°")
+                if offset_m is not None:
+                    wind_bits.append(f"offset {offset_m}m")
+                st.write("Best wind:", " · ".join(wind_bits))
+            
+            # Show bedding zone count
+            if isinstance(bedding_zones, list) and bedding_zones:
+                st.info(f"🛏️ Identified **{len(bedding_zones)}** probable bedding zones on this property")
+
+            options = []
+            for idx, rec in enumerate(stand_recs, start=1):
+                lat = rec.get("lat")
+                lon = rec.get("lon")
+                score = rec.get("final_score", rec.get("combined_score", rec.get("score")))
+                title_bits = [f"#{idx}"]
+                if isinstance(score, (int, float)):
+                    title_bits.append(f"score {float(score):.3f}")
+                if lat is not None and lon is not None:
+                    title_bits.append(f"{float(lat):.6f}, {float(lon):.6f}")
+                # Add bedding distance if available
+                nb = rec.get("nearest_bedding")
+                if isinstance(nb, dict) and nb.get("distance_m"):
+                    title_bits.append(f"bed:{nb['distance_m']}m")
+                options.append(" · ".join(title_bits))
+
+            selected_idx = st.selectbox(
+                "Select a stand",
+                options=list(range(len(options))),
+                format_func=lambda i: options[i],
+                key="ma_selected_stand",
+            )
+            st.json(stand_recs[int(selected_idx)])
+            st.subheader("🗺️ Max Accuracy Map")
+            
+            # Checkbox to show/hide bedding zones on map (default ON)
+            show_bedding_zones = st.checkbox("Show bedding zones on map", value=True, key="ma_show_bedding")
+            
+            try:
+                lat_center = sum(float(s.get("lat", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
+                lon_center = sum(float(s.get("lon", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
+                max_map = folium.Map(location=[lat_center, lon_center], zoom_start=14)
+                bounds_lats = [float(s.get("lat", 0.0)) for s in stand_recs if s.get("lat") is not None]
+                bounds_lons = [float(s.get("lon", 0.0)) for s in stand_recs if s.get("lon") is not None]
+                report_inputs = max_accuracy_report.get("inputs") if isinstance(max_accuracy_report, dict) else None
+                corners = report_inputs.get("corners") if isinstance(report_inputs, dict) else None
+                if isinstance(corners, list) and corners:
+                    poly_points = [(c.get("lat"), c.get("lon")) for c in corners if c.get("lat") is not None and c.get("lon") is not None]
+                    if poly_points:
+                        folium.Polygon(locations=poly_points, color="#3b82f6", weight=2, fill=False, tooltip="Property boundary").add_to(max_map)
+                        bounds_lats.extend([p[0] for p in poly_points])
+                        bounds_lons.extend([p[1] for p in poly_points])
+                
+                # Add bedding zones if enabled
+                if show_bedding_zones and isinstance(bedding_zones, list):
+                    # Sort by criteria_met (best bedding first) and show top 5 as larger green circles
+                    sorted_bedding = sorted(bedding_zones, key=lambda b: b.get('criteria_met', 0), reverse=True)
+                    
+                    # Top 5 bedding zones - larger green circles (prime bedding)
+                    for idx, bz in enumerate(sorted_bedding[:5]):
+                        bz_lat = bz.get("lat")
+                        bz_lon = bz.get("lon")
+                        if bz_lat is not None and bz_lon is not None:
+                            folium.CircleMarker(
+                                [bz_lat, bz_lon],
+                                radius=10,
+                                color="#16a34a",  # green
+                                fill=True,
+                                fill_color="#22c55e",
+                                fill_opacity=0.7,
+                                tooltip=f"🛏️ Top Bedding #{idx+1}<br>Lat: {bz_lat:.5f}, Lon: {bz_lon:.5f}<br>Shelter: {bz.get('shelter_score', 0):.2f}, Bench: {bz.get('bench_score', 0):.2f}, Roughness: {bz.get('roughness', 0):.1f}"
+                            ).add_to(max_map)
+                    
+                    # Remaining bedding zones - smaller orange circles
+                    for bz in sorted_bedding[5:100]:  # Limit for performance
+                        bz_lat = bz.get("lat")
+                        bz_lon = bz.get("lon")
+                        if bz_lat is not None and bz_lon is not None:
+                            folium.CircleMarker(
+                                [bz_lat, bz_lon],
+                                radius=4,
+                                color="#f97316",
+                                fill=True,
+                                fill_color="#f97316",
+                                fill_opacity=0.4,
+                                tooltip=f"🛏️ Bedding<br>Lat: {bz_lat:.5f}, Lon: {bz_lon:.5f}<br>Shelter: {bz.get('shelter_score', 0):.2f}, Roughness: {bz.get('roughness', 0):.1f}"
+                            ).add_to(max_map)
+                
+                # Add stand markers (green for stands)
+                for idx, rec in enumerate(stand_recs, start=1):
+                    lat = rec.get("lat")
+                    lon = rec.get("lon")
+                    if lat is None or lon is None:
+                        continue
+                    score = rec.get("final_score", rec.get("combined_score", rec.get("score")))
+                    bed_info = ""
+                    nb = rec.get("nearest_bedding")
+                    if isinstance(nb, dict) and nb.get("distance_m"):
+                        bed_info = f"<br>Nearest bed: {nb['distance_m']}m"
+                    
+                    # Wind rotation info
+                    wind_info = ""
+                    huntable = rec.get("huntable_winds", [])
+                    avoid = rec.get("avoid_winds", [])
+                    if huntable or avoid:
+                        wind_info = f"<br><b>✅ Hunt:</b> {', '.join(huntable) if huntable else 'None'}"
+                        wind_info += f"<br><b>❌ Avoid:</b> {', '.join(avoid) if avoid else 'None'}"
+                    
+                    if isinstance(score, (int, float)):
+                        popup = f"<b>#{idx}</b> score: {score:.3f}<br>Lat/Lon: {float(lat):.6f}, {float(lon):.6f}{bed_info}{wind_info}"
+                        tooltip = f"#{idx} score: {score:.3f} | {float(lat):.6f}, {float(lon):.6f}"
+                    else:
+                        popup = f"<b>#{idx}</b><br>Lat/Lon: {float(lat):.6f}, {float(lon):.6f}{bed_info}{wind_info}"
+                        tooltip = f"#{idx} | {float(lat):.6f}, {float(lon):.6f}"
+                    folium.Marker([lat, lon], tooltip=tooltip, popup=popup).add_to(max_map)
+                if bounds_lats and bounds_lons:
+                    max_map.fit_bounds([[min(bounds_lats), min(bounds_lons)], [max(bounds_lats), max(bounds_lons)]])
+                st_folium(max_map, height=500, width=None)
+            except Exception as e:
+                st.warning(f"Could not render max-accuracy map: {e}")
+            with st.expander("Full max-accuracy report (all fields)", expanded=False):
+                st.json(max_accuracy_report)
+        else:
+            st.json(max_accuracy_report)
+
+
+def _render_hunt_predictions_ui_impl(active_prediction):
+    """Render hunt prediction UI in the Hunt Predictions tab."""
+    with tab_predict:
+        _render_hunt_predictions_ui_body(active_prediction)
+
+
+def _render_hunt_predictions_ui_body(active_prediction):
+    """Render the interactive hunt prediction input and map UI."""
+
     # Create two columns for inputs and map
     input_col, map_col = st.columns([1, 2])
     
@@ -1040,6 +1771,20 @@ with tab_predict:
     
     # Display current coordinates
     st.write(f"📍 **Current Location:** {st.session_state.hunt_location[0]:.4f}, {st.session_state.hunt_location[1]:.4f}")
+    
+    # Display Stand Coordinates
+    if 'prediction_results' in st.session_state and st.session_state.prediction_results:
+        prediction = st.session_state.prediction_results
+        if 'optimized_points' in prediction and prediction['optimized_points']:
+            stand_sites = prediction['optimized_points'].get('stand_sites', [])
+            if stand_sites:
+                st.markdown("### 🎯 Stand Coordinates")
+                cols = st.columns(3)
+                for i, stand in enumerate(stand_sites[:3], 1):  # Show first 3 stands
+                    with cols[i-1]:
+                        st.markdown(f"**Stand {i}:** {stand.get('strategy', 'Unknown')}")
+                        st.code(f"{stand['lat']:.6f}, {stand['lon']:.6f}")
+                        st.caption(f"Score: {stand.get('score', 0):.1f}/10")
     
     # DEBUG: Show map refresh status
     if 'prediction_results' in st.session_state and st.session_state.prediction_results:
@@ -1831,38 +2576,16 @@ with tab_predict:
                     
                     # Calculate distance and bearing with enhanced precision
                     if coords.get('lat') and coords.get('lon'):
-                        from math import radians, cos, sin, asin, sqrt, atan2, degrees
-                        
-                        def haversine(lon1, lat1, lon2, lat2):
-                            # Convert to radians
-                            lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-                            # Haversine formula
-                            dlon = lon2 - lon1
-                            dlat = lat2 - lat1
-                            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-                            c = 2 * asin(sqrt(a))
-                            r = 6371000  # Radius of earth in meters
-                            return c * r
-                        
-                        def calculate_bearing(lat1, lon1, lat2, lon2):
-                            # Calculate bearing from hunt point to stand
-                            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-                            dlon = lon2 - lon1
-                            y = sin(dlon) * cos(lat2)
-                            x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
-                            bearing = atan2(y, x)
-                            bearing = degrees(bearing)
-                            bearing = (bearing + 360) % 360
-                            return bearing
+                        from geo_utils import haversine, bearing_between
                         
                         distance = haversine(
-                            st.session_state.hunt_location[1],  # lon1
                             st.session_state.hunt_location[0],  # lat1
-                            coords.get('lon', 0),  # lon2
-                            coords.get('lat', 0)   # lat2
+                            st.session_state.hunt_location[1],  # lon1
+                            coords.get('lat', 0),  # lat2
+                            coords.get('lon', 0)   # lon2
                         )
                         
-                        bearing = calculate_bearing(
+                        bearing = bearing_between(
                             st.session_state.hunt_location[0],  # lat1
                             st.session_state.hunt_location[1],  # lon1
                             coords.get('lat', 0),  # lat2
@@ -2122,19 +2845,9 @@ with tab_predict:
                             bedding_lon = first_bedding.get('lon', 0)
                             
                             if bedding_lat and bedding_lon:
-                                from math import radians, cos, sin, atan2, degrees
+                                from geo_utils import bearing_between
                                 
-                                def calculate_bearing(lat1, lon1, lat2, lon2):
-                                    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-                                    dlon = lon2 - lon1
-                                    y = sin(dlon) * cos(lat2)
-                                    x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
-                                    bearing = atan2(y, x)
-                                    bearing = degrees(bearing)
-                                    bearing = (bearing + 360) % 360
-                                    return bearing
-                                
-                                deer_approach_bearing = calculate_bearing(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
+                                deer_approach_bearing = bearing_between(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
                                 directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
                                             "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
                                 deer_approach_dir = directions[int((deer_approach_bearing + 11.25) / 22.5) % 16]
@@ -2403,6 +3116,20 @@ with tab_predict:
                         st.warning("🎯 **ALGORITHM VERDICT:** BACKUP STAND - Use when primary spots fail")
 
 # ==========================================
+# TAB 1B: HUNT PREDICTIONS (MAP + INPUTS)
+# ==========================================
+with tab_predict:
+    active_prediction_raw = st.session_state.get('prediction_results')
+    active_prediction = None
+    if isinstance(active_prediction_raw, dict):
+        if 'data' in active_prediction_raw and isinstance(active_prediction_raw['data'], dict):
+            active_prediction = active_prediction_raw['data']
+        else:
+            active_prediction = active_prediction_raw
+
+    _render_hunt_predictions_ui_impl(active_prediction)
+
+# ==========================================
 # TAB 2: SCOUTING DATA
 # ==========================================
 with tab_scout:
@@ -2426,9 +3153,9 @@ with tab_scout:
             
             # Load and display existing observations
             existing_obs = get_scouting_observations(
-                st.session_state.hunt_location[0], 
-                st.session_state.hunt_location[1], 
-                radius_miles=10
+                st.session_state.hunt_location[0],
+                st.session_state.hunt_location[1],
+                radius_miles=2,
             )
             
             # Add existing observation markers

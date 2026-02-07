@@ -151,6 +151,7 @@ class VegetationAnalyzer:
             # Analyze vegetation metrics using improved NDVI method
             results = {
                 'ndvi_analysis': self._analyze_ndvi_improved(area, start_date, end_date),
+                'ndvi_trend': self._analyze_ndvi_trend(area, end_date),
                 'land_cover': self._analyze_land_cover(area),
                 'canopy_coverage_analysis': self._analyze_canopy_coverage(lat, lon, radius_km * 1000),  # NEW: Real canopy!
                 'food_sources': self._identify_food_sources(area, start_date, end_date, season),  # Vermont-specific!
@@ -173,6 +174,84 @@ class VegetationAnalyzer:
         except Exception as e:
             logger.warning(f"GEE vegetation analysis failed: {e}, using fallback")
             return self._fallback_vegetation_analysis(lat, lon)
+
+    def _analyze_ndvi_trend(self, area: ee.Geometry, end_date: datetime) -> Dict[str, Any]:
+        """Compare recent NDVI vs prior period to detect vegetation trend."""
+        try:
+            recent_start = end_date - timedelta(days=30)
+            prior_end = recent_start
+            prior_start = prior_end - timedelta(days=30)
+
+            recent = self._calculate_ndvi_for_range(area, recent_start, end_date)
+            prior = self._calculate_ndvi_for_range(area, prior_start, prior_end)
+
+            recent_value = recent.get('ndvi_value')
+            prior_value = prior.get('ndvi_value')
+            if recent_value is None or prior_value is None:
+                return {
+                    'trend': 'unknown',
+                    'recent_ndvi': recent_value,
+                    'prior_ndvi': prior_value,
+                    'delta': None
+                }
+
+            delta = recent_value - prior_value
+            if delta > 0.05:
+                trend = 'improving'
+            elif delta < -0.05:
+                trend = 'declining'
+            else:
+                trend = 'stable'
+
+            return {
+                'trend': trend,
+                'recent_ndvi': recent_value,
+                'prior_ndvi': prior_value,
+                'delta': round(delta, 3),
+                'recent_window_days': 30,
+                'prior_window_days': 30
+            }
+        except Exception as e:
+            logger.warning(f"NDVI trend analysis failed: {e}")
+            return {
+                'trend': 'unknown',
+                'recent_ndvi': None,
+                'prior_ndvi': None,
+                'delta': None,
+                'error': str(e)
+            }
+
+    def _calculate_ndvi_for_range(self, area: ee.Geometry, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+        """Calculate mean NDVI for a given date range."""
+        collection = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2') \
+            .filterBounds(area) \
+            .filterDate(start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')) \
+            .filter(ee.Filter.lt('CLOUD_COVER', 30))
+
+        size = collection.size().getInfo()
+        if size == 0:
+            return {'ndvi_value': None, 'image_count': 0}
+
+        def calculate_ndvi(image):
+            ndvi = image.normalizedDifference(['SR_B5', 'SR_B4']).rename('NDVI')
+            return image.addBands(ndvi)
+
+        ndvi_collection = collection.map(calculate_ndvi)
+        median_ndvi = ndvi_collection.select('NDVI').median()
+
+        stats = median_ndvi.reduceRegion(
+            reducer=ee.Reducer.mean(),
+            geometry=area,
+            scale=30,
+            maxPixels=1e9
+        ).getInfo()
+
+        return {
+            'ndvi_value': stats.get('NDVI'),
+            'image_count': size,
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat()
+        }
     
     def _analyze_ndvi_improved(self, area: ee.Geometry, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Improved NDVI analysis with better fallback strategies"""
@@ -922,6 +1001,11 @@ class VegetationAnalyzer:
     def _analyze_water_sources(self, area: ee.Geometry) -> Dict[str, Any]:
         """Analyze proximity and availability of water sources"""
         try:
+            def _safe_float(value: Any, default: float = 0.0) -> float:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                return default
+
             # Use JRC Global Surface Water dataset
             water = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
             occurrence = water.select('occurrence')
@@ -932,12 +1016,15 @@ class VegetationAnalyzer:
                 geometry=area,
                 scale=30,
                 maxPixels=1e9
-            ).getInfo()
+            ).getInfo() or {}
+
+            occurrence_mean = _safe_float(water_stats.get('occurrence_mean'))
+            occurrence_max = _safe_float(water_stats.get('occurrence_max'))
             
             water_availability = {
-                'water_occurrence_percent': round(water_stats.get('occurrence_mean', 0), 1),
-                'max_water_occurrence': round(water_stats.get('occurrence_max', 0), 1),
-                'water_reliability': self._assess_water_reliability(water_stats.get('occurrence_mean', 0)),
+                'water_occurrence_percent': round(occurrence_mean, 1),
+                'max_water_occurrence': round(occurrence_max, 1),
+                'water_reliability': self._assess_water_reliability(occurrence_mean),
                 'seasonal_water_score': self._calculate_seasonal_water_score(water_stats)
             }
             

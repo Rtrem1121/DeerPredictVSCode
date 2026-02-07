@@ -48,6 +48,7 @@ class OptimizedBiologicalIntegration:
         self.gee_authenticated = False
         self.pressure_history = []  # For trend analysis
         self.websocket_connected = False
+        self._gee_cache = {}
         
         # Initialize GEE if available
         if GEE_AVAILABLE:
@@ -97,6 +98,12 @@ class OptimizedBiologicalIntegration:
         """Get dynamic NDVI/canopy data from Google Earth Engine with error retries"""
         if not self.gee_authenticated:
             return self.get_fallback_gee_data(lat, lon)
+
+        cache_date = datetime.now().strftime('%Y-%m-%d')
+        cache_key = f"{round(lat, 3)},{round(lon, 3)},{cache_date}"
+        cached = self._gee_cache.get(cache_key)
+        if cached:
+            return cached.copy()
         
         for attempt in range(max_retries):
             try:
@@ -143,6 +150,7 @@ class OptimizedBiologicalIntegration:
                     }
                     
                     self.logger.info(f"✅ Enhanced GEE data (attempt {attempt+1}): NDVI={ndvi_value:.3f}, Canopy={effective_canopy:.1%}")
+                    self._gee_cache[cache_key] = gee_data.copy()
                     return gee_data
                 
             except Exception as e:
@@ -152,7 +160,9 @@ class OptimizedBiologicalIntegration:
                 else:
                     self.logger.error(f"❌ All {max_retries} GEE attempts failed")
         
-        return self.get_fallback_gee_data(lat, lon)
+        fallback = self.get_fallback_gee_data(lat, lon)
+        self._gee_cache[cache_key] = fallback.copy()
+        return fallback
     
     def get_osm_disturbance_for_gee(self, lat: float, lon: float) -> Dict:
         """Get OSM disturbance data for GEE hybrid analysis"""

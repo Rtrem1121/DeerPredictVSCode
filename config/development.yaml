@@ -29,3 +29,12 @@ deer_prediction_config:
     enable_detailed_logging: true
     enable_parameter_tracking: true
     enable_confidence_breakdown: true
+
+  # Enable dense LiDAR pre-scan in development
+  lidar_dense_scan:
+    enabled: true
+    points: 100000
+
+  corridor_scoring:
+    path_max_link_m: 200
+    path_max_bearing_diff_deg: 60

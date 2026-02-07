@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+import json
+import os
+import uuid
+from pathlib import Path
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from backend.max_accuracy import MaxAccuracyConfig, MaxAccuracyPipeline
+
+
+max_accuracy_router = APIRouter(tags=["property-hotspots", "max-accuracy"])
+
+
+class Corner(BaseModel):
+    lat: float
+    lon: float
+
+
+class MaxAccuracyConfigOverrides(BaseModel):
+    grid_spacing_m: Optional[int] = Field(None, ge=5, le=100)
+    max_candidates: Optional[int] = Field(None, ge=500, le=20000)
+    top_k_stands: Optional[int] = Field(None, ge=5, le=100)
+    gee_sample_k: Optional[int] = Field(None, ge=0, le=2000)
+    wind_offset_m: Optional[float] = Field(None, ge=10.0, le=250.0)
+    behavior_weight: Optional[float] = Field(None, ge=0.0, le=1.0)
+    tpi_small_m: Optional[int] = Field(None, ge=20, le=200)
+    tpi_large_m: Optional[int] = Field(None, ge=60, le=600)
+    min_per_quadrant: Optional[int] = Field(None, ge=0, le=20)
+    enable_tiling: Optional[bool] = None
+    tile_size_px: Optional[int] = Field(None, ge=256, le=8192)
+
+
+class MaxAccuracyRequest(BaseModel):
+    corners: List[Corner] = Field(..., description="Property boundary corners (lat/lon) in order")
+    date_time: str = Field(..., description="ISO datetime, e.g. 2025-10-15T10:30:00Z")
+    season: str = Field("rut")
+    hunting_pressure: str = Field("medium")
+    config: Optional[MaxAccuracyConfigOverrides] = None
+
+
+class MaxAccuracyResponse(BaseModel):
+    success: bool
+    report: Optional[Dict[str, Any]] = None
+    job_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+def _resolve_jobs_dir() -> Path:
+    base_dir = Path(__file__).resolve().parents[2]
+    jobs_dir = Path(os.getenv("MAX_ACCURACY_JOBS_DIR", "data/max_accuracy_jobs"))
+    if not jobs_dir.is_absolute():
+        jobs_dir = base_dir / jobs_dir
+    return jobs_dir
+
+
+def _write_status(job_id: str, status: Dict[str, Any]) -> None:
+    jobs_dir = _resolve_jobs_dir()
+    job_dir = jobs_dir / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    status_path = job_dir / "status.json"
+    status_path.write_text(json.dumps(status, indent=2), encoding="utf-8")
+
+
+def _persist_report(report: Dict[str, Any], job_id: str | None = None) -> Dict[str, Any]:
+    job_id = job_id or uuid.uuid4().hex
+    jobs_dir = _resolve_jobs_dir()
+    job_dir = jobs_dir / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    report_path = job_dir / "max_accuracy_report.json"
+    report_payload = dict(report)
+    report_payload["job_id"] = job_id
+    report_payload["report_path"] = str(report_path)
+    report_path.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
+    return report_payload
+
+
+@max_accuracy_router.post("/property-hotspots/max-accuracy/analyze", response_model=MaxAccuracyResponse)
+async def analyze_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
+    try:
+        if len(request.corners) < 3:
+            raise HTTPException(status_code=400, detail="At least 3 corners are required")
+
+        config = MaxAccuracyConfig()
+        if request.config:
+            for key, value in request.config.dict(exclude_none=True).items():
+                setattr(config, key, value)
+
+        pipeline = MaxAccuracyPipeline(config)
+        corners = [(c.lat, c.lon) for c in request.corners]
+        report = pipeline.run(
+            corners,
+            date_time=request.date_time,
+            season=request.season,
+            hunting_pressure=request.hunting_pressure,
+        )
+
+        if isinstance(report, dict) and report.get("error"):
+            return MaxAccuracyResponse(success=False, error=str(report.get("error")))
+
+        report_payload = _persist_report(report)
+
+        return MaxAccuracyResponse(success=True, report=report_payload, job_id=report_payload.get("job_id"))
+    except HTTPException as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc.detail))
+    except Exception as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc))
+
+
+@max_accuracy_router.post("/property-hotspots/max-accuracy/run", response_model=MaxAccuracyResponse)
+async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
+    try:
+        if len(request.corners) < 3:
+            raise HTTPException(status_code=400, detail="At least 3 corners are required")
+
+        config = MaxAccuracyConfig()
+        if request.config:
+            for key, value in request.config.dict(exclude_none=True).items():
+                setattr(config, key, value)
+
+        corners = [(c.lat, c.lon) for c in request.corners]
+        pipeline = MaxAccuracyPipeline(config)
+
+        import asyncio
+
+        job_id = uuid.uuid4().hex
+        now = datetime.now(timezone.utc).isoformat()
+        _write_status(
+            job_id,
+            {
+                "job_id": job_id,
+                "state": "queued",
+                "stage": "queued",
+                "started_at": now,
+                "updated_at": now,
+            },
+        )
+
+        def _progress(stage: str, payload: Dict[str, Any]) -> None:
+            status = {
+                "job_id": job_id,
+                "state": "error" if stage == "error" else ("completed" if stage == "complete" else "running"),
+                "stage": stage,
+                "payload": payload,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            _write_status(job_id, status)
+
+        def _runner() -> None:
+            try:
+                report = pipeline.run(
+                    corners,
+                    date_time=request.date_time,
+                    season=request.season,
+                    hunting_pressure=request.hunting_pressure,
+                    progress_callback=_progress,
+                )
+                if isinstance(report, dict) and report.get("error"):
+                    _progress("error", {"error": str(report.get("error"))})
+                    return
+                report_payload = _persist_report(report, job_id=job_id)
+                _progress("complete", {"report_path": report_payload.get("report_path")})
+            except Exception as exc:
+                _progress("error", {"error": str(exc)})
+
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _runner)
+
+        return MaxAccuracyResponse(success=True, job_id=job_id)
+    except HTTPException as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc.detail))
+    except Exception as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc))
+
+
+@max_accuracy_router.get("/property-hotspots/max-accuracy/report/{job_id}", response_model=MaxAccuracyResponse)
+async def get_max_accuracy_report(job_id: str) -> MaxAccuracyResponse:
+    try:
+        jobs_dir = _resolve_jobs_dir()
+        report_path = jobs_dir / job_id / "max_accuracy_report.json"
+        if not report_path.exists():
+            raise HTTPException(status_code=404, detail="Report not found")
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        return MaxAccuracyResponse(success=True, report=report, job_id=job_id)
+    except HTTPException as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc.detail), job_id=job_id)
+    except Exception as exc:
+        return MaxAccuracyResponse(success=False, error=str(exc), job_id=job_id)

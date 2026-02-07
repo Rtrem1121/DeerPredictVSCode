@@ -1,4 +1,87 @@
+# 🦌 Deer Prediction App
 
+Streamlit + FastAPI application for mature buck bedding, movement, and stand recommendations using **local LiDAR**, **GEE vegetation**, **OSM**, and **weather**.
+
+## 📚 Documentation
+- 🏗️ Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 🧪 Testing: [docs/TESTING.md](docs/TESTING.md)
+- 🚀 Deployment: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- 📊 Analytics: [ANALYTICS_README.md](ANALYTICS_README.md)
+
+## 🔭 What’s New & Important
+- **Dense LiDAR pre‑scan** (optional) → shortlist → **GEE refinement** for top candidates.
+- **Declustering** ensures shortlisted sites aren’t stacked on the same ridge.
+- **NDVI trend** (recent vs prior window) included in vegetation analysis.
+- **Scouting priors** boost bedding scores near recent observations.
+- **Trace summary** included in prediction payload + frontend panel.
+- **Max Accuracy pipeline**: dense LiDAR grid + terrain metrics + optional GEE canopy/NDVI + behavior blending + quadrant diversity + wind offsets.
+
+## 🧭 Core Data Flow
+LiDAR terrain (0.35m) → terrain scoring + declustering → GEE canopy/NDVI → bedding + stand logic → frontend display.
+
+**Property scans:** use LiDAR-first grid scanning across the property boundary, shortlist top terrain candidates, then run full GEE refinement on those candidates (see Property Hotspots tab in [frontend/app.py](frontend/app.py)).
+
+**Max Accuracy scans:** use the Property Hotspots tab → check “Use Max Accuracy pipeline.” Results return via a background job and can be refreshed in the UI.
+
+## 🚀 Quick Start
+
+### Local Development
+```bash
+python backend/main.py
+streamlit run frontend/app.py
+```
+
+### Docker
+```bash
+docker compose up --build
+```
+Frontend: http://localhost:8501  
+API docs: http://localhost:8000/docs
+
+## ⚙️ Configuration
+Configs live in [config/defaults.yaml](config/defaults.yaml) and environment overlays:
+- [config/development.yaml](config/development.yaml)
+- [config/testing.yaml](config/testing.yaml)
+- [config/production.yaml](config/production.yaml)
+
+Dense LiDAR scan options (defaults in `defaults.yaml`):
+- `lidar_dense_scan.enabled`
+- `lidar_dense_scan.points`
+- `lidar_dense_scan.radius_m`
+- `lidar_dense_scan.top_k`
+- `lidar_dense_scan.min_separation_m`
+
+Corridor path tuning (defaults in `defaults.yaml`):
+- `corridor_scoring.path_max_link_m`
+- `corridor_scoring.path_max_bearing_diff_deg`
+
+Env overrides are in [.env.example](.env.example).
+
+Max Accuracy environment variables:
+- `MAX_ACCURACY_JOBS_DIR` (optional): where max-accuracy reports are persisted (default: `data/max_accuracy_jobs`).
+- `SCOUTING_PREDICTION_RADIUS_MILES` (optional): scouting prior radius for predictions (default: `2.0`).
+
+## 🧪 Tests
+```bash
+pytest -m unit
+pytest -m integration
+pytest -m e2e
+```
+Markers: `unit`, `integration`, `e2e`, `critical` (see [pytest.ini](pytest.ini)).
+
+## 🔌 External Dependencies
+- **Google Earth Engine** service account: [credentials/README.md](credentials/README.md)
+- **OpenWeatherMap API** key in `.env`
+- **Local LiDAR** files under `data/lidar/raw/vermont/` (or legacy `data/lidar/vermont/`).
+
+## 🧯 Troubleshooting
+- Missing GEE: verify `credentials/gee-service-account.json` and `GEE_PROJECT_ID`.
+- No LiDAR: confirm DEM file exists and backend logs show “LIDAR processor service ENABLED”.
+- Use the **Trace Summary** panel in the UI to confirm LiDAR coverage, shortlist size, and GEE refinements.
+
+---
+**Status:** Operational (FastAPI + Streamlit)  
+**Primary entrypoints:** [backend/main.py](backend/main.py), [frontend/app.py](frontend/app.py)
 # 🦌 Deer Prediction App
 
 ## 📚 Documentation
@@ -115,6 +198,15 @@ POST /predict
 GET /api/enhanced/satellite/ndvi?lat=44.26&lon=-72.58
 
 # Returns: {"ndvi": 0.339, "vegetation_health": "moderate", ...}
+```
+
+### Max Accuracy (Property Hotspots)
+```bash
+# Start a max-accuracy job (returns job_id)
+POST /property-hotspots/max-accuracy/run
+
+# Get report by job id
+GET /property-hotspots/max-accuracy/report/{job_id}
 ```
 
 ### Trail Camera Recommendations

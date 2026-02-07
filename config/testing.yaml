@@ -39,3 +39,12 @@ deer_prediction_config:
   # Relaxed validation for testing edge cases
   validation:
     confidence_range: [-50, 150]       # Wide range for edge case testing
+
+  # Enable dense LiDAR pre-scan in testing
+  lidar_dense_scan:
+    enabled: true
+    points: 100000
+
+  corridor_scoring:
+    path_max_link_m: 200
+    path_max_bearing_diff_deg: 60

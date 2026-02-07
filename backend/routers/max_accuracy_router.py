@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 import json
+import logging
 import os
+import shutil
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.max_accuracy import MaxAccuracyConfig, MaxAccuracyPipeline
+
+logger = logging.getLogger(__name__)
+
+JOB_RETENTION_DAYS = 7
 
 
 max_accuracy_router = APIRouter(tags=["property-hotspots", "max-accuracy"])
@@ -57,6 +62,43 @@ def _resolve_jobs_dir() -> Path:
     if not jobs_dir.is_absolute():
         jobs_dir = base_dir / jobs_dir
     return jobs_dir
+
+
+def _cleanup_old_jobs(max_age_days: int = JOB_RETENTION_DAYS) -> None:
+    """Delete job directories older than *max_age_days* from both
+    max_accuracy_jobs and the legacy hotspot_jobs folder."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+    dirs_to_scan: list[Path] = [_resolve_jobs_dir()]
+
+    # Also clean the legacy hotspot_jobs directory
+    base_dir = Path(__file__).resolve().parents[2]
+    hotspot_dir = base_dir / Path(os.getenv("HOTSPOT_JOBS_DIR", "data/hotspot_jobs"))
+    if hotspot_dir.exists():
+        dirs_to_scan.append(hotspot_dir)
+
+    removed = 0
+    for parent in dirs_to_scan:
+        if not parent.is_dir():
+            continue
+        for child in parent.iterdir():
+            if not child.is_dir():
+                continue
+            try:
+                mtime = datetime.fromtimestamp(child.stat().st_mtime, tz=timezone.utc)
+                if mtime < cutoff:
+                    shutil.rmtree(child, ignore_errors=True)
+                    removed += 1
+            except OSError:
+                pass
+    if removed:
+        logger.info("Job cleanup: removed %d job directories older than %d days", removed, max_age_days)
+
+
+# Run cleanup on server startup
+try:
+    _cleanup_old_jobs()
+except Exception:
+    pass  # never block startup
 
 
 def _write_status(job_id: str, status: Dict[str, Any]) -> None:
@@ -165,6 +207,11 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
                     return
                 report_payload = _persist_report(report, job_id=job_id)
                 _progress("complete", {"report_path": report_payload.get("report_path")})
+                # Housekeeping: purge old jobs after each successful run
+                try:
+                    _cleanup_old_jobs()
+                except Exception:
+                    pass
             except Exception as exc:
                 _progress("error", {"error": str(exc)})
 

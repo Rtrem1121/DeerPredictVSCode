@@ -43,3 +43,8 @@ GEE JSON KEY/
 archive/
 response.json
 .coverage
+
+# LiDAR / GeoTIFF data files
+data/lidar/
+*.tif
+*.tiff

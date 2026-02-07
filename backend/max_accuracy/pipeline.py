@@ -884,14 +884,18 @@ class MaxAccuracyPipeline:
         wind_from_deg: Optional[float] = None,
     ) -> Tuple[float, Optional[Dict[str, Any]]]:
         """
-        Score a stand candidate by its proximity to predicted bedding zones.
+        Score a stand candidate by proximity to predicted bedding zones,
+        blended with bedding quality.
 
-        Purely terrain/distance-based — wind does NOT influence the ranking.
-        Wind is advisory only (shown via huntable_winds / avoid_winds).
+        Wind does NOT influence the ranking — advisory only.
 
         Returns (proximity_score, nearest_bedding_info).
         Optimal distance: 80-150m from bedding (close enough to intercept
         but far enough to avoid bumping deer).
+
+        Blended score = 70% distance + 30% bedding quality.
+        This ensures nearby high-quality beds outrank nearby mediocre ones,
+        while preventing distant premium beds from overshadowing close viable ones.
         """
         if not bedding_zones:
             return 0.5, None  # Neutral if no bedding identified
@@ -919,15 +923,19 @@ class MaxAccuracyPipeline:
                 # Too far
                 dist_score = max(0.1, 1.0 - (dist_m - opt_max) / 500.0)
 
-            # Ranking is 100% distance — wind is shown as advisory, not used here
-            if dist_score > best_score:
-                best_score = dist_score
+            # Blend: 70% distance + 30% bedding quality
+            bed_quality = bed.get("bedding_quality", 0.5)
+            blended = 0.70 * dist_score + 0.30 * bed_quality
+
+            if blended > best_score:
+                best_score = blended
                 best_bed = {
                     "lat": bed["lat"],
                     "lon": bed["lon"],
                     "distance_m": round(dist_m, 1),
                     "bearing_deg": round(bearing_to_bed, 1),
                     "dist_score": round(dist_score, 2),
+                    "bedding_quality": round(bed_quality, 3),
                 }
 
         return best_score, best_bed

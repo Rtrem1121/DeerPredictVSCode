@@ -8,9 +8,9 @@ import hashlib
 import math
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict
-from zoneinfo import ZoneInfo
+
 from dotenv import load_dotenv
 from map_config import MAP_SOURCES
 from enhanced_data_validation import (
@@ -401,14 +401,8 @@ with tab_hotspots:
         except Exception:
             pass
         st.session_state["ma_settings_loaded"] = True
-    use_max_accuracy = st.checkbox(
-        "Use Max Accuracy pipeline (experimental, slower)",
-        value=False,
-        help="Runs the dense LiDAR + behavior pipeline and returns stand recommendations immediately.",
-    )
     max_accuracy_config: dict[str, object] = {}
-    if use_max_accuracy:
-        with st.expander("Max Accuracy settings", expanded=False):
+    with st.expander("Max Accuracy settings", expanded=False):
             col_ma_a, col_ma_b, col_ma_c = st.columns(3)
             with col_ma_a:
                 grid_spacing_m = st.number_input(
@@ -561,25 +555,6 @@ with tab_hotspots:
     )
     st.session_state["hotspot_corners_text"] = corners_text
 
-    mode = "lidar_first"
-    st.caption("All property scans run LiDAR-first to shortlist terrain, then refine with GEE.")
-
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-        lidar_grid_points = st.number_input("LiDAR grid points", min_value=5000, max_value=200000, value=120000, step=5000)
-    with col_b:
-        lidar_top_k = st.number_input("Shortlist (top K)", min_value=5, max_value=50, value=30, step=1)
-    with col_c:
-        lidar_radius_m = st.number_input("LiDAR sample radius (m)", min_value=5, max_value=120, value=30, step=5)
-
-    col_d, col_e = st.columns(2)
-    with col_d:
-        num_points = st.number_input("Fallback sample points", min_value=5, max_value=200, value=25, step=5)
-    with col_e:
-        epsilon_m = st.number_input("Cluster radius (m)", min_value=10, max_value=300, value=75, step=5)
-
-    min_samples = st.number_input("Min cluster size", min_value=2, max_value=10, value=2, step=1)
-
     dt_mode = st.radio(
         "Time",
         ["Manual (ISO UTC)", "Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"],
@@ -601,133 +576,41 @@ with tab_hotspots:
             st.error("Please provide at least 3 corners (lat/lon).")
         else:
             try:
-                base_payload = {
+                payload = {
                     "corners": corners,
-                    "mode": mode,
-                    "num_sample_points": int(num_points),
-                    "lidar_grid_points": int(lidar_grid_points),
-                    "lidar_top_k": int(lidar_top_k),
-                    "lidar_sample_radius_m": int(lidar_radius_m),
-                    "epsilon_meters": float(epsilon_m),
-                    "min_samples": int(min_samples),
                     "season": "fall",
                     "hunting_pressure": pressure,
+                    "config": max_accuracy_config,
                 }
 
-                if use_max_accuracy:
-                    payload = dict(base_payload)
-                    payload["config"] = max_accuracy_config
-                    if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
-                        centroid = _corners_centroid(corners)
-                        if not centroid:
-                            st.error("Could not compute property centroid from corners.")
+                if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
+                    centroid = _corners_centroid(corners)
+                    if not centroid:
+                        st.error("Could not compute property centroid from corners.")
+                        payload = None
+                    else:
+                        lat_c, lon_c = centroid
+                        is_sunrise = dt_mode.startswith("Sunrise")
+                        event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
+                        if not event_utc:
+                            st.error("Sunrise/sunset could not be computed for this date/location.")
                             payload = None
                         else:
-                            lat_c, lon_c = centroid
-                            is_sunrise = dt_mode.startswith("Sunrise")
-                            event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
-                            if not event_utc:
-                                st.error("Sunrise/sunset could not be computed for this date/location.")
-                                payload = None
-                            else:
-                                payload["date_time"] = _dt_to_iso_z(event_utc)
-                    else:
-                        payload["date_time"] = dt
-
-                    if payload:
-                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=300)
-                        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                        if resp.status_code == 200 and data.get("success") and data.get("job_id"):
-                            st.session_state["max_accuracy_job_id"] = data["job_id"]
-                            st.session_state["max_accuracy_auto_loaded"] = False
-                            st.success("Max Accuracy job started. Use refresh to load results.")
-                        else:
-                            st.error(f"Max Accuracy failed: {data.get('error') or resp.text}")
+                            payload["date_time"] = _dt_to_iso_z(event_utc)
                 else:
-                    job_choices: list[tuple[str, str]] = []
+                    payload["date_time"] = dt
 
-                    if dt_mode in {"Sunrise bracket (±30 min)", "Sunset bracket (±30 min)"}:
-                        centroid = _corners_centroid(corners)
-                        if not centroid:
-                            st.error("Could not compute property centroid from corners.")
-                        else:
-                            lat_c, lon_c = centroid
-                            # App is Vermont-focused; use Eastern time for local sunrise.
-                            tz = ZoneInfo("America/New_York")
-                            is_sunrise = dt_mode.startswith("Sunrise")
-                            event_utc = _noaa_sunrise_utc(sunrise_date, lat_c, lon_c) if is_sunrise else _noaa_sunset_utc(sunrise_date, lat_c, lon_c)
-                            if not event_utc:
-                                st.error("Sunrise/sunset could not be computed for this date/location.")
-                            else:
-                                event_local = event_utc.astimezone(tz)
-                                dt_a = event_local - timedelta(minutes=30)
-                                dt_b = event_local + timedelta(minutes=30)
-                                event_name = "Sunrise" if is_sunrise else "Sunset"
-                                pairs = [(f"{event_name} -30m", dt_a), (f"{event_name} +30m", dt_b)]
-                                for label, local_dt in pairs:
-                                    payload = dict(base_payload)
-                                    payload["date_time"] = _dt_to_iso_z(local_dt)
-                                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=300)
-                                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                                    if resp.status_code == 200 and data.get("success") and data.get("job_id"):
-                                        job_choices.append((f"{label} ({local_dt.strftime('%Y-%m-%d %H:%M %Z')})", data["job_id"]))
-                                    else:
-                                        st.error(f"Could not start {label}: {data.get('error') or resp.text}")
-
+                if payload:
+                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=300)
+                    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    if resp.status_code == 200 and data.get("success") and data.get("job_id"):
+                        st.session_state["max_accuracy_job_id"] = data["job_id"]
+                        st.session_state["max_accuracy_auto_loaded"] = False
+                        st.success("Max Accuracy job started. Use refresh to load results.")
                     else:
-                        payload = dict(base_payload)
-                        payload["date_time"] = dt
-                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=300)
-                        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                        if resp.status_code == 200 and data.get("success") and data.get("job_id"):
-                            job_choices.append(("Manual", data["job_id"]))
-                        else:
-                            st.error(f"Could not start job: {data.get('error') or resp.text}")
-
-                    if job_choices:
-                        st.session_state["hotspot_job_choices"] = job_choices
-                        st.session_state["hotspot_job_id"] = job_choices[0][1]
-                        if len(job_choices) == 1:
-                            st.success(f"Started hotspot job: {job_choices[0][1]}")
-                        else:
-                            st.success("Started hotspot jobs:")
-                            for label, jid in job_choices:
-                                st.write(f"- {label}: {jid}")
+                        st.error(f"Max Accuracy failed: {data.get('error') or resp.text}")
             except Exception as e:
                 st.error(f"Could not start job: {e}")
-
-    job_choices = st.session_state.get("hotspot_job_choices")
-    if isinstance(job_choices, list) and job_choices:
-        labels = [c[0] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
-        ids = [c[1] for c in job_choices if isinstance(c, (list, tuple)) and len(c) == 2]
-        if labels and ids and len(labels) == len(ids):
-            selected = st.selectbox("View job", options=list(range(len(ids))), format_func=lambda i: labels[i])
-            st.session_state["hotspot_job_id"] = ids[int(selected)]
-
-    job_id = st.session_state.get("hotspot_job_id")
-    if job_id:
-        st.subheader("Job status")
-        try:
-            status_resp = requests.get(f"{BACKEND_URL}/property-hotspots/status/{job_id}", timeout=30)
-            status_data = status_resp.json() if status_resp.headers.get("content-type", "").startswith("application/json") else {}
-            job = status_data.get("job") if isinstance(status_data, dict) else None
-            if isinstance(job, dict):
-                st.write(f"Status: **{job.get('status')}**")
-                total = int(job.get("total") or 0)
-                completed = int(job.get("completed") or 0)
-                if total > 0:
-                    st.progress(min(1.0, completed / max(1, total)))
-                    st.caption(f"{completed}/{total} · {job.get('message','')}")
-                else:
-                    st.caption(job.get("message", ""))
-                if job.get("error"):
-                    st.error(job["error"])
-            else:
-                st.warning("Could not read job status")
-        except Exception as e:
-            st.warning(f"Status unavailable: {e}")
-
-        st.button("Refresh status")
 
     max_accuracy_report = st.session_state.get("max_accuracy_report")
     max_accuracy_job_id = st.session_state.get("max_accuracy_job_id")

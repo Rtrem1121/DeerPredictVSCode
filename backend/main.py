@@ -37,31 +37,11 @@ logger = logging.getLogger(__name__)
 # Add filter to uvicorn access logger to suppress health check spam
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
-# Import services for health checks
-from backend.services.prediction_service import get_prediction_service
-
-# ENHANCED BEDDING PREDICTOR: Use direct enhanced bedding integration
-# Removed conflicting clean_prediction_patch that was overriding EnhancedBeddingZonePredictor
-logger.info("≡ƒÄ» ENHANCED BEDDING: Using EnhancedBeddingZonePredictor directly (no patches)")
-logger.info("Γ£à ENHANCED BEDDING: Clean patch system disabled to prevent conflicts")
-
 # Import the new routers
 from backend.routers.config_router import config_router
 from backend.routers.camera_router import camera_router
 from backend.routers.scouting_router import scouting_router
-from backend.routers.prediction_router import prediction_router
-from backend.routers.hotspot_router import hotspot_router
 from backend.routers.max_accuracy_router import max_accuracy_router
-
-# Import bedding validation router after logger setup
-try:
-    from backend.routers.bedding_validation_router import bedding_validation_router
-    BEDDING_VALIDATION_AVAILABLE = True
-    logger.info("≡ƒ¢Å∩╕Å Bedding validation router loaded successfully")
-except ImportError as e:
-    BEDDING_VALIDATION_AVAILABLE = False
-    logger.warning(f"Bedding validation router not available: {e}")
-    logger.warning("Bedding validation endpoints will not be available")
 
 # Configure logging for containers
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
@@ -109,13 +89,7 @@ app.add_middleware(
 app.include_router(config_router)
 app.include_router(camera_router)
 app.include_router(scouting_router)
-app.include_router(prediction_router)
-app.include_router(hotspot_router)
 app.include_router(max_accuracy_router)
-
-# Include bedding validation router if available
-if BEDDING_VALIDATION_AVAILABLE:
-    app.include_router(bedding_validation_router, prefix="/api/bedding")
 
 # Enhanced prediction system inclusion (preserving existing logic)
 try:

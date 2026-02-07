@@ -1514,7 +1514,7 @@ with tab_hotspots:
             try:
                 lat_center = sum(float(s.get("lat", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
                 lon_center = sum(float(s.get("lon", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
-                max_map = folium.Map(location=[lat_center, lon_center], zoom_start=15, tiles="OpenStreetMap")
+                max_map = folium.Map(location=[lat_center, lon_center], zoom_start=16, tiles="OpenStreetMap")
                 bounds_lats = [float(s.get("lat", 0.0)) for s in stand_recs if s.get("lat") is not None]
                 bounds_lons = [float(s.get("lon", 0.0)) for s in stand_recs if s.get("lon") is not None]
 
@@ -1635,7 +1635,7 @@ with tab_hotspots:
                     if isinstance(nb, dict) and nb.get("lat") and nb.get("lon"):
                         folium.PolyLine(
                             [[lat, lon], [nb["lat"], nb["lon"]]],
-                            color="#86efac", weight=2, dash_array="6 4", opacity=0.7,
+                            color="#f97316", weight=3, dash_array="8 5", opacity=0.85,
                             tooltip=f"To bedding: {nb.get('distance_m', '?')}m · {float(nb['lat']):.6f}, {float(nb['lon']):.6f}",
                         ).add_to(stands_fg)
 

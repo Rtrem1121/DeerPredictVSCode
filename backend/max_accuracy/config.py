@@ -9,10 +9,10 @@ class MaxAccuracyConfig:
     """Configuration for the max-accuracy pipeline."""
 
     grid_spacing_m: int = 20  # dense coverage (~20m)
-    max_candidates: int = 5000  # keep a large candidate pool
-    top_k_stands: int = 30
-    gee_sample_k: int = 200
-    wind_offset_m: float = 80.0
+    max_candidates: int = 20000  # keep a large candidate pool
+    top_k_stands: int = 20
+    gee_sample_k: int = 100
+    wind_offset_m: float = 60.0
     behavior_weight: float = 0.50  # behavior IS terrain features (saddle/bench/corridor/ridgeline)
     enable_gee: bool = True
     enable_wind: bool = True
@@ -54,7 +54,7 @@ class MaxAccuracyConfig:
     tpi_large_m: int = 200
 
     # Diversity constraints
-    min_per_quadrant: int = 6
+    min_per_quadrant: int = 1
 
     # Tiling for large-area DEM processing
     # Smaller tiles (512px ≈ 350m) improve resilience to corrupted DEM blocks

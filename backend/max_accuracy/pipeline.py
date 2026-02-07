@@ -728,11 +728,11 @@ class MaxAccuracyPipeline:
                 candidate["wind_options"] = []
 
         # Score bedding proximity for each selected stand
-        # Run even without wind data — use neutral wind score in that case
+        # Purely distance-based — wind is advisory only, not in the ranking
         if bedding_zones:
             for candidate in selected:
                 prox_score, nearest_bed = self._score_bedding_proximity(
-                    candidate, bedding_zones, wind_direction
+                    candidate, bedding_zones
                 )
                 candidate["bedding_proximity_score"] = round(prox_score, 3)
                 candidate["nearest_bedding"] = nearest_bed
@@ -829,14 +829,17 @@ class MaxAccuracyPipeline:
         self,
         stand: Dict[str, Any],
         bedding_zones: List[Dict[str, Any]],
-        wind_from_deg: Optional[float],
+        wind_from_deg: Optional[float] = None,
     ) -> Tuple[float, Optional[Dict[str, Any]]]:
         """
-        Score a stand candidate by its relationship to nearby bedding zones.
-        
+        Score a stand candidate by its proximity to predicted bedding zones.
+
+        Purely terrain/distance-based — wind does NOT influence the ranking.
+        Wind is advisory only (shown via huntable_winds / avoid_winds).
+
         Returns (proximity_score, nearest_bedding_info).
-        Optimal setup: 80-150m from bedding, downwind so scent blows away from deer.
-        When wind_from_deg is None, use neutral wind_score (0.6) instead of skipping.
+        Optimal distance: 80-150m from bedding (close enough to intercept
+        but far enough to avoid bumping deer).
         """
         if not bedding_zones:
             return 0.5, None  # Neutral if no bedding identified
@@ -864,38 +867,15 @@ class MaxAccuracyPipeline:
                 # Too far
                 dist_score = max(0.1, 1.0 - (dist_m - opt_max) / 500.0)
 
-            # Wind scoring: stand should be DOWNWIND of bedding
-            # Best: wind blows FROM bedding TOWARD stand (scent carries away from deer)
-            if wind_from_deg is not None:
-                wind_to_deg = (wind_from_deg + 180.0) % 360.0
-                angle_diff_val = angular_diff(bearing_to_bed, wind_to_deg)
-
-                if angle_diff_val < 30:
-                    # Excellent - directly downwind
-                    wind_score = 1.0
-                elif angle_diff_val < 60:
-                    # Good - mostly downwind
-                    wind_score = 0.8
-                elif angle_diff_val < 90:
-                    # Marginal - crosswind
-                    wind_score = 0.5
-                else:
-                    # Poor - upwind of bedding (scent blows toward deer)
-                    wind_score = 0.2
-            else:
-                # No wind data — use neutral score to keep distance-based ranking
-                wind_score = 0.6
-
-            combined = dist_score * 0.55 + wind_score * 0.45
-            if combined > best_score:
-                best_score = combined
+            # Ranking is 100% distance — wind is shown as advisory, not used here
+            if dist_score > best_score:
+                best_score = dist_score
                 best_bed = {
                     "lat": bed["lat"],
                     "lon": bed["lon"],
                     "distance_m": round(dist_m, 1),
                     "bearing_deg": round(bearing_to_bed, 1),
                     "dist_score": round(dist_score, 2),
-                    "wind_score": round(wind_score, 2),
                 }
 
         return best_score, best_bed

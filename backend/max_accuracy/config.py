@@ -13,7 +13,7 @@ class MaxAccuracyConfig:
     top_k_stands: int = 30
     gee_sample_k: int = 200
     wind_offset_m: float = 80.0
-    behavior_weight: float = 0.4
+    behavior_weight: float = 0.50  # behavior IS terrain features (saddle/bench/corridor/ridgeline)
     enable_gee: bool = True
     enable_wind: bool = True
     season: str = "rut"

@@ -1369,11 +1369,11 @@ with tab_hotspots:
                     + f'</div></div>',
                     unsafe_allow_html=True,
                 )
-                bedding_zones = report.get("bedding_zones", [])
+                bedding_zones = max_accuracy_report.get("bedding_zones", [])
                 if isinstance(bedding_zones, list) and bedding_zones:
                     st.caption(f"🛏️ {len(bedding_zones)} bedding zones identified on property")
-            elif isinstance(report.get("bedding_zones"), list) and report.get("bedding_zones"):
-                st.info(f"🛏️ {len(report['bedding_zones'])} bedding zones identified on property")
+            elif isinstance(max_accuracy_report.get("bedding_zones"), list) and max_accuracy_report.get("bedding_zones"):
+                st.info(f"🛏️ {len(max_accuracy_report['bedding_zones'])} bedding zones identified on property")
 
             # ── Coordinates ─────────────────────────────────────────
             if top_lat is not None and top_lon is not None:

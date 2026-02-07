@@ -1349,44 +1349,31 @@ with tab_hotspots:
             if badges_html or canopy_str:
                 st.markdown(badges_html + canopy_str, unsafe_allow_html=True)
 
-            # ── Bedding & Wind Cards ────────────────────────────────
-            bed_col, wind_col = st.columns(2)
-
-            with bed_col:
-                nearest_bed = top_rec.get("nearest_bedding")
-                bed_prox = top_rec.get("bedding_proximity_score")
-                if isinstance(nearest_bed, dict):
-                    bd = nearest_bed.get("distance_m", "?")
-                    bb = nearest_bed.get("bearing_deg", "?")
-                    bw = nearest_bed.get("wind_score", "?")
-                    compass = ""
-                    if isinstance(bb, (int, float)):
-                        compass = degrees_to_compass(float(bb))
-                    st.markdown(
-                        f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">'
-                        f'<div style="font-weight:600;margin-bottom:4px">🛏️ Nearest Bedding</div>'
-                        f'<div style="font-size:1.4em;font-weight:700;color:#16a34a">{bd}m {compass}</div>'
-                        f'<div style="color:#6b7280;font-size:0.85em">Bearing: {bb}° · Wind safety: {bw}'
-                        + (f' · Proximity score: {float(bed_prox):.2f}' if isinstance(bed_prox, (int, float)) else '')
-                        + f'</div></div>',
-                        unsafe_allow_html=True,
-                    )
-                elif isinstance(bedding_zones, list) and bedding_zones:
-                    st.info(f"🛏️ {len(bedding_zones)} bedding zones identified on property")
-
-            with wind_col:
-                huntable_winds = top_rec.get("huntable_winds", [])
-                avoid_winds = top_rec.get("avoid_winds", [])
-                hunt_str = ", ".join(huntable_winds) if huntable_winds else "—"
-                avoid_str = ", ".join(avoid_winds) if avoid_winds else "—"
+            # ── Bedding Card ─────────────────────────────────────────
+            nearest_bed = top_rec.get("nearest_bedding")
+            bed_prox = top_rec.get("bedding_proximity_score")
+            if isinstance(nearest_bed, dict):
+                bd = nearest_bed.get("distance_m", "?")
+                bb = nearest_bed.get("bearing_deg", "?")
+                compass = ""
+                if isinstance(bb, (int, float)):
+                    compass = degrees_to_compass(float(bb))
+                bed_qual = nearest_bed.get("bedding_quality")
+                qual_str = f" · Quality: {float(bed_qual):.0%}" if isinstance(bed_qual, (int, float)) else ""
                 st.markdown(
-                    f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">'
-                    f'<div style="font-weight:600;margin-bottom:4px">🌬️ Wind Rotation</div>'
-                    f'<div style="margin-bottom:4px"><span style="color:#16a34a;font-weight:600">✅ Hunt:</span> {hunt_str}</div>'
-                    f'<div><span style="color:#dc2626;font-weight:600">❌ Avoid:</span> {avoid_str}</div>'
-                    f'</div>',
+                    f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">'
+                    f'<div style="font-weight:600;margin-bottom:4px">🛏️ Nearest Bedding</div>'
+                    f'<div style="font-size:1.4em;font-weight:700;color:#16a34a">{bd}m {compass}</div>'
+                    f'<div style="color:#6b7280;font-size:0.85em">Bearing: {bb}°{qual_str}'
+                    + (f' · Proximity: {float(bed_prox):.2f}' if isinstance(bed_prox, (int, float)) else '')
+                    + f'</div></div>',
                     unsafe_allow_html=True,
                 )
+                bedding_zones = report.get("bedding_zones", [])
+                if isinstance(bedding_zones, list) and bedding_zones:
+                    st.caption(f"🛏️ {len(bedding_zones)} bedding zones identified on property")
+            elif isinstance(report.get("bedding_zones"), list) and report.get("bedding_zones"):
+                st.info(f"🛏️ {len(report['bedding_zones'])} bedding zones identified on property")
 
             # ── Coordinates ─────────────────────────────────────────
             if top_lat is not None and top_lon is not None:
@@ -1491,31 +1478,20 @@ with tab_hotspots:
                 if quadrant:
                     st.markdown(f"**Quadrant:** {quadrant}")
 
-            # Wind detail for selected stand
-            sel_huntable = sel_rec.get("huntable_winds", [])
-            sel_avoid = sel_rec.get("avoid_winds", [])
+            # Bedding detail for selected stand
             sel_nb = sel_rec.get("nearest_bedding")
-            w1, w2 = st.columns(2)
-            with w1:
-                if sel_huntable or sel_avoid:
-                    st.markdown(
-                        f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px">'
-                        f'<b>🌬️ Wind Rotation</b><br>'
-                        f'<span style="color:#16a34a">✅ Hunt: {", ".join(sel_huntable) if sel_huntable else "—"}</span><br>'
-                        f'<span style="color:#dc2626">❌ Avoid: {", ".join(sel_avoid) if sel_avoid else "—"}</span>'
-                        f'</div>', unsafe_allow_html=True,
-                    )
-            with w2:
-                if isinstance(sel_nb, dict):
-                    bd = sel_nb.get("distance_m", "?")
-                    bb = sel_nb.get("bearing_deg")
-                    compass = degrees_to_compass(float(bb)) if isinstance(bb, (int, float)) else ""
-                    st.markdown(
-                        f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px">'
-                        f'<b>🛏️ Bedding</b> {bd}m {compass}'
-                        f'<br><span style="font-size:0.85em;color:#6b7280">Bearing: {bb}° · Wind score: {sel_nb.get("wind_score", "?")}</span>'
-                        f'</div>', unsafe_allow_html=True,
-                    )
+            if isinstance(sel_nb, dict):
+                bd = sel_nb.get("distance_m", "?")
+                bb = sel_nb.get("bearing_deg")
+                compass = degrees_to_compass(float(bb)) if isinstance(bb, (int, float)) else ""
+                bed_qual = sel_nb.get("bedding_quality")
+                qual_str = f" · Quality: {float(bed_qual):.0%}" if isinstance(bed_qual, (int, float)) else ""
+                st.markdown(
+                    f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px">'
+                    f'<b>🛏️ Nearest Bedding:</b> {bd}m {compass}'
+                    f'<br><span style="font-size:0.85em;color:#6b7280">Bearing: {bb}°{qual_str}</span>'
+                    f'</div>', unsafe_allow_html=True,
+                )
 
             sel_lat = sel_rec.get("lat")
             sel_lon = sel_rec.get("lon")
@@ -1547,7 +1523,7 @@ with tab_hotspots:
                 # Bedding zones with feature groups
                 if show_bedding_zones and isinstance(bedding_zones, list):
                     bedding_fg = folium.FeatureGroup(name="🛏️ Bedding Zones")
-                    sorted_bedding = sorted(bedding_zones, key=lambda b: b.get('criteria_met', 0), reverse=True)
+                    sorted_bedding = sorted(bedding_zones, key=lambda b: b.get('bedding_quality', b.get('criteria_met', 0)), reverse=True)
 
                     for idx, bz in enumerate(sorted_bedding[:8]):
                         bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
@@ -1557,32 +1533,37 @@ with tab_hotspots:
                         bench = float(bz.get("bench_score", 0))
                         slope = bz.get("slope_deg")
                         aspect = bz.get("aspect_deg")
-                        criteria = bz.get("criteria_met", 0)
+                        elev = bz.get("elevation_m")
+                        roughness = bz.get("roughness", 0)
+                        quality = bz.get("bedding_quality", 0)
+                        ridge = bz.get("ridgeline_score", 0)
                         popup_html = (
                             f'<div style="min-width:180px">'
                             f'<b>🛏️ Prime Bedding #{idx+1}</b><br>'
-                            f'<b>Criteria met:</b> {criteria}<br>'
-                            f'<b>Shelter:</b> {shelter:.2f}<br>'
-                            f'<b>Bench:</b> {bench:.2f}<br>'
-                            + (f'<b>Slope:</b> {float(slope):.1f}°<br>' if isinstance(slope, (int, float)) else '')
-                            + (f'<b>Aspect:</b> {float(aspect):.0f}°<br>' if isinstance(aspect, (int, float)) else '')
-                            + f'</div>'
+                            f'<b>Quality:</b> {float(quality):.0%}<br>'
+                            f'<b>Bench:</b> {bench:.0%} · <b>Shelter:</b> {shelter:.0%}<br>'
+                            + (f'<b>Slope:</b> {float(slope):.1f}° ' if isinstance(slope, (int, float)) else '')
+                            + (f'<b>Elev:</b> {float(elev):.0f}m<br>' if isinstance(elev, (int, float)) else '')
+                            + f'<b>Roughness:</b> {float(roughness):.1f}'
+                            + (f' · <b>Ridge:</b> {float(ridge):.0%}' if isinstance(ridge, (int, float)) and float(ridge) > 0.1 else '')
+                            + f'<br></div>'
                         )
                         folium.CircleMarker(
                             [bz_lat, bz_lon], radius=12,
                             color="#15803d", fill=True, fill_color="#22c55e", fill_opacity=0.65, weight=2,
                             popup=folium.Popup(popup_html, max_width=220),
-                            tooltip=f"🛏️ Bedding #{idx+1} · Shelter: {shelter:.0%}",
+                            tooltip=f"🛏️ Bedding #{idx+1} · Quality: {float(quality):.0%}",
                         ).add_to(bedding_fg)
 
                     for bz in sorted_bedding[8:60]:
                         bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
                         if bz_lat is None or bz_lon is None:
                             continue
+                        quality = bz.get("bedding_quality", 0)
                         folium.CircleMarker(
                             [bz_lat, bz_lon], radius=5,
                             color="#f97316", fill=True, fill_color="#fb923c", fill_opacity=0.4, weight=1,
-                            tooltip=f"🛏️ Bedding · Shelter: {bz.get('shelter_score', 0):.0%}",
+                            tooltip=f"🛏️ Bedding · Quality: {float(quality):.0%}",
                         ).add_to(bedding_fg)
 
                     bedding_fg.add_to(max_map)
@@ -1602,7 +1583,6 @@ with tab_hotspots:
                     bh = float(rec.get("behavior_score", 0))
                     nb = rec.get("nearest_bedding")
                     huntable = rec.get("huntable_winds", [])
-                    avoid = rec.get("avoid_winds", [])
 
                     # Rich popup
                     popup_parts = [
@@ -1628,12 +1608,6 @@ with tab_hotspots:
                     if isinstance(nb, dict) and nb.get("distance_m"):
                         bd_compass = degrees_to_compass(float(nb["bearing_deg"])) if isinstance(nb.get("bearing_deg"), (int, float)) else ""
                         popup_parts.append(f'<b>🛏️ Bedding:</b> {nb["distance_m"]}m {bd_compass}<br>')
-                    # Wind
-                    if huntable or avoid:
-                        popup_parts.append(f'<div style="margin-top:4px">')
-                        popup_parts.append(f'<span style="color:#16a34a">✅ {", ".join(huntable)}</span><br>' if huntable else '')
-                        popup_parts.append(f'<span style="color:#dc2626">❌ {", ".join(avoid)}</span>' if avoid else '')
-                        popup_parts.append(f'</div>')
                     popup_parts.append(f'<div style="color:#9ca3af;font-size:0.8em;margin-top:4px">{float(lat):.6f}, {float(lon):.6f}</div>')
                     popup_parts.append('</div>')
 
@@ -1643,7 +1617,7 @@ with tab_hotspots:
                     folium.Marker(
                         [lat, lon],
                         popup=folium.Popup("".join(popup_parts), max_width=300),
-                        tooltip=f"#{idx+1} · {sc:.3f}" + (f" · {', '.join(huntable[:2])}" if huntable else ""),
+                        tooltip=f"#{idx+1} · {sc:.3f}",
                         icon=folium.Icon(color=color, icon=icon, prefix="fa"),
                     ).add_to(stands_fg)
 
@@ -1685,15 +1659,19 @@ with tab_hotspots:
             # ── Bedding Zone Summary ────────────────────────────────
             if isinstance(bedding_zones, list) and bedding_zones:
                 with st.expander(f"🛏️ Bedding Zones ({len(bedding_zones)} identified)", expanded=False):
-                    sorted_bz = sorted(bedding_zones, key=lambda b: b.get("criteria_met", 0), reverse=True)
-                    for i, bz in enumerate(sorted_bz[:15]):
+                    sorted_bz = sorted(bedding_zones, key=lambda b: b.get("bedding_quality", b.get("criteria_met", 0)), reverse=True)
+                    for i, bz in enumerate(sorted_bz[:20]):
+                        quality = float(bz.get("bedding_quality", 0))
                         shelter = float(bz.get("shelter_score", 0))
                         bench = float(bz.get("bench_score", 0))
-                        criteria = bz.get("criteria_met", 0)
+                        elev = bz.get("elevation_m", 0)
+                        slope = bz.get("slope_deg", 0)
+                        roughness = float(bz.get("roughness", 0))
                         bz_lat = bz.get("lat", 0)
                         bz_lon = bz.get("lon", 0)
                         st.markdown(
-                            f"**#{i+1}** Shelter: {shelter:.0%} · Bench: {bench:.0%} · Criteria: {criteria} · "
+                            f"**#{i+1}** Quality: {quality:.0%} · Bench: {bench:.0%} · Shelter: {shelter:.0%} · "
+                            f"Slope: {float(slope):.1f}° · Rough: {roughness:.1f} · Elev: {float(elev):.0f}m · "
                             f"📍 {float(bz_lat):.5f}, {float(bz_lon):.5f}"
                         )
 

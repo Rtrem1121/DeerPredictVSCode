@@ -36,13 +36,14 @@ class MaxAccuracyConfig:
         }
     )
 
-    # Bedding zone identification thresholds (tuned based on field data)
-    bedding_min_shelter: float = 0.55  # terrain shelter score
-    bedding_min_roughness: float = 2.0 # filter out flat fields - need terrain texture
-    bedding_slope_min: float = 8.0     # need drainage
-    bedding_slope_max: float = 22.0    # not too steep
-    bedding_min_bench: float = 0.45    # benches are key
+    # Bedding zone identification thresholds (strict — mature buck only)
+    bedding_min_shelter: float = 0.58  # strong terrain shelter
+    bedding_min_roughness: float = 3.0 # needs real terrain texture, not fields
+    bedding_slope_min: float = 9.0     # need slope for drainage + visibility
+    bedding_slope_max: float = 18.0    # too steep = not comfortable
+    bedding_min_bench: float = 0.65    # prominent sidehill bench character
     bedding_min_aspect_score: float = 0.4  # south-facing thermal advantage
+    bedding_min_elev_percentile: float = 0.40  # bed in upper 60% of terrain (not valley floor)
 
     # Bedding proximity scoring
     bedding_optimal_distance_min: float = 80.0  # meters

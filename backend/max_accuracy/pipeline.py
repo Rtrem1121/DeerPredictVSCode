@@ -311,6 +311,8 @@ class MaxAccuracyPipeline:
                         "aspect_deg": b.get("aspect_deg", 0),
                         "bench_score": b.get("bench_score", 0),
                         "roughness": b.get("roughness", 0),
+                        "ridgeline_score": b.get("ridgeline_score", 0),
+                        "bedding_quality": b.get("bedding_quality", 0),
                         "criteria_met": b.get("bedding_criteria_met", 0),
                     }
                     for b in bedding_zones
@@ -773,18 +775,35 @@ class MaxAccuracyPipeline:
     def _identify_bedding_zones(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Identify candidates that match mature buck bedding characteristics.
-        
-        Criteria:
-        - High shelter score (wind/thermal protection)
-        - High canopy cover (security from above)
-        - Moderate slope (drainage, comfort, visibility uphill)
-        - Bench character (flat spots on hillsides)
-        - South-facing aspect bonus (thermal advantage)
-        - Roughness minimum (filter out flat open fields)
-        
-        Note: Canopy (GEE/NDVI) removed - it measures leaves not tree structure,
-        useless after October in Vermont. Roughness filters out open fields instead.
+
+        Mature bucks bed on sidehill benches in the upper portion of terrain,
+        on moderate slopes with strong shelter and rough terrain texture.
+        They want drainage, wind protection, and visibility uphill.
+        Valley floors and flat open fields are excluded.
+
+        Criteria (ALL required):
+        - Bench score >= 0.65 (prominent sidehill bench)
+        - Shelter score >= 0.58 (wind/thermal protection from terrain shape)
+        - Slope 9-18° (drainage + comfort, not too steep)
+        - Roughness >= 3.0 (real terrain texture, not flat fields)
+        - Elevation >= 40th percentile (upper terrain, not valley bottom)
+
+        Bonus factors (boost quality score, not hard filter):
+        - Ridgeline proximity (bedding just below ridge)
+        - South/SE aspect (thermal advantage)
         """
+        if not candidates:
+            return []
+
+        # Compute elevation percentile threshold
+        elevations = [float(c.get("elevation_m", 0)) for c in candidates]
+        if elevations:
+            elevations_sorted = sorted(elevations)
+            pct = getattr(self.config, 'bedding_min_elev_percentile', 0.40)
+            elev_threshold = elevations_sorted[int(len(elevations_sorted) * pct)]
+        else:
+            elev_threshold = 0.0
+
         bedding = []
         for c in candidates:
             shelter = float(c.get("shelter_score", 0))
@@ -792,36 +811,60 @@ class MaxAccuracyPipeline:
             bench = float(c.get("bench_score", 0))
             aspect_score = float(c.get("aspect_score", 0))
             roughness = float(c.get("roughness", 0))
+            elevation = float(c.get("elevation_m", 0))
+            ridgeline = float(c.get("ridgeline_score", 0))
 
-            # Terrain-only bedding filter
+            # Hard filters — ALL must pass
             meets_shelter = shelter >= self.config.bedding_min_shelter
             meets_slope = self.config.bedding_slope_min <= slope <= self.config.bedding_slope_max
             meets_bench = bench >= self.config.bedding_min_bench
-            meets_aspect = aspect_score >= getattr(self.config, 'bedding_min_aspect_score', 0.4)
-            meets_roughness = roughness >= getattr(self.config, 'bedding_min_roughness', 2.0)
+            meets_roughness = roughness >= self.config.bedding_min_roughness
+            meets_elevation = elevation >= elev_threshold
 
-            # Require: slope in range + bench terrain + shelter + roughness (not a field)
-            # At least 3 of 4 main criteria met
-            core_terrain = meets_slope and meets_bench
-            criteria_met = sum([meets_shelter, meets_slope, meets_bench, meets_aspect])
-            
-            # Must have core terrain + shelter + roughness, and at least 3 of 4 criteria
-            if core_terrain and meets_shelter and meets_roughness and criteria_met >= 3:
-                c["is_probable_bedding"] = True
-                c["bedding_criteria_met"] = criteria_met
-                c["bedding_criteria"] = {
-                    "shelter": meets_shelter,
-                    "slope": meets_slope,
-                    "bench": meets_bench,
-                    "aspect": meets_aspect,
-                    "roughness": meets_roughness,
-                }
-                bedding.append(c)
+            if not (meets_shelter and meets_slope and meets_bench and meets_roughness and meets_elevation):
+                continue
+
+            # Composite bedding quality score (0-1)
+            # Higher = more confident this is a mature buck bed
+            bench_quality = min(1.0, (bench - 0.60) / 0.15)       # 0.60=0, 0.75=1
+            shelter_quality = min(1.0, (shelter - 0.55) / 0.10)    # 0.55=0, 0.65=1
+            slope_quality = 1.0 - abs(slope - 13.0) / 5.0          # peak at 13°, ±5°
+            slope_quality = max(0.0, min(1.0, slope_quality))
+            rough_quality = min(1.0, (roughness - 2.0) / 4.0)     # 2=0, 6=1
+            ridgeline_bonus = min(1.0, ridgeline * 1.5)            # near ridge = bonus
+            aspect_bonus = aspect_score * 0.5                       # south-facing bonus
+
+            bedding_quality = (
+                0.30 * bench_quality
+                + 0.25 * shelter_quality
+                + 0.20 * slope_quality
+                + 0.10 * rough_quality
+                + 0.10 * ridgeline_bonus
+                + 0.05 * aspect_bonus
+            )
+
+            c["is_probable_bedding"] = True
+            c["bedding_quality"] = round(bedding_quality, 3)
+            c["bedding_criteria_met"] = 5  # all hard filters passed
+            c["bedding_criteria"] = {
+                "shelter": meets_shelter,
+                "slope": meets_slope,
+                "bench": meets_bench,
+                "roughness": meets_roughness,
+                "elevation": meets_elevation,
+            }
+            bedding.append(c)
+
+        # Sort by quality — best bedding first
+        bedding.sort(key=lambda b: b.get("bedding_quality", 0), reverse=True)
 
         logger.info(
-            "MaxAccuracy: identified %s probable bedding zones from %s candidates",
+            "MaxAccuracy: identified %s probable bedding zones from %s candidates "
+            "(elev threshold=%.0fm, top quality=%.3f)",
             len(bedding),
             len(candidates),
+            elev_threshold,
+            bedding[0].get("bedding_quality", 0) if bedding else 0,
         )
         return bedding
 

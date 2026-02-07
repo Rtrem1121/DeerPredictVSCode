@@ -303,11 +303,14 @@ class MaxAccuracyPipeline:
                     {
                         "lat": b["lat"],
                         "lon": b["lon"],
+                        "elevation_m": b.get("elevation_m", 0),
                         "shelter_score": b.get("shelter_score", 0),
                         "canopy": b.get("gee_canopy", 0),
+                        "ndvi": b.get("gee_ndvi", 0),
                         "slope_deg": b.get("slope_deg", 0),
                         "aspect_deg": b.get("aspect_deg", 0),
                         "bench_score": b.get("bench_score", 0),
+                        "roughness": b.get("roughness", 0),
                         "criteria_met": b.get("bedding_criteria_met", 0),
                     }
                     for b in bedding_zones
@@ -583,10 +586,15 @@ class MaxAccuracyPipeline:
             if done % 50 == 0 or done == max_k:
                 logger.info("MaxAccuracy: GEE enrichment %s/%s done", done, max_k)
 
-        # Apply results; for failures, use neutral defaults (not zero)
+        # Apply results; for failures or sentinel values, use neutral defaults
         for idx, candidate in enumerate(to_enrich):
             if idx in results:
-                candidate.update(results[idx])
+                gee = results[idx]
+                # Detect sentinel values from get_gee_summary failures
+                canopy = gee.get("gee_canopy", -1.0)
+                ndvi = gee.get("gee_ndvi", -1.0)
+                candidate["gee_canopy"] = canopy if canopy >= 0 else 50.0
+                candidate["gee_ndvi"] = ndvi if ndvi >= 0 else 0.5
             else:
                 candidate.setdefault("gee_canopy", 50.0)
                 candidate.setdefault("gee_ndvi", 0.5)
@@ -720,7 +728,8 @@ class MaxAccuracyPipeline:
                 candidate["wind_options"] = []
 
         # Score bedding proximity for each selected stand
-        if bedding_zones and wind_direction is not None:
+        # Run even without wind data — use neutral wind score in that case
+        if bedding_zones:
             for candidate in selected:
                 prox_score, nearest_bed = self._score_bedding_proximity(
                     candidate, bedding_zones, wind_direction
@@ -820,13 +829,14 @@ class MaxAccuracyPipeline:
         self,
         stand: Dict[str, Any],
         bedding_zones: List[Dict[str, Any]],
-        wind_from_deg: float,
+        wind_from_deg: Optional[float],
     ) -> Tuple[float, Optional[Dict[str, Any]]]:
         """
         Score a stand candidate by its relationship to nearby bedding zones.
         
         Returns (proximity_score, nearest_bedding_info).
         Optimal setup: 80-150m from bedding, downwind so scent blows away from deer.
+        When wind_from_deg is None, use neutral wind_score (0.6) instead of skipping.
         """
         if not bedding_zones:
             return 0.5, None  # Neutral if no bedding identified
@@ -856,21 +866,25 @@ class MaxAccuracyPipeline:
 
             # Wind scoring: stand should be DOWNWIND of bedding
             # Best: wind blows FROM bedding TOWARD stand (scent carries away from deer)
-            wind_to_deg = (wind_from_deg + 180.0) % 360.0
-            angle_diff_val = angular_diff(bearing_to_bed, wind_to_deg)
+            if wind_from_deg is not None:
+                wind_to_deg = (wind_from_deg + 180.0) % 360.0
+                angle_diff_val = angular_diff(bearing_to_bed, wind_to_deg)
 
-            if angle_diff_val < 30:
-                # Excellent - directly downwind
-                wind_score = 1.0
-            elif angle_diff_val < 60:
-                # Good - mostly downwind
-                wind_score = 0.8
-            elif angle_diff_val < 90:
-                # Marginal - crosswind
-                wind_score = 0.5
+                if angle_diff_val < 30:
+                    # Excellent - directly downwind
+                    wind_score = 1.0
+                elif angle_diff_val < 60:
+                    # Good - mostly downwind
+                    wind_score = 0.8
+                elif angle_diff_val < 90:
+                    # Marginal - crosswind
+                    wind_score = 0.5
+                else:
+                    # Poor - upwind of bedding (scent blows toward deer)
+                    wind_score = 0.2
             else:
-                # Poor - upwind of bedding (scent blows toward deer)
-                wind_score = 0.2
+                # No wind data — use neutral score to keep distance-based ranking
+                wind_score = 0.6
 
             combined = dist_score * 0.55 + wind_score * 0.45
             if combined > best_score:

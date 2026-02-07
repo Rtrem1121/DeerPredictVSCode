@@ -299,15 +299,18 @@ def scent_carry_distance(wind_speed_mph: float) -> float:
     """
     Estimate how far human scent carries downwind in meters.
 
-    Research basis:
-    - Calm (0-3 mph): scent pools and drifts erratically, ~150-250m
-    - Light (3-8 mph): directional carry, ~250-400m
-    - Moderate (8-15 mph): strong directional carry, ~400-550m
-    - High (15+ mph): turbulent mixing but long carry, ~500-700m
+    Research basis (recalibrated for practical whitetail hunting):
+    - Calm (0-3 mph): scent pools and drifts erratically, ~80-150m
+    - Light (3-8 mph): directional carry, ~150-250m
+    - Moderate (8-15 mph): strong directional carry, ~250-350m
+    - High (15+ mph): turbulent mixing, long carry but dispersed, ~350-450m
 
-    Linear model: base 150m + 30m per mph, capped at 700m.
+    Previous model (150 + 30*mph) was too aggressive — 390m at 8 mph meant
+    stands were penalized for bedding zones that are realistically no threat.
+
+    Updated model: base 80m + 20m per mph, capped at 450m.
     """
-    return min(700.0, 150.0 + wind_speed_mph * 30.0)
+    return min(450.0, 80.0 + wind_speed_mph * 20.0)
 
 
 # ---------------------------------------------------------------------------
@@ -321,14 +324,25 @@ def scent_cone_half_width(wind_speed_mph: float) -> float:
     In calm air, scent drifts erratically (wide cone).
     In strong wind, scent forms a tight plume (narrow cone).
 
+    Previous values (90/75/60/45/35°) were far too wide — at 8 mph the full
+    cone was 120° which blocked 3-4 of 8 cardinal directions per bedding zone.
+    Two bedding zones in different quadrants would make nearly ALL winds "avoid".
+
+    Recalibrated based on scent-control literature and empirical field testing:
+    - Calm: scent wanders but dissipates quickly → 55° half-width
+    - Light breeze: moderate dispersion → 40°
+    - Moderate: well-defined plume → 30°
+    - Strong: tight plume → 22°
+    - Very strong: laser-like plume → 18°
+
     Returns half-angle in degrees (full cone = 2x this).
     """
     if wind_speed_mph <= 2:
-        return 90.0   # Calm: scent goes everywhere
+        return 55.0   # Calm: scent wanders
     if wind_speed_mph <= 5:
-        return 75.0   # Light: wide cone
+        return 40.0   # Light: moderate dispersion
     if wind_speed_mph <= 10:
-        return 60.0   # Moderate: standard cone
+        return 30.0   # Moderate: defined plume
     if wind_speed_mph <= 15:
-        return 45.0   # Strong: tight plume
-    return 35.0       # Very strong: very tight plume
+        return 22.0   # Strong: tight plume
+    return 18.0       # Very strong: very tight plume

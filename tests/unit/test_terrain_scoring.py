@@ -300,21 +300,21 @@ class TestRutAdjustedActivity:
 class TestScentCarryDistance:
     def test_calm_short_carry(self):
         dist = scent_carry_distance(2.0)
-        assert 200 < dist < 300
+        assert 100 < dist < 200  # recalibrated: 80 + 2*20 = 120m
 
     def test_moderate_wind(self):
         dist = scent_carry_distance(8.0)
-        assert 350 < dist < 500
+        assert 200 < dist < 300  # recalibrated: 80 + 8*20 = 240m
 
     def test_strong_wind_long_carry(self):
         dist = scent_carry_distance(15.0)
-        assert dist > 500
+        assert dist > 300  # recalibrated: 80 + 15*20 = 380m
 
-    def test_cap_at_700(self):
-        assert scent_carry_distance(30.0) == 700.0
+    def test_cap_at_450(self):
+        assert scent_carry_distance(30.0) == 450.0  # recalibrated cap
 
     def test_zero_wind(self):
-        assert scent_carry_distance(0.0) == 150.0
+        assert scent_carry_distance(0.0) == 80.0  # recalibrated base
 
     def test_monotonically_increasing(self):
         prev = 0
@@ -330,16 +330,16 @@ class TestScentCarryDistance:
 
 class TestScentConeHalfWidth:
     def test_calm_wide_cone(self):
-        assert scent_cone_half_width(1.0) == 90.0
+        assert scent_cone_half_width(1.0) == 55.0  # recalibrated
 
     def test_moderate_standard_cone(self):
-        assert scent_cone_half_width(8.0) == 60.0
+        assert scent_cone_half_width(8.0) == 30.0  # recalibrated
 
     def test_strong_tight_cone(self):
-        assert scent_cone_half_width(12.0) == 45.0
+        assert scent_cone_half_width(12.0) == 22.0  # recalibrated
 
     def test_very_strong_tightest(self):
-        assert scent_cone_half_width(20.0) == 35.0
+        assert scent_cone_half_width(20.0) == 18.0  # recalibrated
 
     def test_decreasing_with_speed(self):
         """Cone narrows as wind increases."""

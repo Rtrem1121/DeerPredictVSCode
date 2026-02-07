@@ -229,6 +229,7 @@ class TestRutPhaseClassification:
         assert classify_rut_phase(9, 15) == "early_season"
         assert classify_rut_phase(10, 10) == "early_season"
         assert classify_rut_phase(6, 1) == "early_season"
+        assert classify_rut_phase(8, 20) == "early_season"
 
     def test_pre_rut(self):
         assert classify_rut_phase(10, 25) == "pre_rut"
@@ -251,8 +252,12 @@ class TestRutPhaseClassification:
         assert classify_rut_phase(12, 10) == "late_season"
         assert classify_rut_phase(12, 25) == "late_season"
 
-    def test_january_is_early(self):
-        assert classify_rut_phase(1, 15) == "early_season"
+    def test_january_through_april_is_late_season(self):
+        """Jan-April are food-focused late-season, not early season."""
+        assert classify_rut_phase(1, 15) == "late_season"
+        assert classify_rut_phase(2, 8) == "late_season"
+        assert classify_rut_phase(3, 1) == "late_season"
+        assert classify_rut_phase(4, 30) == "late_season"
 
 
 # ---------------------------------------------------------------------------

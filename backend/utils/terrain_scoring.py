@@ -220,7 +220,14 @@ def classify_rut_phase(month: int, day: int) -> str:
     Returns one of: "pre_rut", "seeking", "peak_rut", "post_rut", "late_season",
     "early_season".
     """
-    if month < 10 or (month == 10 and day < 20):
+    # January–April: true off-season / late season (food-focused)
+    if month <= 4:
+        return "late_season"
+    # May–September: off-season (velvet growth, summer patterns)
+    if month < 9 or (month == 9 and day < 15):
+        return "early_season"
+    # Mid-September – Oct 19: early season (pattern feeding, pre-rut scouting)
+    if month == 9 or (month == 10 and day < 20):
         return "early_season"
     if month == 10 and day >= 20:
         return "pre_rut"
@@ -236,8 +243,8 @@ def classify_rut_phase(month: int, day: int) -> str:
         return "post_rut"
     if month == 12:
         return "late_season"
-    # January–September
-    return "early_season"
+    # Fallback
+    return "late_season"
 
 
 # ---------------------------------------------------------------------------

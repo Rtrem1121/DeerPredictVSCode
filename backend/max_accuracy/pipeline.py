@@ -133,7 +133,12 @@ class MaxAccuracyPipeline:
 
         rut_phase = classify_rut_phase(run_month, run_day)
         # Override season with more precise rut phase when applicable
-        effective_season = rut_phase if rut_phase != "early_season" else season
+        if rut_phase in {"pre_rut", "seeking", "peak_rut", "post_rut"}:
+            effective_season = rut_phase
+        elif rut_phase == "late_season":
+            effective_season = "late"
+        else:
+            effective_season = season
         logger.info(
             "MaxAccuracy: date=%s rut_phase=%s effective_season=%s",
             date_time, rut_phase, effective_season,
@@ -424,7 +429,11 @@ class MaxAccuracyPipeline:
                     height=row1_pad - row0_pad,
                 )
 
-                elev = src.read(1, window=tile_window, masked=True).astype("float32").filled(np.nan)
+                try:
+                    elev = src.read(1, window=tile_window, masked=True).astype("float32").filled(np.nan)
+                except Exception:
+                    logger.warning("MaxAccuracy: DEM read failed for tile %s/%s — skipping corrupted tile", tile_idx, total_tiles)
+                    continue
                 if not np.isfinite(elev).any():
                     continue
 

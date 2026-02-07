@@ -1074,7 +1074,7 @@ with tab_hotspots:
                         payload["date_time"] = dt
 
                     if payload:
-                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=60)
+                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/max-accuracy/run", json=payload, timeout=300)
                         data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                         if resp.status_code == 200 and data.get("success") and data.get("job_id"):
                             st.session_state["max_accuracy_job_id"] = data["job_id"]
@@ -1106,7 +1106,7 @@ with tab_hotspots:
                                 for label, local_dt in pairs:
                                     payload = dict(base_payload)
                                     payload["date_time"] = _dt_to_iso_z(local_dt)
-                                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                                    resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=300)
                                     data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                                     if resp.status_code == 200 and data.get("success") and data.get("job_id"):
                                         job_choices.append((f"{label} ({local_dt.strftime('%Y-%m-%d %H:%M %Z')})", data["job_id"]))
@@ -1116,7 +1116,7 @@ with tab_hotspots:
                     else:
                         payload = dict(base_payload)
                         payload["date_time"] = dt
-                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=60)
+                        resp = requests.post(f"{BACKEND_URL}/property-hotspots/run", json=payload, timeout=300)
                         data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                         if resp.status_code == 200 and data.get("success") and data.get("job_id"):
                             job_choices.append(("Manual", data["job_id"]))
@@ -1466,13 +1466,13 @@ with tab_hotspots:
                         st.markdown(f"{label}: {_score_bar(float(v))} <span style='font-size:0.85em'>{float(v):.2f}</span>", unsafe_allow_html=True)
             with d2:
                 st.markdown("**Terrain Metrics**")
-                for label, key, fmt in [("Slope", "slope_deg", ".1f°"), ("Elevation", "elevation_m", ".0f m"),
-                                         ("TPI (small)", "tpi_small", ".2f"), ("TPI (large)", "tpi_large", ".2f"),
-                                         ("Relief", "relief_small", ".1f"), ("Curvature", "curvature", ".3f"),
-                                         ("Roughness", "roughness", ".1f")]:
+                for label, key, fmt, suffix in [("Slope", "slope_deg", ".1f", "°"), ("Elevation", "elevation_m", ".0f", " m"),
+                                         ("TPI (small)", "tpi_small", ".2f", ""), ("TPI (large)", "tpi_large", ".2f", ""),
+                                         ("Relief", "relief_small", ".1f", ""), ("Curvature", "curvature", ".3f", ""),
+                                         ("Roughness", "roughness", ".1f", "")]:
                     v = sel_rec.get(key)
                     if isinstance(v, (int, float)):
-                        st.markdown(f"**{label}:** {float(v):{fmt}}")
+                        st.markdown(f"**{label}:** {float(v):{fmt}}{suffix}")
             with d3:
                 st.markdown("**Scoring Breakdown**")
                 for label, key in [("Final Score", "final_score"), ("Combined", "combined_score"),

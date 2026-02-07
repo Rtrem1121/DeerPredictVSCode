@@ -51,8 +51,6 @@ services:
       - "8501:8501"
     volumes:
       - ./frontend:/app/frontend
-      - ./hotspot_map.html:/app/frontend/hotspot_map.html:ro
-      - ./hotspot_report.json:/app/frontend/hotspot_report.json:ro
     depends_on:
       backend:
         condition: service_healthy

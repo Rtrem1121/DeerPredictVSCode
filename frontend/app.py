@@ -1553,13 +1553,14 @@ with tab_hotspots:
                             + (f'<b>Elev:</b> {float(elev):.0f}m<br>' if isinstance(elev, (int, float)) else '')
                             + f'<b>Roughness:</b> {float(roughness):.1f}'
                             + (f' · <b>Ridge:</b> {float(ridge):.0%}' if isinstance(ridge, (int, float)) and float(ridge) > 0.1 else '')
+                            + f'<br><span style="color:#6b7280;font-size:0.85em">📍 {float(bz_lat):.6f}, {float(bz_lon):.6f}</span>'
                             + f'<br></div>'
                         )
                         folium.CircleMarker(
                             [bz_lat, bz_lon], radius=12,
                             color="#15803d", fill=True, fill_color="#22c55e", fill_opacity=0.65, weight=2,
                             popup=folium.Popup(popup_html, max_width=220),
-                            tooltip=f"🛏️ Bedding #{idx+1} · Quality: {float(quality):.0%}",
+                            tooltip=f"🛏️ Bedding #{idx+1} · Quality: {float(quality):.0%} · {float(bz_lat):.6f}, {float(bz_lon):.6f}",
                         ).add_to(bedding_fg)
 
                     for bz in sorted_bedding[8:60]:
@@ -1570,7 +1571,7 @@ with tab_hotspots:
                         folium.CircleMarker(
                             [bz_lat, bz_lon], radius=5,
                             color="#f97316", fill=True, fill_color="#fb923c", fill_opacity=0.4, weight=1,
-                            tooltip=f"🛏️ Bedding · Quality: {float(quality):.0%}",
+                            tooltip=f"🛏️ Bedding · Quality: {float(quality):.0%} · {float(bz_lat):.6f}, {float(bz_lon):.6f}",
                         ).add_to(bedding_fg)
 
                     bedding_fg.add_to(max_map)
@@ -1635,7 +1636,7 @@ with tab_hotspots:
                         folium.PolyLine(
                             [[lat, lon], [nb["lat"], nb["lon"]]],
                             color="#86efac", weight=2, dash_array="6 4", opacity=0.7,
-                            tooltip=f"To bedding: {nb.get('distance_m', '?')}m",
+                            tooltip=f"To bedding: {nb.get('distance_m', '?')}m · {float(nb['lat']):.6f}, {float(nb['lon']):.6f}",
                         ).add_to(stands_fg)
 
                 stands_fg.add_to(max_map)

@@ -160,7 +160,7 @@ BACKEND_URL=http://localhost:8501
 PORT=8501
 
 # Weather Intelligence
-OPENWEATHERMAP_API_KEY=5f9a3c8ac3d4bb466529a29d1c3af9b5
+OPENWEATHERMAP_API_KEY=YOUR_API_KEY_HERE
 
 # Satellite Intelligence (Core + Satellite)
 GOOGLE_APPLICATION_CREDENTIALS=C:\Users\Rich\deer_pred_app\credentials\gee-service-account.json

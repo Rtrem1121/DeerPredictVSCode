@@ -163,6 +163,7 @@ class TestBehaviorScoring:
 
     def test_early_season_values_canopy_more(self):
         # In early season, canopy/NDVI matter more
+        # Must pass month during leaf-on so season_canopy_score is meaningful
         high_canopy = {
             "bench_score": 0.3,
             "saddle_score": 0.3,
@@ -179,8 +180,8 @@ class TestBehaviorScoring:
             "gee_canopy": 20.0,
             "gee_ndvi": 0.1,
         }
-        s_high = score_behavior(high_canopy, season="early")
-        s_low = score_behavior(low_canopy, season="early")
+        s_high = score_behavior(high_canopy, season="early", month=7)
+        s_low = score_behavior(low_canopy, season="early", month=7)
         assert s_high > s_low
 
     def test_missing_keys_default_to_zero(self):

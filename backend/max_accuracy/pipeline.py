@@ -15,6 +15,16 @@ from backend.utils.geo import (
     bearing_to_cardinal,
     haversine,
 )
+from backend.utils.terrain_scoring import (
+    classify_rut_phase,
+    detect_drainages,
+    detect_ridgelines,
+    ridge_proximity_preference,
+    scent_carry_distance,
+    scent_cone_half_width,
+    season_canopy_score,
+    slope_preference,
+)
 
 from .behavior import score_behavior
 from .config import MaxAccuracyConfig
@@ -53,14 +63,17 @@ class MaxAccuracyPipeline:
         if stand_lat is None or stand_lon is None:
             return {"huntable_winds": [], "avoid_winds": []}
         
-        # Find all bedding zones within 300m (relevant scent-carry distance)
+        # Find all bedding zones within scent-carry distance (wind-dependent)
+        # Default to 400m if no wind info available
+        wind_speed = stand.get("wind_speed_mph", 8.0)
+        max_scent_dist = scent_carry_distance(wind_speed)
         nearby_bedding = []
         for bz in bedding_zones:
             bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
             if bz_lat is None or bz_lon is None:
                 continue
             dist = haversine(stand_lat, stand_lon, bz_lat, bz_lon)
-            if dist <= 300:
+            if dist <= max_scent_dist:
                 bearing = bearing_between(stand_lat, stand_lon, bz_lat, bz_lon)
                 nearby_bedding.append({"lat": bz_lat, "lon": bz_lon, "dist": dist, "bearing": bearing})
         
@@ -78,11 +91,14 @@ class MaxAccuracyPipeline:
             # Wind FROM this direction means scent blows TO the opposite direction
             scent_blows_to = (wind_from_deg + 180) % 360
             
-            # Check if scent blows toward any nearby bedding (within ~60 deg cone)
+            # Scent cone width varies with wind speed (tight in strong wind, wide in calm)
+            cone_half = scent_cone_half_width(wind_speed)
+            
+            # Check if scent blows toward any nearby bedding
             scent_hits_bedding = False
             for bed in nearby_bedding:
                 angle_diff_val = angular_diff(scent_blows_to, bed["bearing"])
-                if angle_diff_val < 60:  # Scent cone ~120 degrees wide
+                if angle_diff_val < cone_half:
                     scent_hits_bedding = True
                     break
             
@@ -104,6 +120,24 @@ class MaxAccuracyPipeline:
         progress_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     ) -> Dict[str, Any]:
         start_time = time.monotonic()
+
+        # Parse date for rut phase classification and season gating
+        try:
+            from datetime import datetime as _dt
+            dt = _dt.fromisoformat(date_time.replace("Z", "+00:00"))
+            run_month = dt.month
+            run_day = dt.day
+            run_hour = dt.hour
+        except Exception:
+            run_month, run_day, run_hour = 11, 10, 7  # default to peak rut morning
+
+        rut_phase = classify_rut_phase(run_month, run_day)
+        # Override season with more precise rut phase when applicable
+        effective_season = rut_phase if rut_phase != "early_season" else season
+        logger.info(
+            "MaxAccuracy: date=%s rut_phase=%s effective_season=%s",
+            date_time, rut_phase, effective_season,
+        )
 
         def report_progress(stage: str, payload: Optional[Dict[str, Any]] = None) -> None:
             if not progress_callback:
@@ -202,7 +236,7 @@ class MaxAccuracyPipeline:
                 )
 
             t0 = time.monotonic()
-            scored = self._score_behavior(enriched, season)
+            scored = self._score_behavior(enriched, effective_season, month=run_month)
             combined = self._combine_scores(scored)
             logger.info(
                 "MaxAccuracy: combined score for %s candidates in %.2fs",
@@ -229,7 +263,7 @@ class MaxAccuracyPipeline:
             )
 
             t0 = time.monotonic()
-            stand_recommendations = self._select_stands(combined, corners, season, bedding_zones)
+            stand_recommendations = self._select_stands(combined, corners, effective_season, bedding_zones)
             logger.info(
                 "MaxAccuracy: selected %s stand recommendations in %.2fs",
                 len(stand_recommendations),
@@ -254,6 +288,8 @@ class MaxAccuracyPipeline:
                     "corners": [{"lat": c[0], "lon": c[1]} for c in corners],
                     "date_time": date_time,
                     "season": season,
+                    "rut_phase": rut_phase,
+                    "effective_season": effective_season,
                     "hunting_pressure": hunting_pressure,
                     "config": asdict(self.config),
                 },
@@ -407,6 +443,15 @@ class MaxAccuracyPipeline:
                 elev_max = float(np.nanmax(elev))
                 elev_denom = max(1e-6, elev_max - elev_min)
 
+                # Compute ridgeline and drainage grids for this tile
+                ridgeline_grid = detect_ridgelines(
+                    metrics["tpi_large"], metrics["slope_deg"], metrics["relief_small"]
+                )
+                drainage_grid = detect_drainages(
+                    metrics["tpi_small"], metrics["tpi_large"],
+                    metrics["curvature"], metrics["relief_small"]
+                )
+
                 for lat, lon, row, col in tile_points:
                     local_row = row - row0_pad
                     local_col = col - col0_pad
@@ -423,9 +468,10 @@ class MaxAccuracyPipeline:
 
                     bench_score, saddle_score = score_bench_saddle(s, tpi_small, relief_small, curv)
 
-                    slope_pref = max(0.0, 1.0 - (abs(s - 10.0) / 10.0))
-                    elev_norm = (e - elev_min) / elev_denom
-                    elev_pref = max(0.0, 1.0 - (abs(elev_norm - 0.6) / 0.6))
+                    # Unified slope scoring: plateau across 5-22° instead of narrow 10° peak
+                    slope_pref = slope_preference(s)
+                    # Ridge proximity: upper-third preference instead of arbitrary 60th percentile
+                    elev_pref = ridge_proximity_preference(e, elev_min, elev_max)
 
                     corridor_score = clamp01(1.0 - (abs(tpi_large) / max(1.0, relief_small))) * clamp01(relief_small / 10.0)
                     shelter_score = clamp01(1.0 - (s / 20.0)) * clamp01((relief_small - abs(tpi_small)) / max(1.0, relief_small))
@@ -433,9 +479,13 @@ class MaxAccuracyPipeline:
                     curvature_score = clamp01(abs(curv) / 0.1)
 
                     # Aspect score: prefer south-facing (135-225°) for thermal advantage
-                    # 180° = due south = optimal
-                    aspect_diff = angular_diff(aspect, 180.0)
-                    aspect_score = clamp01(1.0 - (aspect_diff / 90.0))
+                    # SE aspects (135-165°) get morning solar warming — also preferred
+                    aspect_diff = angular_diff(aspect, 170.0)  # shifted slightly SE of due south
+                    aspect_score = clamp01(1.0 - (aspect_diff / 100.0))  # wider tolerance
+
+                    # Ridgeline and drainage from pre-computed grids
+                    ridgeline_s = float(ridgeline_grid[local_row, local_col])
+                    drainage_s = float(drainage_grid[local_row, local_col])
 
                     score = (
                         slope_pref * self.config.weights["slope_pref"]
@@ -447,6 +497,8 @@ class MaxAccuracyPipeline:
                         + curvature_score * self.config.weights["curvature"]
                         + shelter_score * self.config.weights["shelter"]
                         + aspect_score * self.config.weights["aspect"]
+                        + ridgeline_s * self.config.weights.get("ridgeline", 0.04)
+                        + drainage_s * self.config.weights.get("drainage", 0.04)
                     )
 
                     scored.append(
@@ -467,6 +519,8 @@ class MaxAccuracyPipeline:
                             "corridor_score": float(corridor_score),
                             "shelter_score": float(shelter_score),
                             "aspect_score": float(aspect_score),
+                            "ridgeline_score": float(ridgeline_grid[local_row, local_col]),
+                            "drainage_score": float(drainage_grid[local_row, local_col]),
                         }
                     )
 
@@ -538,9 +592,9 @@ class MaxAccuracyPipeline:
 
         return candidates
 
-    def _score_behavior(self, candidates: List[Dict[str, Any]], season: str) -> List[Dict[str, Any]]:
+    def _score_behavior(self, candidates: List[Dict[str, Any]], season: str, month: int = 11) -> List[Dict[str, Any]]:
         for candidate in candidates:
-            candidate["behavior_score"] = score_behavior(candidate, season=season)
+            candidate["behavior_score"] = score_behavior(candidate, season=season, month=month)
         return candidates
 
     def _combine_scores(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

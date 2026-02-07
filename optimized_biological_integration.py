@@ -714,8 +714,23 @@ class OptimizedBiologicalIntegration:
         return min(1.0, strength)
     
     def get_refined_activity_level(self, time_of_day: int, weather_data: Dict) -> str:
-        """Refined midday activity logic with enhanced cold front validation"""
-        base_activity = self.get_base_activity_level(time_of_day)
+        """Refined activity logic with rut phase awareness and cold front validation."""
+        from backend.utils.terrain_scoring import classify_rut_phase, rut_adjusted_activity
+
+        # Determine rut phase from date if available
+        date_str = weather_data.get("date", "")
+        try:
+            from datetime import datetime
+            if date_str:
+                dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
+                rut_phase = classify_rut_phase(dt.month, dt.day)
+            else:
+                rut_phase = "early_season"
+        except Exception:
+            rut_phase = "early_season"
+
+        # Use rut-aware base activity (midday = high during peak rut)
+        base_activity = rut_adjusted_activity(time_of_day, rut_phase)
         
         # ENHANCED: Cold front override validation with strict thresholds
         is_cold_front = weather_data.get("is_cold_front", False)

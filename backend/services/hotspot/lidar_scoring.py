@@ -6,6 +6,8 @@ import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.utils.terrain_scoring import ridge_proximity_preference, slope_preference
+
 
 def pick_best_dem_file(lidar_files: Dict[str, str]) -> Optional[str]:
     """Select the best DEM file from available LiDAR files (prefers true DEM over hillshade)."""
@@ -118,9 +120,8 @@ def lidar_shortlist_points(
                     continue
                 row, col, e, s = sampled
 
-                slope_pref = max(0.0, 1.0 - (abs(s - 10.0) / 10.0))
-                elev_norm = (e - elev_min) / elev_range
-                elev_pref = max(0.0, 1.0 - (abs(elev_norm - 0.6) / 0.6))
+                slope_pref = slope_preference(s)
+                elev_pref = ridge_proximity_preference(e, elev_min, elev_min + elev_range)
                 base_score = slope_pref * 60.0 + elev_pref * 40.0
 
                 base_scored.append(

@@ -19,18 +19,20 @@ class MaxAccuracyConfig:
     season: str = "rut"
     hunting_pressure: str = "medium"
 
-    # Terrain feature weights (tuned for rut behavior)
+    # Terrain feature weights (rebalanced for mature buck biology)
     weights: Dict[str, float] = field(
         default_factory=lambda: {
-            "slope_pref": 0.22,
-            "elev_pref": 0.12,
-            "bench": 0.14,
-            "saddle": 0.14,
-            "corridor": 0.10,
-            "roughness": 0.08,
-            "curvature": 0.05,
-            "shelter": 0.05,
-            "aspect": 0.10,  # south-facing / leeward preference
+            "slope_pref": 0.18,   # 5-22° plateau scoring
+            "elev_pref": 0.12,    # ridge proximity (upper third)
+            "bench": 0.14,        # sidehill benches — prime bedding
+            "saddle": 0.14,       # terrain funnels — proven travel
+            "corridor": 0.08,     # general travel corridor
+            "roughness": 0.06,    # terrain texture (not flat field)
+            "curvature": 0.04,    # terrain shape
+            "shelter": 0.08,      # wind/thermal protection
+            "aspect": 0.08,       # south/SE facing thermal advantage
+            "ridgeline": 0.04,    # ridge spine travel
+            "drainage": 0.04,     # drainage funnel travel
         }
     )
 

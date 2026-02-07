@@ -61,7 +61,7 @@ def build_wind_options(
     wind_data = {"wind_direction": wind_direction_deg} if wind_direction_deg is not None else get_wind_data(lat, lon)
     primary = best_stand_for_winds(lat, lon, float(wind_data["wind_direction"]), distance_m)
 
-    if season in {"rut", "pre_rut", "post_rut"}:
+    if season in {"rut", "pre_rut", "post_rut", "peak_rut", "seeking"}:
         alternates = [225.0, 270.0, 315.0]
     else:
         alternates = [180.0, 225.0, 270.0]

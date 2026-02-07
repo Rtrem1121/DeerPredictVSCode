@@ -1,425 +1,278 @@
 # 🦌 Deer Prediction App
 
-Streamlit + FastAPI application for mature buck bedding, movement, and stand recommendations using **local LiDAR**, **GEE vegetation**, **OSM**, and **weather**.
+**LiDAR-powered mature buck stand placement for Vermont whitetail hunting.**
 
-## 📚 Documentation
-- 🏗️ Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 🧪 Testing: [docs/TESTING.md](docs/TESTING.md)
-- 🚀 Deployment: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-- 📊 Analytics: [ANALYTICS_README.md](ANALYTICS_README.md)
-
-## 🔭 What’s New & Important
-- **Dense LiDAR pre‑scan** (optional) → shortlist → **GEE refinement** for top candidates.
-- **Declustering** ensures shortlisted sites aren’t stacked on the same ridge.
-- **NDVI trend** (recent vs prior window) included in vegetation analysis.
-- **Scouting priors** boost bedding scores near recent observations.
-- **Trace summary** included in prediction payload + frontend panel.
-- **Max Accuracy pipeline**: dense LiDAR grid + terrain metrics + optional GEE canopy/NDVI + behavior blending + quadrant diversity + wind offsets.
-
-## 🧭 Core Data Flow
-LiDAR terrain (0.35m) → terrain scoring + declustering → GEE canopy/NDVI → bedding + stand logic → frontend display.
-
-**Property scans:** use LiDAR-first grid scanning across the property boundary, shortlist top terrain candidates, then run full GEE refinement on those candidates (see Property Hotspots tab in [frontend/app.py](frontend/app.py)).
-
-**Max Accuracy scans:** use the Property Hotspots tab → check “Use Max Accuracy pipeline.” Results return via a background job and can be refreshed in the UI.
-
-## 🚀 Quick Start
-
-### Local Development
-```bash
-python backend/main.py
-streamlit run frontend/app.py
-```
-
-### Docker
-```bash
-docker compose up --build
-```
-Frontend: http://localhost:8501  
-API docs: http://localhost:8000/docs
-
-## ⚙️ Configuration
-Configs live in [config/defaults.yaml](config/defaults.yaml) and environment overlays:
-- [config/development.yaml](config/development.yaml)
-- [config/testing.yaml](config/testing.yaml)
-- [config/production.yaml](config/production.yaml)
-
-Dense LiDAR scan options (defaults in `defaults.yaml`):
-- `lidar_dense_scan.enabled`
-- `lidar_dense_scan.points`
-- `lidar_dense_scan.radius_m`
-- `lidar_dense_scan.top_k`
-- `lidar_dense_scan.min_separation_m`
-
-Corridor path tuning (defaults in `defaults.yaml`):
-- `corridor_scoring.path_max_link_m`
-- `corridor_scoring.path_max_bearing_diff_deg`
-
-Env overrides are in [.env.example](.env.example).
-
-Max Accuracy environment variables:
-- `MAX_ACCURACY_JOBS_DIR` (optional): where max-accuracy reports are persisted (default: `data/max_accuracy_jobs`).
-- `SCOUTING_PREDICTION_RADIUS_MILES` (optional): scouting prior radius for predictions (default: `2.0`).
-
-## 🧪 Tests
-```bash
-pytest -m unit
-pytest -m integration
-pytest -m e2e
-```
-Markers: `unit`, `integration`, `e2e`, `critical` (see [pytest.ini](pytest.ini)).
-
-## 🔌 External Dependencies
-- **Google Earth Engine** service account: [credentials/README.md](credentials/README.md)
-- **OpenWeatherMap API** key in `.env`
-- **Local LiDAR** files under `data/lidar/raw/vermont/` (or legacy `data/lidar/vermont/`).
-
-## 🧯 Troubleshooting
-- Missing GEE: verify `credentials/gee-service-account.json` and `GEE_PROJECT_ID`.
-- No LiDAR: confirm DEM file exists and backend logs show “LIDAR processor service ENABLED”.
-- Use the **Trace Summary** panel in the UI to confirm LiDAR coverage, shortlist size, and GEE refinements.
-
----
-**Status:** Operational (FastAPI + Streamlit)  
-**Primary entrypoints:** [backend/main.py](backend/main.py), [frontend/app.py](frontend/app.py)
-# 🦌 Deer Prediction App
-
-## 📚 Documentation
-
-- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - System design, components, and technical specifications
-- 🧪 **[Testing](docs/TESTING.md)** - Validation results, test procedures, and quality assurance
-- 🚀 **[Deployment](docs/DEPLOYMENT.md)** - Setup guides, Docker configuration, and production deployment
-- 📊 **[Analytics](ANALYTICS_README.md)** - Performance monitoring and metrics
-- 🤖 **[AI Agents](AGENTS.md)** - AI assistant configurations and capabilities
-
-### 📁 Archive
-Historical documentation and legacy reports are available in [`docs/archives/`](docs/archives/)
-
-## 🚀 Quick Startion-Ready Hunting Prediction System with Advanced Analytics**
-
-## 🎯 Overview
-
-A comprehensive deer hunting prediction system that combines satellite imagery analysis, machine learning algorithms, and real-time weather data to provide hunters with optimal stand placement and timing recommendations.
-
-**System Accuracy**: 95.7% overall prediction accuracy  
-**Status**: ✅ **FULLY OPERATIONAL**  
-**Production URL**: https://app.deerpredictapp.org  
-
-### 🚀 Key Features
-- **Mature Buck Prediction**: 91.8% accuracy with advanced terrain analysis
-- **Camera Placement Optimization**: 89.1% confidence positioning
-- **Real-time Weather Integration**: Wind, temperature, and pressure analysis
-- **Interactive Mapping**: GPS-precise stand recommendations
-- **Scouting System**: Comprehensive observation tracking
-- **Mobile Optimized**: Responsive design for field use
-
-### � Performance Highlights
-- **Response Time**: <100ms average API response
-- **Prediction Speed**: <50ms terrain analysis
-- **System Uptime**: 99.8% availability
-- **User Interface**: Password-protected secure access
-
-## � Documentation
-
-- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - System design, components, and technical specifications
-- 🧪 **[Testing](docs/TESTING.md)** - Validation results, test procedures, and quality assurance
-- 🚀 **[Deployment](docs/DEPLOYMENT.md)** - Setup guides, Docker configuration, and production deployment
-- 📊 **[Analytics](ANALYTICS_README.md)** - Performance monitoring and metrics
-- 🤖 **[AI Agents](AGENTS.md)** - AI assistant configurations and capabilities
-
-## 🚀 Quick Start
-
-### Local Development
-```bash
-# Start backend service
-cd backend
-python main.py
-
-# Start frontend (new terminal)
-streamlit run frontend/app.py
-```
-
-### Docker Deployment (Recommended)
-```bash
-# Start all services (from repo root)
-docker-compose -f docker/docker-compose.yml up -d --build
-
-# View application
-# Frontend: http://localhost:8501
-# API: http://localhost:8000/docs
-```
-
-### Production Access
-- **URL**: https://app.deerpredictapp.org
-- **Authentication**: Password protected (contact administrator)
-- **Mobile**: Fully responsive interface
-
-### Verification
-```bash
-# Run comprehensive system test
-python comprehensive_system_test.py
-
-# Expected output: "🟢 SYSTEM FULLY OPERATIONAL - Ready for hunting season!"
-```
-
-## 🛰️ Satellite Data Features
-
-### Real-Time Vegetation Analysis
-- **NDVI Range**: -1.0 to 1.0 (higher = healthier vegetation)
-- **EVI Enhanced**: More sensitive to canopy structure
-- **SAVI Adjusted**: Accounts for soil background effects
-- **Temporal Analysis**: Multi-season vegetation trends
-
-### Intelligent Data Retrieval
-The system uses progressive search strategies:
-1. **Recent clear imagery** (30 days, <20% clouds)
-2. **Extended recent period** (60 days, <30% clouds)  
-3. **Seasonal period** (90 days, <40% clouds)
-4. **Extended seasonal** (180 days, <50% clouds)
-5. **Annual fallback** (365 days, <60% clouds)
-
-## 🎯 API Endpoints
-
-### Hunting Predictions
-```bash
-# Complete hunting analysis
-POST /predict
-{
-  "lat": 44.26,
-  "lon": -72.58,
-  "date_time": "2025-11-15T06:00:00",
-  "season": "rut"
-}
-```
-
-### Satellite Data
-```bash
-# Direct NDVI analysis
-GET /api/enhanced/satellite/ndvi?lat=44.26&lon=-72.58
-
-# Returns: {"ndvi": 0.339, "vegetation_health": "moderate", ...}
-```
-
-### Max Accuracy (Property Hotspots)
-```bash
-# Start a max-accuracy job (returns job_id)
-POST /property-hotspots/max-accuracy/run
-
-# Get report by job id
-GET /property-hotspots/max-accuracy/report/{job_id}
-```
-
-### Trail Camera Recommendations
-```bash
-# Optimal camera placement
-POST /trail-cameras
-{
-  "lat": 44.26,
-  "lon": -72.58,
-  "camera_count": 5
-}
-```
-
-## 🏆 Testing Results
-
-**Latest Comprehensive Test (August 15, 2025):**
-```
-📊 OVERALL SCORE: 5/5 components working
-✅ Health Check
-✅ Satellite Integration  
-✅ Prediction Engine
-✅ Mature Buck Analysis
-✅ Frontend Data
-
-⚡ PERFORMANCE METRICS:
-  prediction_1: 3.13 seconds
-  prediction_2: 3.01 seconds  
-  prediction_3: 2.96 seconds
-
-🎯 SYSTEM STATUS: 🟢 SYSTEM FULLY OPERATIONAL
-```
-
-## 🔧 Architecture
-
-### Satellite Integration
-- **Google Earth Engine**: Landsat 8 Collection 2 Level-2
-- **Direct Authentication**: Service account with automatic failover
-- **Improved NDVI Calculation**: Multi-temporal analysis with cloud masking
-- **Land Cover Analysis**: Real-time classification of hunting habitats
-
-### Prediction Engine
-- **Core Algorithms**: 26 hunting rules loaded and validated
-- **ML Enhancement**: Confidence boosting for mature buck predictions
-- **Environmental Factors**: Real satellite vegetation + weather + terrain
-- **Stand Optimization**: 5-point scoring system with GPS coordinates
-
-### Data Flow
-```
-Satellite Data (GEE) → Vegetation Analysis → Hunting Algorithms → 
-Stand Recommendations → Frontend Display
-```
-
-## 🐛 Troubleshooting
-
-### Satellite Data Issues
-If NDVI returns null:
-1. Check GEE service account: `docker-compose logs backend | grep GEE`
-2. Verify credentials: `ls -la credentials/gee-service-account.json`
-3. Test direct endpoint: `curl "http://localhost:8000/api/enhanced/satellite/ndvi?lat=44.26&lon=-72.58"`
-
-### Performance Issues
-- Ensure 8GB+ RAM for satellite processing
-- Check Docker resources: `docker stats`
-- Monitor response times: `python comprehensive_system_test.py`
-
-## 📈 Hunting Success Metrics
-
-### Validated Locations (Vermont)
-- **Central Vermont** (44.26, -72.58): NDVI 0.339, 20.2% forest coverage
-- **Northern Vermont** (44.95, -72.32): Excellent water availability
-- **Southern Vermont** (43.15, -72.88): Optimal mature buck habitat
-
-### Real Data Examples
-```json
-{
-  "vegetation_health": {
-    "ndvi": 0.339,
-    "evi": 2.555,
-    "overall_health": "moderate"
-  },
-  "water_availability": {
-    "water_occurrence_percent": 32.3,
-    "reliability": "moderate"
-  },
-  "analysis_quality": {
-    "data_source": "google_earth_engine"
-  }
-}
-```
-
-## 🚀 Production Deployment
-
-The application is production-ready with:
-- ✅ **Containerized architecture** for consistent deployment
-- ✅ **Health monitoring** endpoints for system status
-- ✅ **Error handling** with graceful fallbacks
-- ✅ **Performance optimization** for real-time usage
-- ✅ **Comprehensive testing** covering all components
-
-**Ready for hunting season 2025!** 🦌🎯
+A Streamlit + FastAPI application that uses high-resolution LiDAR terrain data, Google Earth Engine vegetation analysis, and deer behavior modeling to recommend optimal treestand locations across your hunting property.
 
 ---
 
-*Built with passion for precision hunting by the GitHub Copilot AI Development Team*
+## How It Works
 
-## ✅ **VERIFIED ALGORITHMIC PREDICTIONS** (August 10, 2025)
+The **Max Accuracy pipeline** scans your entire property boundary using Vermont's statewide 0.7m DEM:
 
-**ALL INTERACTIVE MAP ELEMENTS USE REAL ALGORITHMS** - No visual placeholders or fake data points.
+1. **Dense LiDAR grid** — samples terrain every 20m across the property (~12,000+ candidates)
+2. **Terrain scoring** — slopes, benches, saddles, ridgelines, corridors, shelter, aspect, roughness, drainage
+3. **Bedding zone identification** — strict mature buck criteria (shelter ≥ 0.58, bench ≥ 0.65, slope 7–15°, roughness ≥ 3.0, upper 60% elevation)
+4. **GEE canopy/NDVI enrichment** — top candidates get satellite vegetation data from Google Earth Engine
+5. **Behavior blending** — 50/50 terrain + behavior score (saddle/bench/corridor/ridgeline features)
+6. **Bedding proximity scoring** — 70% distance + 30% bedding quality blend
+7. **Quadrant diversity** — ensures stands are spread across the property
+8. **Final ranking** — top 20 stand recommendations with coordinates, scores, and terrain feature badges
 
-🧪 **Verification Test Results:**
-- **Vermont forested area (44.26, -72.58)**: Bedding: 3, Travel: 3, Feeding: 3
-- **Wisconsin sparse forest (44.5, -89.5)**: Bedding: 0, Travel: 3, Feeding: 3
+Typical run: **~75–80 seconds** for a full property scan.
 
-**✅ Confirmed Algorithmic Behavior:**
-- Forested areas generate bedding zones (deer need cover)
-- Sparse areas produce fewer bedding zones (realistic)
-- Every marker uses terrain analysis + deer behavior rules from `rules.json`
-- **NO fake markers** - 100% algorithm-driven predictions
+---
 
-## Features
-
-- **Interactive Map:** Select a location by dropping a pin.
-- **Dynamic Predictions:** Get movement predictions based on date, time, and season.
-- **Visual Overlays:** View predicted travel corridors, bedding zones, and feeding areas.
-- **Stand Rating:** A 0-10 score to quickly assess a location's potential.
-- **Weather Integration:** Real-time weather data from OpenWeatherMap.
-- **Terrain Analysis:** Uses the Open-Elevation API for terrain data.
-- **🎯 Algorithmic Integrity:** All map elements generated from real terrain + behavior analysis
-
-## Tech Stack
-
-- **Backend:** Python, FastAPI
-- **Frontend:** Python, Streamlit
-- **Mapping:** Folium
-- **Data:** Pandas, GeoPandas
-- **Deployment:** Docker
-
-## Setup and Running
+## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- An OpenWeatherMap API key
+- Docker & Docker Compose
+- Vermont statewide DEM file (`STATEWIDE_2013-2017_70cm_DEMHF.tif`) mounted at `data/lidar/raw/vermont/`
+- Google Earth Engine service account credentials (see [credentials/README.md](credentials/README.md))
+- OpenWeatherMap API key
 
-### Quick Start
-
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd deer-movement-predictor
-   ```
-
-2. **Set up environment variables:**
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenWeatherMap API key
-   ```
-
-3. **Deploy with Docker (Development):**
-   ```bash
-   # Using PowerShell on Windows:
-   .\deploy.ps1 dev
-   
-   # Or using traditional docker-compose:
-  docker-compose -f docker/docker-compose.yml up --build
-   ```
-
-4. **Deploy for Production:**
-   ```bash
-   # Using PowerShell on Windows:
-   .\deploy.ps1 prod
-   
-   # Or using docker-compose:
-   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build
-   ```
-
-5. **Access the application:**
-   - **Frontend (Streamlit):** [http://localhost:8501](http://localhost:8501)
-   - **Backend API Docs (FastAPI):** [http://localhost:8000/docs](http://localhost:8000/docs)
-   - **Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
-
-### Docker Commands
+### Environment Setup
 
 ```bash
-# Check deployment status
-.\deploy.ps1 status
-
-# View logs
-.\deploy.ps1 logs
-
-# Cleanup containers
-.\deploy.ps1 cleanup
-
-# Manual commands
-docker-compose ps                    # Check container status
-docker-compose logs -f              # Follow logs
-docker-compose exec backend bash    # Access backend container
+cp .env.example .env
+# Edit .env with your keys:
+#   OPENWEATHERMAP_API_KEY=your_key
+#   GOOGLE_APPLICATION_CREDENTIALS=credentials/gee-service-account.json
+#   GEE_PROJECT_ID=your_project_id
+#   APP_PASSWORD=your_password
 ```
 
-### Monitoring (Optional)
+### Docker (Recommended)
 
-Start monitoring stack:
 ```bash
-docker-compose -f docker-compose.monitoring.yml up -d
+docker compose up --build -d
 ```
 
-Access monitoring:
-- **Prometheus:** [http://localhost:9090](http://localhost:9090)
-- **Grafana:** [http://localhost:3000](http://localhost:3000) (admin/admin123)
-- **cAdvisor:** [http://localhost:8080](http://localhost:8080)
+- **Frontend:** http://localhost:8501
+- **API docs:** http://localhost:8000/docs
+- **Health check:** http://localhost:8000/health
 
-## Future Enhancements
+### Local Development
 
-- **Machine Learning:** Integrate a machine learning model (e.g., Random Forest) to improve prediction accuracy.
-- **More Data Sources:** Add more data layers like vegetation from Google Earth Engine.
-- **User Accounts:** Allow users to save and manage their favorite locations.
+```bash
+# Terminal 1 — backend
+python backend/main.py
+
+# Terminal 2 — frontend
+streamlit run frontend/app.py
+```
+
+---
+
+## Project Structure
+
+```
+deer_pred_app/
+├── backend/
+│   ├── main.py                    # FastAPI app entry point
+│   ├── max_accuracy/              # Max accuracy pipeline
+│   │   ├── pipeline.py            # Pipeline orchestrator
+│   │   ├── config.py              # MaxAccuracyConfig dataclass
+│   │   ├── terrain_metrics.py     # Bench/saddle/corridor/ridgeline detection
+│   │   ├── grid.py                # Dense LiDAR grid generation
+│   │   ├── gee.py                 # Google Earth Engine canopy/NDVI
+│   │   ├── behavior.py            # Deer behavior scoring
+│   │   └── wind.py                # Wind offset calculations
+│   ├── routers/
+│   │   ├── max_accuracy_router.py # /property-hotspots/max-accuracy/* endpoints
+│   │   ├── scouting_router.py     # Field observation CRUD
+│   │   ├── config_router.py       # Runtime config
+│   │   └── camera_router.py       # Trail camera recommendations
+│   ├── services/
+│   │   ├── lidar/                 # LiDAR processor (DEM tile reading)
+│   │   └── gee/                   # GEE authentication & data
+│   └── config_manager.py          # YAML config loader
+├── frontend/
+│   └── app.py                     # Streamlit UI
+├── config/
+│   ├── defaults.yaml              # Default configuration
+│   ├── development.yaml
+│   ├── testing.yaml
+│   └── production.yaml
+├── credentials/
+│   ├── README.md
+│   └── gee-service-account.json.template
+├── data/
+│   ├── lidar/raw/vermont/         # DEM file (not in git — 55 GB)
+│   └── max_accuracy_jobs/         # Persisted job reports
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── .env.example
+```
+
+---
+
+## Frontend Tabs
+
+| Tab | Purpose |
+|-----|---------|
+| **🎯 Max Accuracy Analysis** | Primary tab — run property scans, view stand rankings, interactive map |
+| **🔍 Scouting Data** | Log field observations (rubs, scrapes, trails, sightings) |
+| **📊 Analytics** | Scouting data trends and patterns |
+
+### Max Accuracy UI Features
+
+- **Rut phase banner** — color-coded header showing current rut phase with date context
+- **Top stand hero card** — 5-column metrics (score/terrain/behavior/slope/elevation), terrain feature badges, bedding proximity
+- **Stand comparison table** — top 10 ranked with score bars and feature badges
+- **Stand detail inspector** — full terrain score breakdown with bars, metrics, and canopy/NDVI data
+- **Interactive map** — color-coded rank markers, stand-to-bedding dashed lines, bedding zone circles with hover coordinates, layer toggle, legend overlay
+- **Bedding zone summary** — sortable list with quality scores and coordinates
+- **Configurable settings** — grid spacing, max candidates, GEE sample K, behavior weight, TPI windows, top K stands, wind offset, min per quadrant
+
+---
+
+## API Endpoints
+
+### Max Accuracy Pipeline
+
+```bash
+# Start a property scan (returns job_id)
+POST /property-hotspots/max-accuracy/run
+{
+  "corners": [
+    {"lat": 43.319, "lon": -73.231},
+    {"lat": 43.322, "lon": -73.204},
+    {"lat": 43.299, "lon": -73.211},
+    {"lat": 43.300, "lon": -73.240}
+  ],
+  "date_time": "2025-10-15T10:30:00Z",
+  "season": "rut",
+  "hunting_pressure": "high",
+  "config": {
+    "grid_spacing_m": 20,
+    "max_candidates": 20000,
+    "top_k_stands": 20
+  }
+}
+
+# Get report
+GET /property-hotspots/max-accuracy/report/{job_id}
+```
+
+### Scouting
+
+```bash
+POST /scouting/add_observation    # Log a field observation
+GET  /scouting/observations       # List observations
+GET  /scouting/analytics          # Scouting trends
+GET  /scouting/types              # Observation type definitions
+```
+
+### System
+
+```bash
+GET  /health                      # Health check
+GET  /config                      # Current runtime config
+```
+
+---
+
+## Configuration
+
+### Pipeline Defaults
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `grid_spacing_m` | 20 | LiDAR sample spacing (meters) |
+| `max_candidates` | 20,000 | Candidate pool size |
+| `top_k_stands` | 20 | Number of stand recommendations |
+| `gee_sample_k` | 100 | Candidates enriched with GEE data |
+| `behavior_weight` | 0.50 | Terrain vs behavior blend |
+| `tile_size_px` | 512 | DEM tile size (resilient to corrupted blocks) |
+| `min_per_quadrant` | 1 | Minimum stands per property quadrant |
+| `bedding_min_bench` | 0.65 | Bench score threshold for bedding |
+| `bedding_min_shelter` | 0.58 | Shelter score threshold for bedding |
+| `bedding_slope_min/max` | 7–15° | Slope range for bedding zones |
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OPENWEATHERMAP_API_KEY` | Yes | Weather data API key |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Yes | Path to GEE service account JSON |
+| `GEE_PROJECT_ID` | Yes | Google Earth Engine project ID |
+| `APP_PASSWORD` | No | Frontend password protection |
+| `BACKEND_URL` | No | Backend URL for frontend (default: `http://backend:8000`) |
+| `MAX_ACCURACY_JOBS_DIR` | No | Report persistence directory |
+| `LOG_LEVEL` | No | Logging level (default: `INFO`) |
+
+---
+
+## Docker
+
+Three containers:
+
+| Container | Port | Purpose |
+|-----------|------|---------|
+| `backend` | 8000 | FastAPI + LiDAR + GEE |
+| `frontend` | 8501 | Streamlit UI |
+| `redis` | 6379 | Response caching |
+
+The 55 GB DEM file is volume-mounted read-only from the host (not copied into the image):
+```yaml
+volumes:
+  - ./data/lidar/raw/vermont:/app/data/lidar/raw/vermont:ro
+```
+
+---
+
+## Terrain Scoring Weights
+
+| Feature | Weight | What it detects |
+|---------|--------|-----------------|
+| Slope preference | 18% | 5–22° plateau scoring |
+| Bench | 14% | Sidehill benches — prime bedding |
+| Saddle | 14% | Terrain funnels — proven travel corridors |
+| Elevation preference | 12% | Ridge proximity (upper third) |
+| Corridor | 8% | General travel corridor |
+| Shelter | 8% | Wind/thermal protection |
+| Aspect | 8% | South/SE facing thermal advantage |
+| Roughness | 6% | Terrain texture (not flat field) |
+| Curvature | 4% | Terrain shape |
+| Ridgeline | 4% | Ridge spine travel |
+| Drainage | 4% | Drainage funnel travel |
+
+---
+
+## Tests
+
+```bash
+pytest -m unit           # Unit tests
+pytest -m integration    # Integration tests (requires Docker)
+pytest -m e2e            # End-to-end tests (requires Docker)
+```
+
+See [pytest.ini](pytest.ini) for markers and configuration.
+
+---
+
+## Security
+
+- `.env` is in `.gitignore` — API keys never committed
+- GEE credentials directory ignores all JSON except templates
+- Frontend supports optional password protection via `APP_PASSWORD`
+- No secrets are hardcoded in source code
+
+---
+
+## Tech Stack
+
+- **Backend:** Python 3.10, FastAPI, Uvicorn
+- **Frontend:** Streamlit, Folium (interactive maps)
+- **Terrain:** Rasterio, NumPy, SciPy (LiDAR DEM processing)
+- **Vegetation:** Google Earth Engine (Sentinel-2 canopy/NDVI)
+- **Weather:** OpenWeatherMap API
+- **Cache:** Redis
+- **Deployment:** Docker Compose
+
+---
+
+**Primary entrypoints:** [backend/main.py](backend/main.py) · [frontend/app.py](frontend/app.py) · [backend/max_accuracy/pipeline.py](backend/max_accuracy/pipeline.py)

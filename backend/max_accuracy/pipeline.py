@@ -784,7 +784,7 @@ class MaxAccuracyPipeline:
         Criteria (ALL required):
         - Bench score >= 0.65 (prominent sidehill bench)
         - Shelter score >= 0.58 (wind/thermal protection from terrain shape)
-        - Slope 9-18° (drainage + comfort, not too steep)
+        - Slope 7-15° (benches are flat spots — slope is lower on the bed itself)
         - Roughness >= 3.0 (real terrain texture, not flat fields)
         - Elevation >= 40th percentile (upper terrain, not valley bottom)
 

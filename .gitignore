@@ -36,7 +36,10 @@ service-account*.json
 # Other
 *.sqlite3
 data/scouting_observations.json.backup
+data/hotspot_jobs/
+data/max_accuracy_jobs/
 .continue/
 GEE JSON KEY/
 archive/
 response.json
+.coverage

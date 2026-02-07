@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-import math
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from backend.services.lidar_processor import DEMFileManager, RASTERIO_AVAILABLE  # type: ignore
+from backend.utils.geo import (
+    angular_diff,
+    bearing_between,
+    bearing_to_cardinal,
+    haversine,
+)
 
 from .behavior import score_behavior
 from .config import MaxAccuracyConfig
@@ -19,45 +25,13 @@ from .wind import build_wind_options
 
 logger = logging.getLogger(__name__)
 
+# Max GEE concurrent requests (avoid hammering the API)
+_GEE_MAX_WORKERS = 8
+
 
 class MaxAccuracyPipeline:
     def __init__(self, config: MaxAccuracyConfig | None = None) -> None:
         self.config = config or MaxAccuracyConfig()
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Geo helpers for bedding proximity scoring
-    # ─────────────────────────────────────────────────────────────────────────
-    @staticmethod
-    def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Return distance in meters between two lat/lon points."""
-        R = 6_371_000.0
-        phi1, phi2 = math.radians(lat1), math.radians(lat2)
-        dphi = math.radians(lat2 - lat1)
-        dlam = math.radians(lon2 - lon1)
-        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
-        return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-    @staticmethod
-    def _bearing_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Return bearing in degrees from point 1 to point 2."""
-        phi1, phi2 = math.radians(lat1), math.radians(lat2)
-        dlam = math.radians(lon2 - lon1)
-        y = math.sin(dlam) * math.cos(phi2)
-        x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(dlam)
-        return (math.degrees(math.atan2(y, x)) + 360) % 360
-
-    @staticmethod
-    def _angular_diff(a: float, b: float) -> float:
-        """Smallest absolute angular difference between two bearings."""
-        diff = abs(a - b) % 360
-        return diff if diff <= 180 else 360 - diff
-
-    @staticmethod
-    def _bearing_to_cardinal(bearing: float) -> str:
-        """Convert bearing degrees to cardinal direction."""
-        dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
-        idx = int((bearing + 22.5) % 360 / 45)
-        return dirs[idx]
 
     def _calculate_wind_rotation(
         self,
@@ -85,9 +59,9 @@ class MaxAccuracyPipeline:
             bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
             if bz_lat is None or bz_lon is None:
                 continue
-            dist = self._haversine(stand_lat, stand_lon, bz_lat, bz_lon)
+            dist = haversine(stand_lat, stand_lon, bz_lat, bz_lon)
             if dist <= 300:
-                bearing = self._bearing_between(stand_lat, stand_lon, bz_lat, bz_lon)
+                bearing = bearing_between(stand_lat, stand_lon, bz_lat, bz_lon)
                 nearby_bedding.append({"lat": bz_lat, "lon": bz_lon, "dist": dist, "bearing": bearing})
         
         if not nearby_bedding:
@@ -107,12 +81,12 @@ class MaxAccuracyPipeline:
             # Check if scent blows toward any nearby bedding (within ~60 deg cone)
             scent_hits_bedding = False
             for bed in nearby_bedding:
-                angle_diff = self._angular_diff(scent_blows_to, bed["bearing"])
-                if angle_diff < 60:  # Scent cone ~120 degrees wide
+                angle_diff_val = angular_diff(scent_blows_to, bed["bearing"])
+                if angle_diff_val < 60:  # Scent cone ~120 degrees wide
                     scent_hits_bedding = True
                     break
             
-            cardinal = self._bearing_to_cardinal(wind_from_deg)
+            cardinal = bearing_to_cardinal(wind_from_deg)
             if scent_hits_bedding:
                 avoid.append(cardinal)
             else:
@@ -460,7 +434,7 @@ class MaxAccuracyPipeline:
 
                     # Aspect score: prefer south-facing (135-225°) for thermal advantage
                     # 180° = due south = optimal
-                    aspect_diff = self._angular_diff(aspect, 180.0)
+                    aspect_diff = angular_diff(aspect, 180.0)
                     aspect_score = clamp01(1.0 - (aspect_diff / 90.0))
 
                     score = (
@@ -510,17 +484,57 @@ class MaxAccuracyPipeline:
             return []
 
         if not self.config.enable_gee or self.config.gee_sample_k <= 0:
+            # Set neutral defaults so behavior scoring doesn't penalize
+            for c in candidates:
+                c.setdefault("gee_canopy", 50.0)  # neutral, not zero
+                c.setdefault("gee_ndvi", 0.5)
             return candidates
 
         max_k = min(self.config.gee_sample_k, len(candidates))
-        logger.info("MaxAccuracy: starting GEE enrichment for %s candidates", max_k)
-        for idx, candidate in enumerate(candidates[:max_k], start=1):
-            try:
-                candidate.update(get_gee_summary(candidate["lat"], candidate["lon"]))
-            except Exception as exc:
-                logger.exception("MaxAccuracy: GEE enrichment failed for idx=%s lat=%s lon=%s", idx, candidate["lat"], candidate["lon"])
-            if idx % 50 == 0:
-                logger.info("MaxAccuracy: GEE enrichment progress %s/%s", idx, max_k)
+        logger.info("MaxAccuracy: starting parallel GEE enrichment for %s candidates (%s workers)", max_k, _GEE_MAX_WORKERS)
+
+        to_enrich = candidates[:max_k]
+        results: Dict[int, Dict[str, float]] = {}
+
+        def _fetch(idx: int, lat: float, lon: float) -> Tuple[int, Dict[str, float]]:
+            return idx, get_gee_summary(lat, lon)
+
+        failed = 0
+        with ThreadPoolExecutor(max_workers=_GEE_MAX_WORKERS) as pool:
+            futures = {
+                pool.submit(_fetch, i, c["lat"], c["lon"]): i
+                for i, c in enumerate(to_enrich)
+            }
+            for future in as_completed(futures):
+                idx = futures[future]
+                try:
+                    _, gee_data = future.result()
+                    results[idx] = gee_data
+                except Exception:
+                    failed += 1
+                    logger.warning(
+                        "MaxAccuracy: GEE failed for candidate idx=%s", idx
+                    )
+
+            done = len(results)
+            if done % 50 == 0 or done == max_k:
+                logger.info("MaxAccuracy: GEE enrichment %s/%s done", done, max_k)
+
+        # Apply results; for failures, use neutral defaults (not zero)
+        for idx, candidate in enumerate(to_enrich):
+            if idx in results:
+                candidate.update(results[idx])
+            else:
+                candidate.setdefault("gee_canopy", 50.0)
+                candidate.setdefault("gee_ndvi", 0.5)
+
+        # Also set neutral defaults for candidates beyond max_k
+        for candidate in candidates[max_k:]:
+            candidate.setdefault("gee_canopy", 50.0)
+            candidate.setdefault("gee_ndvi", 0.5)
+
+        if failed:
+            logger.warning("MaxAccuracy: GEE enrichment had %s failures out of %s", failed, max_k)
 
         return candidates
 
@@ -761,8 +775,8 @@ class MaxAccuracyPipeline:
         opt_max = self.config.bedding_optimal_distance_max
 
         for bed in bedding_zones:
-            dist_m = self._haversine(stand["lat"], stand["lon"], bed["lat"], bed["lon"])
-            bearing_to_bed = self._bearing_between(stand["lat"], stand["lon"], bed["lat"], bed["lon"])
+            dist_m = haversine(stand["lat"], stand["lon"], bed["lat"], bed["lon"])
+            bearing_to_bed = bearing_between(stand["lat"], stand["lon"], bed["lat"], bed["lon"])
 
             # Distance scoring: optimal 80-150m
             if opt_min <= dist_m <= opt_max:
@@ -780,15 +794,15 @@ class MaxAccuracyPipeline:
             # Wind scoring: stand should be DOWNWIND of bedding
             # Best: wind blows FROM bedding TOWARD stand (scent carries away from deer)
             wind_to_deg = (wind_from_deg + 180.0) % 360.0
-            angle_diff = self._angular_diff(bearing_to_bed, wind_to_deg)
+            angle_diff_val = angular_diff(bearing_to_bed, wind_to_deg)
 
-            if angle_diff < 30:
+            if angle_diff_val < 30:
                 # Excellent - directly downwind
                 wind_score = 1.0
-            elif angle_diff < 60:
+            elif angle_diff_val < 60:
                 # Good - mostly downwind
                 wind_score = 0.8
-            elif angle_diff < 90:
+            elif angle_diff_val < 90:
                 # Marginal - crosswind
                 wind_score = 0.5
             else:

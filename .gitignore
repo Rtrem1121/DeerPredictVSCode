@@ -36,6 +36,11 @@ service-account*.json
 # Other
 *.sqlite3
 data/scouting_observations.json.backup
+
+# LiDAR / DEM data (large binary files)
+data/lidar/
+*.tif
+*.tiff
 .continue/
 GEE JSON KEY/
 archive/

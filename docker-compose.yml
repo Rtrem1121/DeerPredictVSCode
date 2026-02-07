@@ -40,7 +40,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 25G
+          memory: 64G
           cpus: '0.5'
 
   frontend:

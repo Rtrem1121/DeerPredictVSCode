@@ -39,8 +39,9 @@ COPY ./backend /app/backend
 COPY enhanced_bedding_zone_predictor.py /app/
 COPY optimized_biological_integration.py /app/
 
-# Copy data
-COPY ./data /app/data
+# Data is bind-mounted via docker-compose (./data:/app/data)
+# Do NOT copy it into the image — the DEM alone is 55GB
+RUN mkdir -p /app/data
 
 # Copy GEE setup script for testing
 COPY ./backend/gee_docker_setup.py /app/

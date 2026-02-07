@@ -56,6 +56,11 @@ Makefile
 .npm
 node_modules
 
+# Large data files (bind-mounted, never bake into image)
+data/lidar/
+*.tif
+*.tiff
+
 # Archived/debug files (from cleanup)
 debug_archive/
 *.patch

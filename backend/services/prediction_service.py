@@ -28,6 +28,7 @@ from backend.analysis.wind_thermal_analyzer import get_wind_thermal_analyzer
 from backend.analysis.prediction_analyzer import PredictionAnalyzer
 from backend.config_manager import get_config
 from backend.hunt_window.hunt_window_predictor import HuntWindowPredictor
+from backend.utils.geo import haversine
 from backend.vegetation_analyzer import get_vegetation_analyzer
 import logging
 import numpy as np
@@ -495,17 +496,6 @@ class PredictionService:
         return lat_grid, lon_grid
 
     @staticmethod
-    def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Haversine distance in meters."""
-        R = 6371000.0
-        phi1 = np.radians(lat1)
-        phi2 = np.radians(lat2)
-        dphi = np.radians(lat2 - lat1)
-        dlambda = np.radians(lon2 - lon1)
-        a = np.sin(dphi/2)**2 + np.cos(phi1) * np.cos(phi2) * np.sin(dlambda/2)**2
-        return float(2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a)))
-
-    @staticmethod
     def _extract_geojson_points(feature_collection: Dict, max_features: int = 5) -> List[Tuple[float, float, float]]:
         """Extract (lat, lon, weight) from a GeoJSON FeatureCollection."""
         if not isinstance(feature_collection, dict):
@@ -656,7 +646,7 @@ class PredictionService:
                     cell_lon = float(lon_grid[i, j])
                     best_cell = scores[i, j]
                     for zlat, zlon, weight in bedding_pts:
-                        dist_m = self._haversine_meters(cell_lat, cell_lon, float(zlat), float(zlon))
+                        dist_m = haversine(cell_lat, cell_lon, float(zlat), float(zlon))
                         influence = float(np.exp(-((dist_m / 250.0) ** 2)))  # ~250m decay
                         candidate = base_score * (0.75 + 0.65 * influence * float(weight))
                         if candidate > best_cell:
@@ -743,7 +733,7 @@ class PredictionService:
                         cell_lon = float(lon_grid[i, j])
                         best = 0.0
                         for flat, flon, weight in feeding_pts:
-                            dist_m = self._haversine_meters(cell_lat, cell_lon, float(flat), float(flon))
+                            dist_m = haversine(cell_lat, cell_lon, float(flat), float(flon))
                             influence = float(np.exp(-((dist_m / 350.0) ** 2)))  # wider decay for feeding
                             best = max(best, influence * float(weight))
                         scores[i, j] = 4.0 + 4.0 * best

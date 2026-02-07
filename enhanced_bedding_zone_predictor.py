@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from optimized_biological_integration import OptimizedBiologicalIntegration
+from backend.utils.geo import angular_diff, bearing_between, haversine
 
 # ≡ƒöº Refactored Services: BiologicalAspectScorer imported lazily to avoid circular import
 
@@ -265,35 +266,6 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 self.hsm_viz = None
 
     @staticmethod
-    def _angular_difference(angle_a: float, angle_b: float) -> float:
-        """Return the smallest absolute difference between two bearings."""
-        return abs(((angle_a - angle_b + 180) % 360) - 180)
-
-    @staticmethod
-    def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Approximate great-circle distance in meters between two points."""
-        radius_m = 6_371_000
-        lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
-        lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
-        delta_lat = lat2_rad - lat1_rad
-        delta_lon = lon2_rad - lon1_rad
-        a_val = (
-            math.sin(delta_lat / 2) ** 2
-            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
-        )
-        c_val = 2 * math.atan2(math.sqrt(a_val), math.sqrt(max(1 - a_val, 0)))
-        return radius_m * c_val
-
-    @staticmethod
-    def _bearing_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Compute the bearing from the first point to the second in degrees."""
-        lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
-        delta_lon = math.radians(lon2 - lon1)
-        y_val = math.sin(delta_lon) * math.cos(lat2_rad)
-        x_val = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon)
-        return (math.degrees(math.atan2(y_val, x_val)) + 360) % 360
-
-    @staticmethod
     def _mean_bearing(bearings: Iterable[float]) -> float:
         """Compute the mean compass bearing from a list of bearings."""
         bearings_list = list(bearings)
@@ -337,7 +309,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     if neighbor_idx in visited:
                         continue
                     neighbor_node = nodes[neighbor_idx]
-                    distance_m = EnhancedBeddingZonePredictor._haversine_distance(
+                    distance_m = haversine(
                         current_node["lat"],
                         current_node["lon"],
                         neighbor_node["lat"],
@@ -345,7 +317,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     )
                     if distance_m > max_link_distance_m:
                         continue
-                    bearing_diff = EnhancedBeddingZonePredictor._angular_difference(
+                    bearing_diff = angular_diff(
                         float(current_node.get("flow_bearing", 0)),
                         float(neighbor_node.get("flow_bearing", 0))
                     )
@@ -371,7 +343,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             ordered_nodes = sorted(component_nodes, key=projection_value)
             path_length_m = 0.0
             for i in range(len(ordered_nodes) - 1):
-                path_length_m += EnhancedBeddingZonePredictor._haversine_distance(
+                path_length_m += haversine(
                     ordered_nodes[i]["lat"],
                     ordered_nodes[i]["lon"],
                     ordered_nodes[i + 1]["lat"],
@@ -380,7 +352,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
             avg_strength = sum(node.get("strength", 0.0) for node in component_nodes) / len(component_nodes)
             flow_diffs = [
-                EnhancedBeddingZonePredictor._angular_difference(bearing, dominant_bearing)
+                angular_diff(bearing, dominant_bearing)
                 for bearing in bearings
             ]
             flow_consistency = sum(flow_diffs) / len(flow_diffs) if flow_diffs else 0.0
@@ -1376,7 +1348,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         min_slope_required = 6.0
 
         def within_leeward(aspect_value: float) -> bool:
-            return self._angular_difference(aspect_value, leeward_direction) <= leeward_tolerance
+            return angular_diff(aspect_value, leeward_direction) <= leeward_tolerance
 
         def evaluate_ring(label: str, base_bearing: float, base_distance_m: float,
                           avoid_bearings: Iterable[float]) -> Optional[Dict[str, Any]]:
@@ -1388,7 +1360,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             for center in centers:
                 for offset in ring_offsets:
                     candidate_bearing = (center + offset) % 360
-                    if any(self._angular_difference(candidate_bearing, other) < 15 for other in avoid_bearings):
+                    if any(angular_diff(candidate_bearing, other) < 15 for other in avoid_bearings):
                         logger.debug(
                             "≡ƒº¡ Discarded %s bearing %.0f┬░: overlaps previously selected bearing",
                             label,
@@ -1425,7 +1397,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             continue
 
                         if not within_leeward(sample_aspect):
-                            diff_val = self._angular_difference(sample_aspect, leeward_direction)
+                            diff_val = angular_diff(sample_aspect, leeward_direction)
                             last_reason = f"aspect {sample_aspect:.0f}┬░ (╬ö{diff_val:.0f}┬░ windward)"
                             continue
 
@@ -1440,7 +1412,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             "lon": sample_lon,
                         }
 
-                        score = (sample_slope, -abs(self._angular_difference(candidate_bearing, leeward_direction)))
+                        score = (sample_slope, -abs(angular_diff(candidate_bearing, leeward_direction)))
                         if best_score is None or score > best_score:
                             best_choice = candidate_info
                             best_score = score
@@ -1689,7 +1661,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         initial_data = sample(candidate_lat, candidate_lon)
         aspect = initial_data.get("aspect")
         slope_val = initial_data.get("slope", 0.0)
-        aspect_diff = self._angular_difference(aspect, leeward_direction) if aspect is not None else 180.0
+        aspect_diff = angular_diff(aspect, leeward_direction) if aspect is not None else 180.0
 
         if slope_val >= min_slope_required and aspect is not None and aspect_diff <= tolerance:
             return candidate_lat, candidate_lon, initial_data, adjustments
@@ -1735,7 +1707,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 candidate_aspect = terrain.get("aspect")
                 if candidate_aspect is None:
                     continue
-                candidate_diff = self._angular_difference(candidate_aspect, leeward_direction)
+                candidate_diff = angular_diff(candidate_aspect, leeward_direction)
                 if candidate_slope >= min_slope_required and candidate_diff <= tolerance:
                     if not best_leeward or candidate_slope > best_leeward[3]:
                         best_leeward = (test_lat, test_lon, terrain, candidate_slope)
@@ -3417,14 +3389,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 try:
                     coords = feature.get("geometry", {}).get("coordinates", [])
                     bed_lon, bed_lat = coords[0], coords[1]
-                    bedding_bearings.append(self._bearing_between(lat, lon, bed_lat, bed_lon))
+                    bedding_bearings.append(bearing_between(lat, lon, bed_lat, bed_lon))
                 except (TypeError, IndexError):
                     continue
 
             profile_drop = elevation_profile.get("total_change")
-            stand_downwind_diff = self._angular_difference(evening_bearing, downwind_bearing)
+            stand_downwind_diff = angular_diff(evening_bearing, downwind_bearing)
             closest_bed_diff = (
-                min(self._angular_difference(downwind_bearing, bearing) for bearing in bedding_bearings)
+                min(angular_diff(downwind_bearing, bearing) for bearing in bedding_bearings)
                 if bedding_bearings
                 else 180.0
             )
@@ -3435,7 +3407,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             ):
                 current_lat = lat + travel_lat_offset
                 current_lon = lon + travel_lon_offset
-                current_distance_m = self._haversine_distance(lat, lon, current_lat, current_lon)
+                current_distance_m = haversine(lat, lon, current_lat, current_lon)
                 if current_distance_m <= 0:
                     current_distance_m = max(90.0, base_offset * self.METERS_PER_DEGREE)
 
@@ -3459,7 +3431,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     if total_change is None:
                         continue
 
-                    downwind_gap = self._angular_difference(cross_bearing, downwind_bearing)
+                    downwind_gap = angular_diff(cross_bearing, downwind_bearing)
                     relief = abs(total_change) if total_change is not None else float("inf")
 
                     if (
@@ -3615,18 +3587,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         bed_lat, bed_lon = bedding_coords[1], bedding_coords[0]
                         
                         # Calculate distance using haversine
-                        import math
-                        def haversine_distance(lat1, lon1, lat2, lon2):
-                            R = 6371000  # Earth radius in meters
-                            phi1, phi2 = math.radians(lat1), math.radians(lat2)
-                            delta_phi = math.radians(lat2 - lat1)
-                            delta_lambda = math.radians(lon2 - lon1)
-                            a = (math.sin(delta_phi/2)**2 + 
-                                 math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda/2)**2)
-                            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-                            return R * c
-                        
-                        distance_from_bedding = haversine_distance(site_lat, site_lon, bed_lat, bed_lon)
+                        distance_from_bedding = haversine(site_lat, site_lon, bed_lat, bed_lon)
                     
                     # Create enhanced stand site with all the sophisticated data
                     stand_site = {

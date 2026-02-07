@@ -5,6 +5,8 @@ from pydantic import BaseModel, validator
 from datetime import datetime
 import math
 
+from backend.utils.geo import angular_diff, bearing_between, haversine
+
 class LocationValidator(BaseModel):
     """Validates geographic coordinates"""
     lat: float
@@ -106,32 +108,6 @@ class PredictionQualityValidator:
     ASPECT_TOLERANCE_DEG = 45.0
     MIN_QUALITY_THRESHOLD = 70.0
 
-    @staticmethod
-    def _bearing_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
-        delta_lon = math.radians(lon2 - lon1)
-        y_val = math.sin(delta_lon) * math.cos(lat2_rad)
-        x_val = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lon)
-        return (math.degrees(math.atan2(y_val, x_val)) + 360) % 360
-
-    @staticmethod
-    def _angular_difference(angle_a: float, angle_b: float) -> float:
-        return abs(((angle_a - angle_b + 180) % 360) - 180)
-
-    @staticmethod
-    def _haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        radius_m = 6_371_000
-        lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
-        lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
-        delta_lat = lat2_rad - lat1_rad
-        delta_lon = lon2_rad - lon1_rad
-        a_val = (
-            math.sin(delta_lat / 2) ** 2
-            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
-        )
-        c_val = 2 * math.atan2(math.sqrt(a_val), math.sqrt(max(1 - a_val, 0)))
-        return radius_m * c_val
-
     @classmethod
     def validate(cls, prediction: dict) -> ValidationReport:
         issues: List[ValidationIssue] = []
@@ -178,11 +154,11 @@ class PredictionQualityValidator:
                         continue
                     bed_lon, bed_lat = bed_coords[0], bed_coords[1]
                     try:
-                        bearing = cls._bearing_between(float(stand_lat), float(stand_lon), float(bed_lat), float(bed_lon))
+                        bearing = bearing_between(float(stand_lat), float(stand_lon), float(bed_lat), float(bed_lon))
                     except (TypeError, ValueError):
                         continue
-                    angle_diff = cls._angular_difference(bearing, scent_bearing)
-                    if angle_diff <= cls.WIND_TOLERANCE_DEG:
+                    angle_diff_val = angular_diff(bearing, scent_bearing)
+                    if angle_diff_val <= cls.WIND_TOLERANCE_DEG:
                         issues.append(ValidationIssue(
                             category="scent_cone",
                             severity="error",
@@ -210,7 +186,7 @@ class PredictionQualityValidator:
                     continue
                 bed_lon, bed_lat = bed_coords[0], bed_coords[1]
                 try:
-                    distance_m = cls._haversine_distance(float(stand_lat), float(stand_lon), float(bed_lat), float(bed_lon))
+                    distance_m = haversine(float(stand_lat), float(stand_lon), float(bed_lat), float(bed_lon))
                 except (TypeError, ValueError):
                     continue
                 if distance_m < optimal_min or distance_m > optimal_max:

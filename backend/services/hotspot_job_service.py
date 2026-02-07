@@ -14,21 +14,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from zoneinfo import ZoneInfo
 
+from backend.utils.geo import haversine
+
 
 try:
     import folium  # type: ignore
 except Exception:  # pragma: no cover
     folium = None
-
-
-def _haversine_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371000.0
-    phi1 = math.radians(lat1)
-    phi2 = math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
 def _meters_to_radians(meters: float) -> float:
@@ -621,7 +613,7 @@ def _cluster_haversine(points: List[Dict[str, Any]], epsilon_m: float, min_sampl
             for i, p in enumerate(cluster_points):
                 s = 0.0
                 for q in cluster_points:
-                    s += _haversine_meters(p["lat"], p["lon"], q["lat"], q["lon"])
+                    s += haversine(p["lat"], p["lon"], q["lat"], q["lon"])
                 if s < best_sum:
                     best_sum = s
                     best_i = i

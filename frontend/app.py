@@ -163,20 +163,7 @@ def enhanced_deer_approach_calculation(prediction_data):
     
     return calculate_terrain_based_deer_approach(terrain_features, stand_coords, stand_type)
 
-def calculate_bearing_between_points(lat1, lon1, lat2, lon2):
-    """Calculate bearing between two points"""
-    lat1_rad = math.radians(lat1)
-    lat2_rad = math.radians(lat2)
-    dlon_rad = math.radians(lon2 - lon1)
-    
-    y = math.sin(dlon_rad) * math.cos(lat2_rad)
-    x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad)
-    
-    bearing = math.atan2(y, x)
-    bearing = math.degrees(bearing)
-    bearing = (bearing + 360) % 360
-    
-    return bearing
+from geo_utils import bearing_between as calculate_bearing_between_points
 
 
 def _parse_iso_datetime(value):
@@ -2589,38 +2576,16 @@ def _render_hunt_predictions_ui_body(active_prediction):
                     
                     # Calculate distance and bearing with enhanced precision
                     if coords.get('lat') and coords.get('lon'):
-                        from math import radians, cos, sin, asin, sqrt, atan2, degrees
-                        
-                        def haversine(lon1, lat1, lon2, lat2):
-                            # Convert to radians
-                            lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-                            # Haversine formula
-                            dlon = lon2 - lon1
-                            dlat = lat2 - lat1
-                            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-                            c = 2 * asin(sqrt(a))
-                            r = 6371000  # Radius of earth in meters
-                            return c * r
-                        
-                        def calculate_bearing(lat1, lon1, lat2, lon2):
-                            # Calculate bearing from hunt point to stand
-                            lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-                            dlon = lon2 - lon1
-                            y = sin(dlon) * cos(lat2)
-                            x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
-                            bearing = atan2(y, x)
-                            bearing = degrees(bearing)
-                            bearing = (bearing + 360) % 360
-                            return bearing
+                        from geo_utils import haversine, bearing_between
                         
                         distance = haversine(
-                            st.session_state.hunt_location[1],  # lon1
                             st.session_state.hunt_location[0],  # lat1
-                            coords.get('lon', 0),  # lon2
-                            coords.get('lat', 0)   # lat2
+                            st.session_state.hunt_location[1],  # lon1
+                            coords.get('lat', 0),  # lat2
+                            coords.get('lon', 0)   # lon2
                         )
                         
-                        bearing = calculate_bearing(
+                        bearing = bearing_between(
                             st.session_state.hunt_location[0],  # lat1
                             st.session_state.hunt_location[1],  # lon1
                             coords.get('lat', 0),  # lat2
@@ -2880,19 +2845,9 @@ def _render_hunt_predictions_ui_body(active_prediction):
                             bedding_lon = first_bedding.get('lon', 0)
                             
                             if bedding_lat and bedding_lon:
-                                from math import radians, cos, sin, atan2, degrees
+                                from geo_utils import bearing_between
                                 
-                                def calculate_bearing(lat1, lon1, lat2, lon2):
-                                    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-                                    dlon = lon2 - lon1
-                                    y = sin(dlon) * cos(lat2)
-                                    x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dlon)
-                                    bearing = atan2(y, x)
-                                    bearing = degrees(bearing)
-                                    bearing = (bearing + 360) % 360
-                                    return bearing
-                                
-                                deer_approach_bearing = calculate_bearing(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
+                                deer_approach_bearing = bearing_between(bedding_lat, bedding_lon, coords.get('lat', 0), coords.get('lon', 0))
                                 directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
                                             "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
                                 deer_approach_dir = directions[int((deer_approach_bearing + 11.25) / 22.5) % 16]

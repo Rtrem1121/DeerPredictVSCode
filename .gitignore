@@ -49,6 +49,3 @@ archive/
 response.json
 .coverage
 
-# LiDAR / GeoTIFF data files
-*.tif
-*.tiff

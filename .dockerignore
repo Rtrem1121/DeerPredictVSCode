@@ -55,3 +55,16 @@ Makefile
 .cache
 .npm
 node_modules
+
+# Archived/debug files (from cleanup)
+debug_archive/
+*.patch
+*.html
+*.gpx
+hunting-waypoints.gpx
+hotspot_map.html
+hotspot_report.json
+migration_log_*.json
+cleanup_log.json
+frontend_validation_results.json
+open_meteo_sample_response.json

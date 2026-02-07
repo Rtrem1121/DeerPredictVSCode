@@ -504,12 +504,9 @@ st.set_page_config(
 # Add custom CSS for Vermont-themed styling
 st.markdown("""
 <style>
-.stAlert > div {
-    padding: 0.5rem 1rem;
-}
-.stExpander > div:first-child {
-    background-color: #f0f8ff;
-}
+/* ── Base ── */
+.stAlert > div { padding: 0.5rem 1rem; }
+.stExpander > div:first-child { background-color: #f8fafc; }
 .observation-marker {
     background-color: #fff3cd;
     border: 1px solid #ffeaa7;
@@ -517,6 +514,48 @@ st.markdown("""
     padding: 0.5rem;
     margin: 0.5rem 0;
 }
+
+/* ── Metrics ── */
+[data-testid="stMetric"] {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+[data-testid="stMetricLabel"] {
+    font-size: 0.82em !important;
+    color: #64748b !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.3em !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+}
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 2px solid #e2e8f0;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px 8px 0 0;
+    padding: 8px 20px;
+    font-weight: 600;
+}
+
+/* ── Selectbox ── */
+.stSelectbox > div > div {
+    border-radius: 8px;
+}
+
+/* ── Divider ── */
+hr { border-color: #e2e8f0 !important; }
+
+/* ── Subheader spacing ── */
+h3 { margin-top: 0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1209,197 +1248,458 @@ with tab_hotspots:
                 except Exception as e:
                     st.error(f"Could not load report: {e}")
     if isinstance(max_accuracy_report, dict):
-        st.subheader("🚀 Max Accuracy Stand Recommendations")
         stand_recs = max_accuracy_report.get("stand_recommendations")
         bedding_zones = max_accuracy_report.get("bedding_zones", [])
-        if isinstance(stand_recs, list) and stand_recs:
-            def build_top_stand_explanation(rec: dict) -> str:
-                parts: list[str] = []
-                # Use final_score if available (includes bedding proximity), else combined_score
-                final = rec.get("final_score")
-                combined = rec.get("combined_score")
-                if isinstance(final, (int, float)):
-                    parts.append(f"Final score: {float(final):.3f}")
-                elif isinstance(combined, (int, float)):
-                    parts.append(f"Combined score: {float(combined):.3f}")
-                slope = rec.get("slope_deg")
-                if isinstance(slope, (int, float)):
-                    parts.append(f"Slope: {float(slope):.1f}°")
-                elev = rec.get("elevation_m")
-                if isinstance(elev, (int, float)):
-                    parts.append(f"Elevation: {float(elev):.0f} m")
+        report_inputs = max_accuracy_report.get("inputs") or {}
 
-                def add_if_high(label: str, value: object, threshold: float = 0.7) -> None:
-                    if isinstance(value, (int, float)) and float(value) >= threshold:
-                        parts.append(f"{label}: {float(value):.2f}")
+        # ── Helper: terrain feature badges ──────────────────────────
+        def _terrain_badges(rec: dict) -> str:
+            """Return HTML badges for dominant terrain features."""
+            badges = []
+            badge_style = (
+                "display:inline-block;padding:2px 8px;border-radius:12px;"
+                "font-size:0.78em;font-weight:600;margin-right:4px;margin-bottom:2px;"
+            )
+            checks = [
+                ("bench_score", 0.65, "Bench", "#2563eb", "#dbeafe"),
+                ("saddle_score", 0.65, "Saddle", "#7c3aed", "#ede9fe"),
+                ("corridor_score", 0.60, "Corridor", "#0891b2", "#cffafe"),
+                ("shelter_score", 0.55, "Shelter", "#16a34a", "#dcfce7"),
+                ("ridgeline_score", 0.40, "Ridgeline", "#b45309", "#fef3c7"),
+                ("drainage_score", 0.40, "Drainage", "#0d9488", "#ccfbf1"),
+            ]
+            for key, thresh, label, fg, bg in checks:
+                val = rec.get(key)
+                if isinstance(val, (int, float)) and float(val) >= thresh:
+                    badges.append(
+                        f'<span style="{badge_style}color:{fg};background:{bg}">'
+                        f'{label} {float(val):.0%}</span>'
+                    )
+            return "".join(badges) if badges else ""
 
-                add_if_high("Bench", rec.get("bench_score"))
-                add_if_high("Saddle", rec.get("saddle_score"))
-                add_if_high("Corridor", rec.get("corridor_score"))
-                add_if_high("Shelter", rec.get("shelter_score"), threshold=0.6)
-                add_if_high("Aspect", rec.get("aspect_score"), threshold=0.6)
-                add_if_high("Roughness", rec.get("roughness"), threshold=5.0)
+        # ── Helper: score bar ───────────────────────────────────────
+        def _score_bar(value: float, max_val: float = 1.0, color: str = "#2563eb") -> str:
+            pct = min(100, max(0, value / max_val * 100))
+            return (
+                f'<div style="background:#e5e7eb;border-radius:6px;height:10px;width:100%">'
+                f'<div style="background:{color};border-radius:6px;height:10px;width:{pct:.0f}%"></div>'
+                f'</div>'
+            )
 
-                if not parts:
-                    return "Top site selected based on overall terrain + behavior ranking."
-                return " · ".join(parts)
+        # ── Rut Phase / Season Banner ───────────────────────────────
+        rut_phase = report_inputs.get("rut_phase", "")
+        eff_season = report_inputs.get("effective_season", report_inputs.get("season", ""))
+        date_time_str = report_inputs.get("date_time", "")
+        hunting_pressure = report_inputs.get("hunting_pressure", "")
 
+        phase_labels = {
+            "pre_rut": ("🦌 Pre-Rut", "Scrape checking, short cruising loops", "#f59e0b"),
+            "seeking": ("🦌 Seeking Phase", "Bucks ranging widely, checking doe groups", "#ef4444"),
+            "peak_rut": ("🔥 Peak Rut", "All-day chasing and breeding — hunt all day", "#dc2626"),
+            "post_rut": ("🦌 Post-Rut", "Recovery period, secondary breeding possible", "#8b5cf6"),
+            "late_season": ("❄️ Late Season", "Food-focused, short movements", "#3b82f6"),
+            "early_season": ("🌿 Early Season", "Pattern feeding, bed-to-feed transitions", "#22c55e"),
+        }
+        phase_info = phase_labels.get(rut_phase, ("🎯 Active", "", "#6b7280"))
+
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,{phase_info[2]}15,{phase_info[2]}08);'
+            f'border-left:4px solid {phase_info[2]};border-radius:8px;padding:12px 16px;margin-bottom:16px">'
+            f'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">'
+            f'<span style="font-size:1.3em;font-weight:700">{phase_info[0]}</span>'
+            f'<span style="color:#6b7280;font-size:0.9em">{phase_info[1]}</span>'
+            + (f'<span style="margin-left:auto;color:#6b7280;font-size:0.85em">{date_time_str[:16] if date_time_str else ""}</span>' if date_time_str else '')
+            + f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
+        if not (isinstance(stand_recs, list) and stand_recs):
+            st.json(max_accuracy_report)
+        else:
+            # ── Top Stand Hero Card ─────────────────────────────────
             top_rec = stand_recs[0]
-            st.markdown("**Top stand (#1) summary**")
-            st.write(build_top_stand_explanation(top_rec))
-            
-            # Bedding proximity info
-            bedding_prox = top_rec.get("bedding_proximity_score")
-            nearest_bed = top_rec.get("nearest_bedding")
-            if isinstance(bedding_prox, (int, float)) and isinstance(nearest_bed, dict):
-                bed_dist = nearest_bed.get("distance_m")
-                bed_bearing = nearest_bed.get("bearing_deg")
-                wind_score = nearest_bed.get("wind_score")
-                st.write(f"🛏️ **Bedding proximity:** {float(bedding_prox):.2f} — nearest bed {bed_dist}m @ {bed_bearing}° (wind score: {wind_score})")
-            
-            # Wind rotation (which winds to hunt vs avoid)
-            huntable_winds = top_rec.get("huntable_winds", [])
-            avoid_winds = top_rec.get("avoid_winds", [])
-            if huntable_winds or avoid_winds:
-                st.write(f"🌬️ **Wind rotation:**")
-                if huntable_winds:
-                    st.write(f"  ✅ Hunt: {', '.join(huntable_winds)}")
-                if avoid_winds:
-                    st.write(f"  ❌ Avoid: {', '.join(avoid_winds)}")
-            
-            top_winds = top_rec.get("wind_options")
-            if isinstance(top_winds, list) and top_winds:
-                best = top_winds[0]
-                wind_from = best.get("wind_from_deg")
-                wind_to = best.get("wind_to_deg")
-                offset_m = best.get("offset_m")
-                wind_bits = []
-                if wind_from is not None:
-                    wind_bits.append(f"from {wind_from}°")
-                if wind_to is not None:
-                    wind_bits.append(f"to {wind_to}°")
-                if offset_m is not None:
-                    wind_bits.append(f"offset {offset_m}m")
-                st.write("Best wind:", " · ".join(wind_bits))
-            
-            # Show bedding zone count
-            if isinstance(bedding_zones, list) and bedding_zones:
-                st.info(f"🛏️ Identified **{len(bedding_zones)}** probable bedding zones on this property")
+            top_score = top_rec.get("final_score", top_rec.get("combined_score", top_rec.get("score", 0)))
+            top_score = float(top_score) if isinstance(top_score, (int, float)) else 0
+            top_terrain = float(top_rec.get("terrain_norm", 0))
+            top_behavior = float(top_rec.get("behavior_score", 0))
+            top_lat = top_rec.get("lat")
+            top_lon = top_rec.get("lon")
 
+            st.markdown("### 🏆 #1 Recommended Stand")
+
+            # ── Metric Row ──────────────────────────────────────────
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("Final Score", f"{top_score:.3f}")
+            m2.metric("Terrain", f"{top_terrain:.0%}")
+            m3.metric("Behavior", f"{top_behavior:.0%}")
+            slope_v = top_rec.get("slope_deg")
+            m4.metric("Slope", f"{float(slope_v):.0f}°" if isinstance(slope_v, (int, float)) else "—")
+            elev_v = top_rec.get("elevation_m")
+            m5.metric("Elevation", f"{float(elev_v):.0f}m" if isinstance(elev_v, (int, float)) else "—")
+
+            # ── Feature Badges + Canopy ─────────────────────────────
+            badges_html = _terrain_badges(top_rec)
+            canopy_v = top_rec.get("gee_canopy")
+            ndvi_v = top_rec.get("gee_ndvi")
+            canopy_str = ""
+            if isinstance(canopy_v, (int, float)):
+                canopy_str += f'<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.78em;font-weight:600;color:#15803d;background:#dcfce7;margin-right:4px">🌲 Canopy {float(canopy_v):.0f}%</span>'
+            if isinstance(ndvi_v, (int, float)):
+                canopy_str += f'<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.78em;font-weight:600;color:#15803d;background:#dcfce7;margin-right:4px">NDVI {float(ndvi_v):.2f}</span>'
+            if badges_html or canopy_str:
+                st.markdown(badges_html + canopy_str, unsafe_allow_html=True)
+
+            # ── Bedding & Wind Cards ────────────────────────────────
+            bed_col, wind_col = st.columns(2)
+
+            with bed_col:
+                nearest_bed = top_rec.get("nearest_bedding")
+                bed_prox = top_rec.get("bedding_proximity_score")
+                if isinstance(nearest_bed, dict):
+                    bd = nearest_bed.get("distance_m", "?")
+                    bb = nearest_bed.get("bearing_deg", "?")
+                    bw = nearest_bed.get("wind_score", "?")
+                    compass = ""
+                    if isinstance(bb, (int, float)):
+                        compass = degrees_to_compass(float(bb))
+                    st.markdown(
+                        f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">'
+                        f'<div style="font-weight:600;margin-bottom:4px">🛏️ Nearest Bedding</div>'
+                        f'<div style="font-size:1.4em;font-weight:700;color:#16a34a">{bd}m {compass}</div>'
+                        f'<div style="color:#6b7280;font-size:0.85em">Bearing: {bb}° · Wind safety: {bw}'
+                        + (f' · Proximity score: {float(bed_prox):.2f}' if isinstance(bed_prox, (int, float)) else '')
+                        + f'</div></div>',
+                        unsafe_allow_html=True,
+                    )
+                elif isinstance(bedding_zones, list) and bedding_zones:
+                    st.info(f"🛏️ {len(bedding_zones)} bedding zones identified on property")
+
+            with wind_col:
+                huntable_winds = top_rec.get("huntable_winds", [])
+                avoid_winds = top_rec.get("avoid_winds", [])
+                hunt_str = ", ".join(huntable_winds) if huntable_winds else "—"
+                avoid_str = ", ".join(avoid_winds) if avoid_winds else "—"
+                st.markdown(
+                    f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">'
+                    f'<div style="font-weight:600;margin-bottom:4px">🌬️ Wind Rotation</div>'
+                    f'<div style="margin-bottom:4px"><span style="color:#16a34a;font-weight:600">✅ Hunt:</span> {hunt_str}</div>'
+                    f'<div><span style="color:#dc2626;font-weight:600">❌ Avoid:</span> {avoid_str}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # ── Coordinates ─────────────────────────────────────────
+            if top_lat is not None and top_lon is not None:
+                st.caption(f"📍 {float(top_lat):.6f}, {float(top_lon):.6f}")
+
+            st.divider()
+
+            # ── Stand Comparison Table ──────────────────────────────
+            st.markdown("### 📊 Stand Comparison")
+            num_stands = min(len(stand_recs), 10)
+
+            # Build comparison as columns
+            header_cols = st.columns([0.4, 1, 1, 1, 1, 1, 1.2, 1])
+            header_labels = ["Rank", "Score", "Terrain", "Behavior", "Slope", "Elev", "Features", "Bed Dist"]
+            for col, label in zip(header_cols, header_labels):
+                col.markdown(f"**{label}**")
+
+            for i, rec in enumerate(stand_recs[:num_stands]):
+                cols = st.columns([0.4, 1, 1, 1, 1, 1, 1.2, 1])
+                sc = rec.get("final_score", rec.get("combined_score", rec.get("score", 0)))
+                sc = float(sc) if isinstance(sc, (int, float)) else 0
+                tr = float(rec.get("terrain_norm", 0))
+                bh = float(rec.get("behavior_score", 0))
+                sl = rec.get("slope_deg")
+                el = rec.get("elevation_m")
+                nb = rec.get("nearest_bedding")
+                bd = f'{nb["distance_m"]}m' if isinstance(nb, dict) and nb.get("distance_m") else "—"
+
+                rank_style = "font-weight:700;" + ("color:#dc2626;" if i == 0 else "color:#6b7280;")
+                cols[0].markdown(f'<span style="{rank_style}">#{i+1}</span>', unsafe_allow_html=True)
+                cols[1].markdown(f"{sc:.3f}")
+                cols[2].markdown(_score_bar(tr, 1.0, "#2563eb") + f'<span style="font-size:0.8em">{tr:.0%}</span>', unsafe_allow_html=True)
+                cols[3].markdown(_score_bar(bh, 1.0, "#7c3aed") + f'<span style="font-size:0.8em">{bh:.0%}</span>', unsafe_allow_html=True)
+                cols[4].markdown(f"{float(sl):.0f}°" if isinstance(sl, (int, float)) else "—")
+                cols[5].markdown(f"{float(el):.0f}m" if isinstance(el, (int, float)) else "—")
+                cols[6].markdown(_terrain_badges(rec) or "—", unsafe_allow_html=True)
+                cols[7].markdown(bd)
+
+            # ── Stand Detail Inspector ──────────────────────────────
+            st.divider()
+            st.markdown("### 🔍 Stand Detail Inspector")
             options = []
             for idx, rec in enumerate(stand_recs, start=1):
-                lat = rec.get("lat")
-                lon = rec.get("lon")
-                score = rec.get("final_score", rec.get("combined_score", rec.get("score")))
-                title_bits = [f"#{idx}"]
-                if isinstance(score, (int, float)):
-                    title_bits.append(f"score {float(score):.3f}")
-                if lat is not None and lon is not None:
-                    title_bits.append(f"{float(lat):.6f}, {float(lon):.6f}")
-                # Add bedding distance if available
+                sc = rec.get("final_score", rec.get("combined_score", rec.get("score")))
+                sc_str = f"score {float(sc):.3f}" if isinstance(sc, (int, float)) else ""
                 nb = rec.get("nearest_bedding")
-                if isinstance(nb, dict) and nb.get("distance_m"):
-                    title_bits.append(f"bed:{nb['distance_m']}m")
-                options.append(" · ".join(title_bits))
+                bd_str = f"bed:{nb['distance_m']}m" if isinstance(nb, dict) and nb.get("distance_m") else ""
+                badges = []
+                for key, thresh, label in [("bench_score", 0.65, "bench"), ("saddle_score", 0.65, "saddle"),
+                                            ("corridor_score", 0.60, "corridor"), ("ridgeline_score", 0.40, "ridge"),
+                                            ("drainage_score", 0.40, "drainage")]:
+                    v = rec.get(key)
+                    if isinstance(v, (int, float)) and float(v) >= thresh:
+                        badges.append(label)
+                feature_str = "+".join(badges) if badges else ""
+                parts = [f"#{idx}", sc_str, feature_str, bd_str]
+                options.append(" · ".join(p for p in parts if p))
 
             selected_idx = st.selectbox(
-                "Select a stand",
+                "Select a stand to inspect",
                 options=list(range(len(options))),
                 format_func=lambda i: options[i],
                 key="ma_selected_stand",
             )
-            st.json(stand_recs[int(selected_idx)])
-            st.subheader("🗺️ Max Accuracy Map")
-            
-            # Checkbox to show/hide bedding zones on map (default ON)
-            show_bedding_zones = st.checkbox("Show bedding zones on map", value=True, key="ma_show_bedding")
-            
+            sel_rec = stand_recs[int(selected_idx)]
+
+            # ── Detail Cards ────────────────────────────────────────
+            d1, d2, d3 = st.columns(3)
+            with d1:
+                st.markdown("**Terrain Scores**")
+                for label, key in [("Bench", "bench_score"), ("Saddle", "saddle_score"),
+                                    ("Corridor", "corridor_score"), ("Shelter", "shelter_score"),
+                                    ("Aspect", "aspect_score"), ("Ridgeline", "ridgeline_score"),
+                                    ("Drainage", "drainage_score")]:
+                    v = sel_rec.get(key)
+                    if isinstance(v, (int, float)):
+                        st.markdown(f"{label}: {_score_bar(float(v))} <span style='font-size:0.85em'>{float(v):.2f}</span>", unsafe_allow_html=True)
+            with d2:
+                st.markdown("**Terrain Metrics**")
+                for label, key, fmt in [("Slope", "slope_deg", ".1f°"), ("Elevation", "elevation_m", ".0f m"),
+                                         ("TPI (small)", "tpi_small", ".2f"), ("TPI (large)", "tpi_large", ".2f"),
+                                         ("Relief", "relief_small", ".1f"), ("Curvature", "curvature", ".3f"),
+                                         ("Roughness", "roughness", ".1f")]:
+                    v = sel_rec.get(key)
+                    if isinstance(v, (int, float)):
+                        st.markdown(f"**{label}:** {float(v):{fmt}}")
+            with d3:
+                st.markdown("**Scoring Breakdown**")
+                for label, key in [("Final Score", "final_score"), ("Combined", "combined_score"),
+                                    ("Terrain Norm", "terrain_norm"), ("Behavior", "behavior_score"),
+                                    ("Bedding Proximity", "bedding_proximity_score")]:
+                    v = sel_rec.get(key)
+                    if isinstance(v, (int, float)):
+                        st.markdown(f"**{label}:** {float(v):.3f}")
+                canopy_v = sel_rec.get("gee_canopy")
+                ndvi_v = sel_rec.get("gee_ndvi")
+                if isinstance(canopy_v, (int, float)):
+                    st.markdown(f"**Canopy:** {float(canopy_v):.0f}%")
+                if isinstance(ndvi_v, (int, float)):
+                    st.markdown(f"**NDVI:** {float(ndvi_v):.2f}")
+                quadrant = sel_rec.get("quadrant")
+                if quadrant:
+                    st.markdown(f"**Quadrant:** {quadrant}")
+
+            # Wind detail for selected stand
+            sel_huntable = sel_rec.get("huntable_winds", [])
+            sel_avoid = sel_rec.get("avoid_winds", [])
+            sel_nb = sel_rec.get("nearest_bedding")
+            w1, w2 = st.columns(2)
+            with w1:
+                if sel_huntable or sel_avoid:
+                    st.markdown(
+                        f'<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px">'
+                        f'<b>🌬️ Wind Rotation</b><br>'
+                        f'<span style="color:#16a34a">✅ Hunt: {", ".join(sel_huntable) if sel_huntable else "—"}</span><br>'
+                        f'<span style="color:#dc2626">❌ Avoid: {", ".join(sel_avoid) if sel_avoid else "—"}</span>'
+                        f'</div>', unsafe_allow_html=True,
+                    )
+            with w2:
+                if isinstance(sel_nb, dict):
+                    bd = sel_nb.get("distance_m", "?")
+                    bb = sel_nb.get("bearing_deg")
+                    compass = degrees_to_compass(float(bb)) if isinstance(bb, (int, float)) else ""
+                    st.markdown(
+                        f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px">'
+                        f'<b>🛏️ Bedding</b> {bd}m {compass}'
+                        f'<br><span style="font-size:0.85em;color:#6b7280">Bearing: {bb}° · Wind score: {sel_nb.get("wind_score", "?")}</span>'
+                        f'</div>', unsafe_allow_html=True,
+                    )
+
+            sel_lat = sel_rec.get("lat")
+            sel_lon = sel_rec.get("lon")
+            if sel_lat is not None and sel_lon is not None:
+                st.caption(f"📍 {float(sel_lat):.6f}, {float(sel_lon):.6f}")
+
+            # ── Map ─────────────────────────────────────────────────
+            st.divider()
+            st.markdown("### 🗺️ Max Accuracy Map")
+
+            show_bedding_zones = st.checkbox("Show bedding zones", value=True, key="ma_show_bedding")
+
             try:
                 lat_center = sum(float(s.get("lat", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
                 lon_center = sum(float(s.get("lon", 0.0)) for s in stand_recs) / max(1, len(stand_recs))
-                max_map = folium.Map(location=[lat_center, lon_center], zoom_start=14)
+                max_map = folium.Map(location=[lat_center, lon_center], zoom_start=15, tiles="OpenStreetMap")
                 bounds_lats = [float(s.get("lat", 0.0)) for s in stand_recs if s.get("lat") is not None]
                 bounds_lons = [float(s.get("lon", 0.0)) for s in stand_recs if s.get("lon") is not None]
-                report_inputs = max_accuracy_report.get("inputs") if isinstance(max_accuracy_report, dict) else None
-                corners = report_inputs.get("corners") if isinstance(report_inputs, dict) else None
+
+                # Property boundary
+                corners = report_inputs.get("corners")
                 if isinstance(corners, list) and corners:
                     poly_points = [(c.get("lat"), c.get("lon")) for c in corners if c.get("lat") is not None and c.get("lon") is not None]
                     if poly_points:
-                        folium.Polygon(locations=poly_points, color="#3b82f6", weight=2, fill=False, tooltip="Property boundary").add_to(max_map)
+                        folium.Polygon(locations=poly_points, color="#3b82f6", weight=2, fill=True, fill_color="#3b82f6", fill_opacity=0.04, tooltip="Property boundary").add_to(max_map)
                         bounds_lats.extend([p[0] for p in poly_points])
                         bounds_lons.extend([p[1] for p in poly_points])
-                
-                # Add bedding zones if enabled
+
+                # Bedding zones with feature groups
                 if show_bedding_zones and isinstance(bedding_zones, list):
-                    # Sort by criteria_met (best bedding first) and show top 5 as larger green circles
+                    bedding_fg = folium.FeatureGroup(name="🛏️ Bedding Zones")
                     sorted_bedding = sorted(bedding_zones, key=lambda b: b.get('criteria_met', 0), reverse=True)
-                    
-                    # Top 5 bedding zones - larger green circles (prime bedding)
-                    for idx, bz in enumerate(sorted_bedding[:5]):
-                        bz_lat = bz.get("lat")
-                        bz_lon = bz.get("lon")
-                        if bz_lat is not None and bz_lon is not None:
-                            folium.CircleMarker(
-                                [bz_lat, bz_lon],
-                                radius=10,
-                                color="#16a34a",  # green
-                                fill=True,
-                                fill_color="#22c55e",
-                                fill_opacity=0.7,
-                                tooltip=f"🛏️ Top Bedding #{idx+1}<br>Lat: {bz_lat:.5f}, Lon: {bz_lon:.5f}<br>Shelter: {bz.get('shelter_score', 0):.2f}, Bench: {bz.get('bench_score', 0):.2f}, Roughness: {bz.get('roughness', 0):.1f}"
-                            ).add_to(max_map)
-                    
-                    # Remaining bedding zones - smaller orange circles
-                    for bz in sorted_bedding[5:100]:  # Limit for performance
-                        bz_lat = bz.get("lat")
-                        bz_lon = bz.get("lon")
-                        if bz_lat is not None and bz_lon is not None:
-                            folium.CircleMarker(
-                                [bz_lat, bz_lon],
-                                radius=4,
-                                color="#f97316",
-                                fill=True,
-                                fill_color="#f97316",
-                                fill_opacity=0.4,
-                                tooltip=f"🛏️ Bedding<br>Lat: {bz_lat:.5f}, Lon: {bz_lon:.5f}<br>Shelter: {bz.get('shelter_score', 0):.2f}, Roughness: {bz.get('roughness', 0):.1f}"
-                            ).add_to(max_map)
-                
-                # Add stand markers (green for stands)
-                for idx, rec in enumerate(stand_recs, start=1):
-                    lat = rec.get("lat")
-                    lon = rec.get("lon")
+
+                    for idx, bz in enumerate(sorted_bedding[:8]):
+                        bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
+                        if bz_lat is None or bz_lon is None:
+                            continue
+                        shelter = float(bz.get("shelter_score", 0))
+                        bench = float(bz.get("bench_score", 0))
+                        slope = bz.get("slope_deg")
+                        aspect = bz.get("aspect_deg")
+                        criteria = bz.get("criteria_met", 0)
+                        popup_html = (
+                            f'<div style="min-width:180px">'
+                            f'<b>🛏️ Prime Bedding #{idx+1}</b><br>'
+                            f'<b>Criteria met:</b> {criteria}<br>'
+                            f'<b>Shelter:</b> {shelter:.2f}<br>'
+                            f'<b>Bench:</b> {bench:.2f}<br>'
+                            + (f'<b>Slope:</b> {float(slope):.1f}°<br>' if isinstance(slope, (int, float)) else '')
+                            + (f'<b>Aspect:</b> {float(aspect):.0f}°<br>' if isinstance(aspect, (int, float)) else '')
+                            + f'</div>'
+                        )
+                        folium.CircleMarker(
+                            [bz_lat, bz_lon], radius=12,
+                            color="#15803d", fill=True, fill_color="#22c55e", fill_opacity=0.65, weight=2,
+                            popup=folium.Popup(popup_html, max_width=220),
+                            tooltip=f"🛏️ Bedding #{idx+1} · Shelter: {shelter:.0%}",
+                        ).add_to(bedding_fg)
+
+                    for bz in sorted_bedding[8:60]:
+                        bz_lat, bz_lon = bz.get("lat"), bz.get("lon")
+                        if bz_lat is None or bz_lon is None:
+                            continue
+                        folium.CircleMarker(
+                            [bz_lat, bz_lon], radius=5,
+                            color="#f97316", fill=True, fill_color="#fb923c", fill_opacity=0.4, weight=1,
+                            tooltip=f"🛏️ Bedding · Shelter: {bz.get('shelter_score', 0):.0%}",
+                        ).add_to(bedding_fg)
+
+                    bedding_fg.add_to(max_map)
+
+                # Stand markers — color-coded by rank
+                stands_fg = folium.FeatureGroup(name="🎯 Stand Sites")
+                stand_colors = ["red", "blue", "purple", "darkred", "orange", "darkblue", "cadetblue", "darkgreen", "gray", "lightred"]
+                stand_icons = ["star", "certificate", "bookmark", "flag", "map-pin", "map-pin", "map-pin", "map-pin", "map-pin", "map-pin"]
+
+                for idx, rec in enumerate(stand_recs[:10]):
+                    lat, lon = rec.get("lat"), rec.get("lon")
                     if lat is None or lon is None:
                         continue
-                    score = rec.get("final_score", rec.get("combined_score", rec.get("score")))
-                    bed_info = ""
+                    sc = rec.get("final_score", rec.get("combined_score", rec.get("score", 0)))
+                    sc = float(sc) if isinstance(sc, (int, float)) else 0
+                    tr = float(rec.get("terrain_norm", 0))
+                    bh = float(rec.get("behavior_score", 0))
                     nb = rec.get("nearest_bedding")
-                    if isinstance(nb, dict) and nb.get("distance_m"):
-                        bed_info = f"<br>Nearest bed: {nb['distance_m']}m"
-                    
-                    # Wind rotation info
-                    wind_info = ""
                     huntable = rec.get("huntable_winds", [])
                     avoid = rec.get("avoid_winds", [])
+
+                    # Rich popup
+                    popup_parts = [
+                        f'<div style="min-width:220px;font-family:sans-serif">',
+                        f'<div style="font-size:1.1em;font-weight:700;margin-bottom:6px">🎯 Stand #{idx+1}</div>',
+                        f'<b>Score:</b> {sc:.3f} (Terrain: {tr:.0%} · Behavior: {bh:.0%})<br>',
+                    ]
+                    slope_v = rec.get("slope_deg")
+                    elev_v = rec.get("elevation_m")
+                    if isinstance(slope_v, (int, float)):
+                        popup_parts.append(f'<b>Slope:</b> {float(slope_v):.1f}° ')
+                    if isinstance(elev_v, (int, float)):
+                        popup_parts.append(f'<b>Elev:</b> {float(elev_v):.0f}m<br>')
+                    # Terrain features
+                    feat_badges = _terrain_badges(rec)
+                    if feat_badges:
+                        popup_parts.append(f'<div style="margin:4px 0">{feat_badges}</div>')
+                    # Canopy
+                    canopy_v = rec.get("gee_canopy")
+                    if isinstance(canopy_v, (int, float)):
+                        popup_parts.append(f'<b>🌲 Canopy:</b> {float(canopy_v):.0f}%<br>')
+                    # Bedding
+                    if isinstance(nb, dict) and nb.get("distance_m"):
+                        bd_compass = degrees_to_compass(float(nb["bearing_deg"])) if isinstance(nb.get("bearing_deg"), (int, float)) else ""
+                        popup_parts.append(f'<b>🛏️ Bedding:</b> {nb["distance_m"]}m {bd_compass}<br>')
+                    # Wind
                     if huntable or avoid:
-                        wind_info = f"<br><b>✅ Hunt:</b> {', '.join(huntable) if huntable else 'None'}"
-                        wind_info += f"<br><b>❌ Avoid:</b> {', '.join(avoid) if avoid else 'None'}"
-                    
-                    if isinstance(score, (int, float)):
-                        popup = f"<b>#{idx}</b> score: {score:.3f}<br>Lat/Lon: {float(lat):.6f}, {float(lon):.6f}{bed_info}{wind_info}"
-                        tooltip = f"#{idx} score: {score:.3f} | {float(lat):.6f}, {float(lon):.6f}"
-                    else:
-                        popup = f"<b>#{idx}</b><br>Lat/Lon: {float(lat):.6f}, {float(lon):.6f}{bed_info}{wind_info}"
-                        tooltip = f"#{idx} | {float(lat):.6f}, {float(lon):.6f}"
-                    folium.Marker([lat, lon], tooltip=tooltip, popup=popup).add_to(max_map)
+                        popup_parts.append(f'<div style="margin-top:4px">')
+                        popup_parts.append(f'<span style="color:#16a34a">✅ {", ".join(huntable)}</span><br>' if huntable else '')
+                        popup_parts.append(f'<span style="color:#dc2626">❌ {", ".join(avoid)}</span>' if avoid else '')
+                        popup_parts.append(f'</div>')
+                    popup_parts.append(f'<div style="color:#9ca3af;font-size:0.8em;margin-top:4px">{float(lat):.6f}, {float(lon):.6f}</div>')
+                    popup_parts.append('</div>')
+
+                    color = stand_colors[idx] if idx < len(stand_colors) else "gray"
+                    icon = stand_icons[idx] if idx < len(stand_icons) else "map-pin"
+
+                    folium.Marker(
+                        [lat, lon],
+                        popup=folium.Popup("".join(popup_parts), max_width=300),
+                        tooltip=f"#{idx+1} · {sc:.3f}" + (f" · {', '.join(huntable[:2])}" if huntable else ""),
+                        icon=folium.Icon(color=color, icon=icon, prefix="fa"),
+                    ).add_to(stands_fg)
+
+                    # Line from stand to nearest bedding
+                    if isinstance(nb, dict) and nb.get("lat") and nb.get("lon"):
+                        folium.PolyLine(
+                            [[lat, lon], [nb["lat"], nb["lon"]]],
+                            color="#86efac", weight=2, dash_array="6 4", opacity=0.7,
+                            tooltip=f"To bedding: {nb.get('distance_m', '?')}m",
+                        ).add_to(stands_fg)
+
+                stands_fg.add_to(max_map)
+
+                # Layer control
+                folium.LayerControl(collapsed=False).add_to(max_map)
+
+                # Legend
+                legend_html = (
+                    '<div style="position:fixed;bottom:30px;left:10px;z-index:1000;background:white;'
+                    'padding:10px 14px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.2);font-size:0.82em;line-height:1.5">'
+                    '<b>Legend</b><br>'
+                    '⭐ <span style="color:#dc2626">#1 Stand</span><br>'
+                    '🏷️ <span style="color:#3b82f6">#2 Stand</span><br>'
+                    '📌 <span style="color:#7c3aed">#3+ Stands</span><br>'
+                    '🟢 Prime Bedding<br>'
+                    '🟠 Secondary Bedding<br>'
+                    '--- Stand→Bed link'
+                    '</div>'
+                )
+                max_map.get_root().html.add_child(folium.Element(legend_html))
+
                 if bounds_lats and bounds_lons:
                     max_map.fit_bounds([[min(bounds_lats), min(bounds_lons)], [max(bounds_lats), max(bounds_lons)]])
-                st_folium(max_map, height=500, width=None)
+                st_folium(max_map, height=600, width=None)
+
             except Exception as e:
                 st.warning(f"Could not render max-accuracy map: {e}")
-            with st.expander("Full max-accuracy report (all fields)", expanded=False):
+
+            # ── Bedding Zone Summary ────────────────────────────────
+            if isinstance(bedding_zones, list) and bedding_zones:
+                with st.expander(f"🛏️ Bedding Zones ({len(bedding_zones)} identified)", expanded=False):
+                    sorted_bz = sorted(bedding_zones, key=lambda b: b.get("criteria_met", 0), reverse=True)
+                    for i, bz in enumerate(sorted_bz[:15]):
+                        shelter = float(bz.get("shelter_score", 0))
+                        bench = float(bz.get("bench_score", 0))
+                        criteria = bz.get("criteria_met", 0)
+                        bz_lat = bz.get("lat", 0)
+                        bz_lon = bz.get("lon", 0)
+                        st.markdown(
+                            f"**#{i+1}** Shelter: {shelter:.0%} · Bench: {bench:.0%} · Criteria: {criteria} · "
+                            f"📍 {float(bz_lat):.5f}, {float(bz_lon):.5f}"
+                        )
+
+            # ── Raw Data Expander ───────────────────────────────────
+            with st.expander("📋 Full Report (raw JSON)", expanded=False):
                 st.json(max_accuracy_report)
-        else:
-            st.json(max_accuracy_report)
 
 
 def _render_hunt_predictions_ui_impl(active_prediction):

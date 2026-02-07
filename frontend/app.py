@@ -1360,13 +1360,16 @@ with tab_hotspots:
                     compass = degrees_to_compass(float(bb))
                 bed_qual = nearest_bed.get("bedding_quality")
                 qual_str = f" · Quality: {float(bed_qual):.0%}" if isinstance(bed_qual, (int, float)) else ""
+                bed_lat = nearest_bed.get("lat")
+                bed_lon = nearest_bed.get("lon")
+                bed_coord_str = f'<div style="color:#6b7280;font-size:0.82em;margin-top:2px">📍 Bedding: {float(bed_lat):.6f}, {float(bed_lon):.6f}</div>' if isinstance(bed_lat, (int, float)) and isinstance(bed_lon, (int, float)) else ''
                 st.markdown(
                     f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px">'
                     f'<div style="font-weight:600;margin-bottom:4px">🛏️ Nearest Bedding</div>'
                     f'<div style="font-size:1.4em;font-weight:700;color:#16a34a">{bd}m {compass}</div>'
                     f'<div style="color:#6b7280;font-size:0.85em">Bearing: {bb}°{qual_str}'
                     + (f' · Proximity: {float(bed_prox):.2f}' if isinstance(bed_prox, (int, float)) else '')
-                    + f'</div></div>',
+                    + f'</div>{bed_coord_str}</div>',
                     unsafe_allow_html=True,
                 )
                 bedding_zones = max_accuracy_report.get("bedding_zones", [])
@@ -1486,10 +1489,14 @@ with tab_hotspots:
                 compass = degrees_to_compass(float(bb)) if isinstance(bb, (int, float)) else ""
                 bed_qual = sel_nb.get("bedding_quality")
                 qual_str = f" · Quality: {float(bed_qual):.0%}" if isinstance(bed_qual, (int, float)) else ""
+                bed_lat = sel_nb.get("lat")
+                bed_lon = sel_nb.get("lon")
+                bed_coord_str = f'<br><span style="font-size:0.82em;color:#6b7280">📍 Bedding: {float(bed_lat):.6f}, {float(bed_lon):.6f}</span>' if isinstance(bed_lat, (int, float)) and isinstance(bed_lon, (int, float)) else ''
                 st.markdown(
                     f'<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px">'
                     f'<b>🛏️ Nearest Bedding:</b> {bd}m {compass}'
                     f'<br><span style="font-size:0.85em;color:#6b7280">Bearing: {bb}°{qual_str}</span>'
+                    f'{bed_coord_str}'
                     f'</div>', unsafe_allow_html=True,
                 )
 
@@ -1608,6 +1615,8 @@ with tab_hotspots:
                     if isinstance(nb, dict) and nb.get("distance_m"):
                         bd_compass = degrees_to_compass(float(nb["bearing_deg"])) if isinstance(nb.get("bearing_deg"), (int, float)) else ""
                         popup_parts.append(f'<b>🛏️ Bedding:</b> {nb["distance_m"]}m {bd_compass}<br>')
+                        if isinstance(nb.get("lat"), (int, float)) and isinstance(nb.get("lon"), (int, float)):
+                            popup_parts.append(f'<span style="font-size:0.8em;color:#6b7280">📍 Bed: {float(nb["lat"]):.6f}, {float(nb["lon"]):.6f}</span><br>')
                     popup_parts.append(f'<div style="color:#9ca3af;font-size:0.8em;margin-top:4px">{float(lat):.6f}, {float(lon):.6f}</div>')
                     popup_parts.append('</div>')
 

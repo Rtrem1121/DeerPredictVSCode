@@ -51,6 +51,7 @@ from backend.routers.camera_router import camera_router
 from backend.routers.scouting_router import scouting_router
 from backend.routers.prediction_router import prediction_router
 from backend.routers.hotspot_router import hotspot_router
+from backend.routers.max_accuracy_router import max_accuracy_router
 
 # Import bedding validation router after logger setup
 try:
@@ -110,6 +111,7 @@ app.include_router(camera_router)
 app.include_router(scouting_router)
 app.include_router(prediction_router)
 app.include_router(hotspot_router)
+app.include_router(max_accuracy_router)
 
 # Include bedding validation router if available
 if BEDDING_VALIDATION_AVAILABLE:

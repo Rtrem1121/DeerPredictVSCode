@@ -30,8 +30,8 @@ class RunHotspotRequest(BaseModel):
     num_sample_points: int = Field(25, ge=5, le=500)
 
     # lidar_first params
-    lidar_grid_points: int = Field(100000, ge=5000, le=200000)
-    lidar_top_k: int = Field(20, ge=5, le=50)
+    lidar_grid_points: int = Field(120000, ge=5000, le=200000)
+    lidar_top_k: int = Field(30, ge=5, le=50)
     lidar_sample_radius_m: int = Field(30, ge=5, le=120)
 
     epsilon_meters: float = Field(75.0, ge=10.0, le=500.0)
@@ -48,6 +48,13 @@ class RunHotspotResponse(BaseModel):
     error: Optional[str] = None
 
 
+class RunHotspotReportResponse(BaseModel):
+    success: bool
+    report: Optional[Dict[str, Any]] = None
+    job_id: Optional[str] = None
+    error: Optional[str] = None
+
+
 class JobStatusResponse(BaseModel):
     success: bool
     job: Optional[Dict[str, Any]] = None
@@ -60,7 +67,10 @@ async def run_property_hotspots(request: RunHotspotRequest) -> RunHotspotRespons
         service = get_hotspot_job_service()
         corners = [(c.lat, c.lon) for c in request.corners]
 
-        total = request.num_sample_points if request.mode == "sample_predict" else request.lidar_top_k
+        # Enforce LiDAR-first pipeline for property scans
+        mode = "lidar_first"
+
+        total = request.num_sample_points if mode == "sample_predict" else request.lidar_top_k
         job = service.create_job(total=total, message="Queued")
 
         # Run in a background thread so the FastAPI event loop stays responsive.
@@ -71,7 +81,7 @@ async def run_property_hotspots(request: RunHotspotRequest) -> RunHotspotRespons
                 service.run_job(
                     job.job_id,
                     corners=corners,
-                    mode=request.mode,
+                    mode=mode,
                     num_sample_points=request.num_sample_points,
                     lidar_grid_points=request.lidar_grid_points,
                     lidar_top_k=request.lidar_top_k,
@@ -90,6 +100,46 @@ async def run_property_hotspots(request: RunHotspotRequest) -> RunHotspotRespons
         return RunHotspotResponse(success=True, job_id=job.job_id)
     except Exception as e:
         return RunHotspotResponse(success=False, error=str(e))
+
+
+@hotspot_router.post("/property-hotspots/analyze", response_model=RunHotspotReportResponse)
+async def analyze_property_hotspots(request: RunHotspotRequest) -> RunHotspotReportResponse:
+    """Run a LiDAR-first property scan and return the report in the response."""
+    try:
+        service = get_hotspot_job_service()
+        corners = [(c.lat, c.lon) for c in request.corners]
+
+        mode = "lidar_first"
+        total = request.num_sample_points if mode == "sample_predict" else request.lidar_top_k
+        job = service.create_job(total=total, message="Queued")
+
+        await service.run_job(
+            job.job_id,
+            corners=corners,
+            mode=mode,
+            num_sample_points=request.num_sample_points,
+            lidar_grid_points=request.lidar_grid_points,
+            lidar_top_k=request.lidar_top_k,
+            lidar_sample_radius_m=request.lidar_sample_radius_m,
+            epsilon_meters=request.epsilon_meters,
+            min_samples=request.min_samples,
+            date_time=request.date_time,
+            season=request.season,
+            hunting_pressure=request.hunting_pressure,
+        )
+
+        job = service.get_job(job.job_id)
+        if not job or not job.report_path:
+            return RunHotspotReportResponse(success=False, error="Report not available", job_id=job.job_id)
+
+        path = Path(job.report_path)
+        if not path.exists():
+            return RunHotspotReportResponse(success=False, error="Report file missing", job_id=job.job_id)
+
+        report = json.loads(path.read_text(encoding="utf-8"))
+        return RunHotspotReportResponse(success=True, report=report, job_id=job.job_id)
+    except Exception as e:
+        return RunHotspotReportResponse(success=False, error=str(e))
 
 
 @hotspot_router.get("/property-hotspots/status/{job_id}", response_model=JobStatusResponse)

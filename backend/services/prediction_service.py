@@ -441,12 +441,14 @@ class PredictionService:
                     'score_maps': result.get('score_maps', {}),
                     'security_analysis': getattr(self, '_cached_security_analysis', {}),
                     'mature_buck_analysis': result.get('mature_buck_analysis', {}),
-                    'bedding_zones': result.get('bedding_zones', {})  # Include real bedding zones from predictor
+                    'bedding_zones': result.get('bedding_zones', {}),  # Include real bedding zones from predictor
+                    'gee_data': result.get('gee_data', {}),
+                    'season': season,
                 }
                 
                 # Generate all optimized points
                 optimized_points = points_generator.generate_optimized_points(
-                    prediction_data, lat, lon, weather_data
+                    prediction_data, lat, lon, weather_data, season=season
                 )
                 
                 # Convert OptimizedPoint objects to dictionaries for JSON serialization

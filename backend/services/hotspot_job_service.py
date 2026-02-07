@@ -139,6 +139,20 @@ def _sample_points_in_polygon(
     return points[:n]
 
 
+def _stable_seed_from_corners(corners: List[Tuple[float, float]]) -> int:
+    if not corners:
+        return 0
+    try:
+        import hashlib
+
+        normalized = [(round(lat, 6), round(lon, 6)) for lat, lon in corners]
+        payload = "|".join(f"{lat:.6f},{lon:.6f}" for lat, lon in normalized)
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return int(digest[:8], 16)
+    except Exception:
+        return 0
+
+
 def _generate_grid_points_in_polygon(
     corners: List[Tuple[float, float]],
     target_n: int,
@@ -282,6 +296,11 @@ def _lidar_shortlist_points(
             slope_rad = np.arctan(np.sqrt(gx * gx + gy * gy))
             slope_deg = np.degrees(slope_rad)
 
+            # Curvature (Laplacian) for micro-terrain texture
+            dgy_dy, dgy_dx = np.gradient(gy, yres, xres)
+            dgx_dy, dgx_dx = np.gradient(gx, yres, xres)
+            curvature = dgy_dy + dgx_dx
+
             elev_min = float(np.nanmin(elev))
             elev_max = float(np.nanmax(elev))
             elev_range = max(1e-6, elev_max - elev_min)
@@ -289,7 +308,7 @@ def _lidar_shortlist_points(
             # Affine transform for the window: src.window_transform
             w_transform = src.window_transform(window)
 
-            def _sample_at(lat: float, lon: float) -> Optional[Tuple[float, float]]:
+            def _sample_at(lat: float, lon: float) -> Optional[Tuple[int, int, float, float]]:
                 xs2, ys2 = transform("EPSG:4326", src.crs, [lon], [lat])
                 x, y = xs2[0], ys2[0]
                 row, col = rasterio.transform.rowcol(w_transform, x, y)
@@ -299,34 +318,157 @@ def _lidar_shortlist_points(
                 s = float(slope_deg[row, col])
                 if not (math.isfinite(e) and math.isfinite(s)):
                     return None
-                return e, s
+                return row, col, e, s
 
-            scored: List[Dict[str, Any]] = []
+            def _clamp01(value: float) -> float:
+                return max(0.0, min(1.0, value))
+
+            cell_m = max(1e-6, max(xres, yres))
+            local_radius_px = max(1, min(6, int((float(sample_radius_m) / cell_m) * 0.15)))
+            large_radius_px = max(local_radius_px + 2, min(18, int((float(sample_radius_m) / cell_m) * 0.6)))
+
+            base_scored: List[Dict[str, Any]] = []
             for (lat, lon) in points:
                 sampled = _sample_at(lat, lon)
                 if not sampled:
                     continue
-                e, s = sampled
+                row, col, e, s = sampled
 
-                # Simple terrain heuristic:
-                # - Favor moderate slopes (roughly travelable + edge features)
-                # - Favor upper-mid elevation (avoids bottomland + ridgetop exposure)
+                # Fast terrain heuristic for pre-ranking.
                 slope_pref = max(0.0, 1.0 - (abs(s - 10.0) / 10.0))  # peak at 10°, 0 at 0/20
                 elev_norm = (e - elev_min) / elev_range
                 elev_pref = max(0.0, 1.0 - (abs(elev_norm - 0.6) / 0.6))
+                base_score = slope_pref * 60.0 + elev_pref * 40.0
 
-                score = slope_pref * 60.0 + elev_pref * 40.0
-                scored.append(
+                base_scored.append(
                     {
                         "lat": float(lat),
                         "lon": float(lon),
-                        "lidar_score": float(score),
+                        "row": int(row),
+                        "col": int(col),
                         "elevation_m": float(e),
                         "slope_deg": float(s),
+                        "slope_pref": float(slope_pref),
+                        "elev_pref": float(elev_pref),
+                        "base_score": float(base_score),
                     }
                 )
 
-            scored.sort(key=lambda r: float(r.get("lidar_score", 0.0)), reverse=True)
+            base_scored.sort(
+                key=lambda r: (
+                    -float(r.get("base_score", 0.0)),
+                    float(r.get("lat", 0.0)),
+                    float(r.get("lon", 0.0)),
+                )
+            )
+
+            candidate_pool = max(200, max(1, top_k) * 20)
+            candidates = base_scored[: min(candidate_pool, len(base_scored))]
+
+            scored: List[Dict[str, Any]] = []
+            for c in candidates:
+                row = int(c["row"])
+                col = int(c["col"])
+                e = float(c["elevation_m"])
+                s = float(c["slope_deg"])
+                slope_pref = float(c["slope_pref"])
+                elev_pref = float(c["elev_pref"])
+
+                r0 = max(0, row - local_radius_px)
+                r1 = min(elev.shape[0], row + local_radius_px + 1)
+                c0 = max(0, col - local_radius_px)
+                c1 = min(elev.shape[1], col + local_radius_px + 1)
+
+                local_elev = elev[r0:r1, c0:c1]
+                local_slope = slope_deg[r0:r1, c0:c1]
+                local_curv = curvature[r0:r1, c0:c1]
+
+                local_mean = float(np.nanmean(local_elev)) if np.isfinite(local_elev).any() else e
+                local_min = float(np.nanmin(local_elev)) if np.isfinite(local_elev).any() else e
+                local_max = float(np.nanmax(local_elev)) if np.isfinite(local_elev).any() else e
+                local_relief = max(1e-6, local_max - local_min)
+
+                local_slope_mean = float(np.nanmean(local_slope)) if np.isfinite(local_slope).any() else s
+                local_slope_std = float(np.nanstd(local_slope)) if np.isfinite(local_slope).any() else 0.0
+                local_roughness = float(np.nanstd(local_elev)) if np.isfinite(local_elev).any() else 0.0
+                local_curv_mean = float(np.nanmean(np.abs(local_curv))) if np.isfinite(local_curv).any() else 0.0
+
+                tpi = float(e - local_mean)
+                tpi_norm = float(tpi / local_relief)
+
+                lr0 = max(0, row - large_radius_px)
+                lr1 = min(elev.shape[0], row + large_radius_px + 1)
+                lc0 = max(0, col - large_radius_px)
+                lc1 = min(elev.shape[1], col + large_radius_px + 1)
+                large_elev = elev[lr0:lr1, lc0:lc1]
+                large_mean = float(np.nanmean(large_elev)) if np.isfinite(large_elev).any() else local_mean
+                large_min = float(np.nanmin(large_elev)) if np.isfinite(large_elev).any() else local_min
+                large_max = float(np.nanmax(large_elev)) if np.isfinite(large_elev).any() else local_max
+                large_relief = max(1e-6, large_max - large_min)
+                tpi_large = float(e - large_mean)
+                tpi_large_norm = float(tpi_large / large_relief)
+
+                # Bench: low slope, near-neutral TPI
+                bench_score = _clamp01(1.0 - (local_slope_mean / 12.0)) * _clamp01(1.0 - (abs(tpi_norm) * 2.0))
+
+                # Saddle-ish: neutral TPI with surrounding relief + varied slopes
+                saddle_score = _clamp01(local_relief / 12.0) * _clamp01(1.0 - (abs(tpi_norm) * 2.0)) * _clamp01(local_slope_std / 5.0)
+
+                # Corridor: moderate slope + some relief (travelable edges)
+                corridor_score = _clamp01(1.0 - (abs(local_slope_mean - 8.0) / 8.0)) * _clamp01(local_relief / 10.0)
+
+                # Roughness + curvature: micro-terrain texture often used by mature bucks
+                roughness_score = _clamp01(local_roughness / 6.0)
+                curvature_score = _clamp01(local_curv_mean / 0.08)
+
+                # Shelter (leeward proxy): slightly below local mean with relief + moderate slope
+                shelter_score = _clamp01((-tpi_norm) * 1.5) * _clamp01(local_relief / 15.0) * _clamp01(1.0 - (abs(local_slope_mean - 10.0) / 12.0))
+
+                # Large-scale position: avoid exposed ridges/valleys at broader scale
+                tpi_large_score = _clamp01(1.0 - (abs(tpi_large_norm) * 2.0))
+
+                score = (
+                    slope_pref * 30.0
+                    + elev_pref * 20.0
+                    + bench_score * 12.0
+                    + saddle_score * 8.0
+                    + corridor_score * 8.0
+                    + roughness_score * 8.0
+                    + curvature_score * 4.0
+                    + shelter_score * 6.0
+                    + tpi_large_score * 4.0
+                )
+                scored.append(
+                    {
+                        "lat": float(c["lat"]),
+                        "lon": float(c["lon"]),
+                        "lidar_score": float(score),
+                        "elevation_m": float(e),
+                        "slope_deg": float(s),
+                        "tpi": float(tpi),
+                        "tpi_large": float(tpi_large),
+                        "local_relief_m": float(local_relief),
+                        "large_relief_m": float(large_relief),
+                        "local_slope_mean": float(local_slope_mean),
+                        "local_roughness": float(local_roughness),
+                        "local_curvature": float(local_curv_mean),
+                        "bench_score": float(bench_score),
+                        "saddle_score": float(saddle_score),
+                        "corridor_score": float(corridor_score),
+                        "roughness_score": float(roughness_score),
+                        "curvature_score": float(curvature_score),
+                        "shelter_score": float(shelter_score),
+                        "tpi_large_score": float(tpi_large_score),
+                    }
+                )
+
+            scored.sort(
+                key=lambda r: (
+                    -float(r.get("lidar_score", 0.0)),
+                    float(r.get("lat", 0.0)),
+                    float(r.get("lon", 0.0)),
+                )
+            )
             top = scored[: max(1, top_k)]
 
             meta = {
@@ -674,6 +816,80 @@ class HotspotJobService:
         self._jobs: Dict[str, HotspotJob] = {}
         self._lock = threading.Lock()
 
+    def _job_state_path(self, job_id: str) -> Path:
+        jobs_dir = Path(os.getenv("HOTSPOT_JOBS_DIR", "/app/data/hotspot_jobs"))
+        return jobs_dir / job_id / "job_state.json"
+
+    def _persist_job_state(self, job: HotspotJob) -> None:
+        try:
+            state_path = self._job_state_path(job.job_id)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            payload = {
+                "job_id": job.job_id,
+                "status": job.status,
+                "created_at": job.created_at,
+                "updated_at": job.updated_at,
+                "total": job.total,
+                "completed": job.completed,
+                "message": job.message,
+                "error": job.error,
+                "report_path": job.report_path,
+                "map_path": job.map_path,
+            }
+            state_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        except Exception:
+            return
+
+    def _recover_job_from_disk(self, job_id: str) -> Optional[HotspotJob]:
+        jobs_dir = Path(os.getenv("HOTSPOT_JOBS_DIR", "/app/data/hotspot_jobs"))
+        job_dir = jobs_dir / job_id
+        if not job_dir.exists():
+            return None
+
+        state_path = job_dir / "job_state.json"
+        if state_path.exists():
+            try:
+                state = json.loads(state_path.read_text(encoding="utf-8"))
+                status = state.get("status") or "unknown"
+                report_path = state.get("report_path")
+                map_path = state.get("map_path")
+                if status != "completed" and not report_path:
+                    status = "interrupted"
+                return HotspotJob(
+                    job_id=job_id,
+                    status=status,
+                    created_at=state.get("created_at") or datetime.utcnow().isoformat() + "Z",
+                    updated_at=state.get("updated_at") or datetime.utcnow().isoformat() + "Z",
+                    total=int(state.get("total") or 0),
+                    completed=int(state.get("completed") or 0),
+                    message=state.get("message") or "Recovered from disk",
+                    error=state.get("error"),
+                    report_path=report_path,
+                    map_path=map_path,
+                )
+            except Exception:
+                pass
+
+        report_path = job_dir / "hotspot_report.json"
+        map_path = job_dir / "hotspot_map.html"
+        if not report_path.exists() and not map_path.exists():
+            return None
+
+        now = datetime.utcnow().isoformat() + "Z"
+        status = "completed" if report_path.exists() else "unknown"
+        job = HotspotJob(
+            job_id=job_id,
+            status=status,
+            created_at=now,
+            updated_at=now,
+            total=0,
+            completed=0,
+            message="Recovered from disk",
+            report_path=str(report_path) if report_path.exists() else None,
+            map_path=str(map_path) if map_path.exists() else None,
+        )
+        return job
+
     def create_job(self, total: int, message: str) -> HotspotJob:
         job_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat() + "Z"
@@ -688,11 +904,21 @@ class HotspotJobService:
         )
         with self._lock:
             self._jobs[job_id] = job
+        self._persist_job_state(job)
         return job
 
     def get_job(self, job_id: str) -> Optional[HotspotJob]:
         with self._lock:
-            return self._jobs.get(job_id)
+            job = self._jobs.get(job_id)
+        if job:
+            return job
+
+        recovered = self._recover_job_from_disk(job_id)
+        if recovered:
+            with self._lock:
+                self._jobs[job_id] = recovered
+            return recovered
+        return None
 
     def update_job(self, job_id: str, **kwargs) -> None:
         with self._lock:
@@ -703,6 +929,7 @@ class HotspotJobService:
                 if hasattr(job, k):
                     setattr(job, k, v)
             job.updated_at = datetime.utcnow().isoformat() + "Z"
+        self._persist_job_state(job)
 
     async def run_job(
         self,
@@ -728,6 +955,10 @@ class HotspotJobService:
         job_dir.mkdir(parents=True, exist_ok=True)
 
         self.update_job(job_id, status="running", message="Preparing hotspot run")
+
+        effective_epsilon = epsilon_meters
+        if season in ["rut", "pre_rut", "post_rut"]:
+            effective_epsilon = max(float(epsilon_meters), 150.0)
 
         service = get_prediction_service()
         target_dt = _parse_dt_to_eastern(date_time)
@@ -756,7 +987,8 @@ class HotspotJobService:
                 self.update_job(job_id, total=total, completed=0, message=f"Running full predictions for top {total} LiDAR candidates")
         else:
             self.update_job(job_id, message="Sampling points inside property")
-            sample_points = _sample_points_in_polygon(corners, num_sample_points, seed=None)
+            seed = _stable_seed_from_corners(corners)
+            sample_points = _sample_points_in_polygon(corners, num_sample_points, seed=seed)
             total = len(sample_points)
             self.update_job(job_id, total=total, completed=0, message="Running predictions")
 
@@ -767,7 +999,8 @@ class HotspotJobService:
         if mode == "lidar_first" and lidar_shortlist:
             query_points = [(r["lat"], r["lon"]) for r in lidar_shortlist]
         else:
-            query_points = _sample_points_in_polygon(corners, num_sample_points, seed=None)
+            seed = _stable_seed_from_corners(corners)
+            query_points = _sample_points_in_polygon(corners, num_sample_points, seed=seed)
 
         total = len(query_points)
         max_concurrency = int(os.getenv("HOTSPOT_PREDICTION_CONCURRENCY", "3"))
@@ -834,7 +1067,7 @@ class HotspotJobService:
                 self.update_job(job_id, completed=done_count, message=f"Predictions: {done_count}/{total}")
 
         self.update_job(job_id, message="Clustering stand points")
-        clusters = _cluster_haversine(all_stands, epsilon_meters, min_samples)
+        clusters = _cluster_haversine(all_stands, effective_epsilon, min_samples)
 
         baseline: Optional[Dict[str, Any]] = None
         best_stand_site: Optional[Dict[str, Any]] = None
@@ -896,7 +1129,7 @@ class HotspotJobService:
                 "lidar_grid_points": lidar_grid_points,
                 "lidar_top_k": lidar_top_k,
                 "lidar_sample_radius_m": lidar_sample_radius_m,
-                "epsilon_meters": epsilon_meters,
+                "epsilon_meters": effective_epsilon,
                 "min_samples": min_samples,
                 "date_time": date_time,
                 "season": season,

@@ -111,6 +111,26 @@ def load_gpx_waypoints_from_bytes(data: bytes) -> List[WaypointRecord]:
     return _waypoints_from_tree(tree)
 
 
+def load_kml_waypoints(path: Path | str) -> List[WaypointRecord]:
+    """Load waypoints from a KML file path."""
+
+    kml_path = Path(path)
+    if not kml_path.exists():
+        raise FileNotFoundError(kml_path)
+
+    tree = ET.parse(kml_path)
+    return _placemarks_from_tree(tree)
+
+
+def load_kml_waypoints_from_bytes(data: bytes) -> List[WaypointRecord]:
+    """Load waypoints from raw KML bytes."""
+
+    if not data:
+        return []
+    tree = ET.parse(BytesIO(data))
+    return _placemarks_from_tree(tree)
+
+
 def canonical_observation_payload(record: WaypointRecord) -> dict:
     """Convert a waypoint into a dictionary compatible with
     `ScoutingObservation`.
@@ -211,6 +231,66 @@ def _waypoints_from_tree(tree: ET.ElementTree) -> List[WaypointRecord]:
     return waypoints
 
 
+def _placemarks_from_tree(tree: ET.ElementTree) -> List[WaypointRecord]:
+    root = tree.getroot()
+    namespace = _detect_namespace(root)
+    placemarks: List[WaypointRecord] = []
+
+    for placemark in root.findall(f".//{namespace}Placemark"):
+        name = ""
+        description = None
+        timestamp = None
+        coords_text = None
+
+        for child in placemark:
+            tag = child.tag.split("}")[-1]
+            text = (child.text or "").strip()
+            if tag == "name" and text:
+                name = text
+            elif tag == "description" and text:
+                description = text
+            elif tag == "TimeStamp":
+                when = child.find(f"{namespace}when")
+                if when is not None and when.text:
+                    timestamp = _parse_iso8601(when.text.strip())
+
+        point = placemark.find(f".//{namespace}Point/{namespace}coordinates")
+        if point is not None and point.text:
+            coords_text = point.text.strip()
+
+        if not coords_text:
+            continue
+
+        parts = [p for p in coords_text.replace("\n", " ").split() if p]
+        # Use first coordinate if multiple are present.
+        lon_lat_alt = parts[0].split(",")
+        if len(lon_lat_alt) < 2:
+            continue
+
+        lon = float(lon_lat_alt[0])
+        lat = float(lon_lat_alt[1])
+        elevation = None
+        if len(lon_lat_alt) >= 3:
+            try:
+                elevation = float(lon_lat_alt[2])
+            except ValueError:
+                elevation = None
+
+        placemarks.append(
+            WaypointRecord(
+                lat=lat,
+                lon=lon,
+                elevation_m=elevation,
+                time_utc=timestamp,
+                name=name,
+                description=description,
+                symbol=None,
+            )
+        )
+
+    return placemarks
+
+
 def _parse_iso8601(value: str) -> datetime:
     """Parse ISO 8601 timestamp strings, including trailing Z."""
 
@@ -259,5 +339,6 @@ def _infer_observation_type(text: str) -> ObservationType:
 __all__ = [
     "WaypointRecord",
     "load_gpx_waypoints",
+    "load_kml_waypoints",
     "canonical_observation_payload",
 ]

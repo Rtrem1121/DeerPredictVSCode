@@ -105,13 +105,27 @@ class WindAnalyzer:
     
     def _get_api_key(self) -> str:
         """Get OpenWeatherMap API key from configuration"""
+        # Prefer environment variable if present
+        import os
         try:
-            # Try to get from config first
-            return self.config.get_parameter('weather.api_key', '')
-        except:
-            # Fallback to environment variable
-            import os
-            return os.getenv('OPENWEATHERMAP_API_KEY', '')
+            from dotenv import load_dotenv
+
+            load_dotenv()
+        except Exception:
+            pass
+        env_key = os.getenv('OPENWEATHERMAP_API_KEY', '')
+        if isinstance(env_key, str) and env_key.strip() and "YOUR_API_KEY_HERE" not in env_key:
+            return env_key
+
+        # Fall back to config only if env key is missing
+        try:
+            key = self.config.get_parameter('weather.api_key', '')
+            if isinstance(key, str) and key.strip() and "YOUR_API_KEY_HERE" not in key:
+                return key
+        except Exception:
+            pass
+
+        return env_key
     
     def _initialize_wind_parameters(self):
         """Initialize wind analysis parameters from configuration"""

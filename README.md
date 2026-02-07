@@ -14,9 +14,14 @@ Streamlit + FastAPI application for mature buck bedding, movement, and stand rec
 - **NDVI trend** (recent vs prior window) included in vegetation analysis.
 - **Scouting priors** boost bedding scores near recent observations.
 - **Trace summary** included in prediction payload + frontend panel.
+- **Max Accuracy pipeline**: dense LiDAR grid + terrain metrics + optional GEE canopy/NDVI + behavior blending + quadrant diversity + wind offsets.
 
 ## 🧭 Core Data Flow
 LiDAR terrain (0.35m) → terrain scoring + declustering → GEE canopy/NDVI → bedding + stand logic → frontend display.
+
+**Property scans:** use LiDAR-first grid scanning across the property boundary, shortlist top terrain candidates, then run full GEE refinement on those candidates (see Property Hotspots tab in [frontend/app.py](frontend/app.py)).
+
+**Max Accuracy scans:** use the Property Hotspots tab → check “Use Max Accuracy pipeline.” Results return via a background job and can be refreshed in the UI.
 
 ## 🚀 Quick Start
 
@@ -46,7 +51,15 @@ Dense LiDAR scan options (defaults in `defaults.yaml`):
 - `lidar_dense_scan.top_k`
 - `lidar_dense_scan.min_separation_m`
 
+Corridor path tuning (defaults in `defaults.yaml`):
+- `corridor_scoring.path_max_link_m`
+- `corridor_scoring.path_max_bearing_diff_deg`
+
 Env overrides are in [.env.example](.env.example).
+
+Max Accuracy environment variables:
+- `MAX_ACCURACY_JOBS_DIR` (optional): where max-accuracy reports are persisted (default: `data/max_accuracy_jobs`).
+- `SCOUTING_PREDICTION_RADIUS_MILES` (optional): scouting prior radius for predictions (default: `2.0`).
 
 ## 🧪 Tests
 ```bash
@@ -185,6 +198,15 @@ POST /predict
 GET /api/enhanced/satellite/ndvi?lat=44.26&lon=-72.58
 
 # Returns: {"ndvi": 0.339, "vegetation_health": "moderate", ...}
+```
+
+### Max Accuracy (Property Hotspots)
+```bash
+# Start a max-accuracy job (returns job_id)
+POST /property-hotspots/max-accuracy/run
+
+# Get report by job id
+GET /property-hotspots/max-accuracy/report/{job_id}
 ```
 
 ### Trail Camera Recommendations

@@ -27,10 +27,12 @@ from datetime import datetime
 import threading
 try:
     from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
     Observer = None
+    FileSystemEventHandler = object
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +53,28 @@ class ConfigurationMetadata:
     source_files: List[str] = field(default_factory=list)
     validation_errors: List[str] = field(default_factory=list)
 
-class ConfigFileWatcher:
+class ConfigFileWatcher(FileSystemEventHandler):
     """File system watcher for configuration hot-reload"""
-    
+
     def __init__(self, config_manager):
+        super().__init__()
         self.config_manager = config_manager
+
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        if not event.src_path.endswith(".yaml"):
+            return
+        logger.info("🔄 Configuration file modified: %s", event.src_path)
+        self.config_manager._reload_config()
+
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        if not event.src_path.endswith(".yaml"):
+            return
+        logger.info("🔄 Configuration file created: %s", event.src_path)
+        self.config_manager._reload_config()
 
 class DeerPredictionConfig:
     """

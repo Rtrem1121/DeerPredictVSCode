@@ -18,6 +18,8 @@ from .contracts import (
     canonical_observation_payload,
     load_gpx_waypoints,
     load_gpx_waypoints_from_bytes,
+    load_kml_waypoints,
+    load_kml_waypoints_from_bytes,
 )
 
 
@@ -73,6 +75,20 @@ class ScoutingImporter:
         dry_run: bool = False,
     ) -> ImportSummary:
         records = load_gpx_waypoints_from_bytes(data)
+        return self.import_records(records, dry_run=dry_run, source=filename)
+
+    def import_kml_file(self, path: str | Path, *, dry_run: bool = False) -> ImportSummary:
+        records = load_kml_waypoints(path)
+        return self.import_records(records, dry_run=dry_run, source=str(path))
+
+    def import_kml_bytes(
+        self,
+        data: bytes,
+        *,
+        filename: Optional[str] = None,
+        dry_run: bool = False,
+    ) -> ImportSummary:
+        records = load_kml_waypoints_from_bytes(data)
         return self.import_records(records, dry_run=dry_run, source=filename)
 
     def import_records(

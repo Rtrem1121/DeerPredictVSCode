@@ -281,6 +281,11 @@ class TerrainExtractor:
                     aspect = TerrainExtractor._calculate_point_aspect(
                         elevation_grid, center_row, center_col
                     )
+
+                    # Corridor feature heuristics (bench/ridge/saddle strength)
+                    corridor_features = TerrainExtractor._calculate_corridor_features(
+                        elevation_grid, resolution_m, center_row, center_col
+                    )
                     
                     logger.debug(
                         f"✅ LIDAR point terrain: {lat:.5f}, {lon:.5f} -> "
@@ -303,7 +308,8 @@ class TerrainExtractor:
                         'source': source_type,
                         'accurate_slopes': accurate_slopes,
                         'coverage': True,
-                        'file': os.path.basename(lidar_file)
+                        'file': os.path.basename(lidar_file),
+                        **corridor_features
                     }
                     
             except Exception as e:
@@ -462,6 +468,47 @@ class TerrainExtractor:
         dy, dx = np.gradient(elevation_grid)
         slope = np.sqrt(dx**2 + dy**2)
         return slope
+
+    @staticmethod
+    def _calculate_corridor_features(elevation_grid: np.ndarray,
+                                     resolution_m: float,
+                                     center_row: int,
+                                     center_col: int) -> Dict[str, float]:
+        """Estimate bench/ridge/saddle strength from a local elevation window."""
+        try:
+            dy, dx = np.gradient(elevation_grid)
+            slope = np.degrees(np.arctan(np.sqrt(dx**2 + dy**2) / max(resolution_m, 0.1)))
+
+            low_slope_pct = float(np.mean(slope < 6.0))
+            moderate_slope_pct = float(np.mean((slope >= 6.0) & (slope <= 18.0)))
+
+            elev_center = float(elevation_grid[center_row, center_col])
+            elev_mean = float(np.mean(elevation_grid))
+            elev_std = float(np.std(elevation_grid)) or 1.0
+            elev_z = (elev_center - elev_mean) / elev_std
+
+            bench_score = min(1.0, low_slope_pct * 1.5)
+            ridge_score = min(1.0, max(0.0, elev_z / 2.0))
+            saddle_score = min(1.0, max(0.0, (0.5 - abs(elev_z)) * 2.0))
+
+            corridor_strength = max(
+                0.0,
+                min(1.0, bench_score * 0.5 + saddle_score * 0.3 + ridge_score * 0.2 + moderate_slope_pct * 0.1)
+            )
+
+            return {
+                "bench_score": round(bench_score, 3),
+                "ridge_score": round(ridge_score, 3),
+                "saddle_score": round(saddle_score, 3),
+                "corridor_strength": round(corridor_strength, 3)
+            }
+        except Exception:
+            return {
+                "bench_score": 0.0,
+                "ridge_score": 0.0,
+                "saddle_score": 0.0,
+                "corridor_strength": 0.0
+            }
 
 
 class BatchLIDARProcessor:

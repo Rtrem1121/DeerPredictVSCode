@@ -29,7 +29,7 @@ class TestScoutingPredictionEnhancer:
             assert isinstance(call_args, ScoutingQuery)
             assert call_args.lat == 44.0
             assert call_args.lon == -72.0
-            assert call_args.radius_miles == 5.0
+            assert call_args.radius_miles == 2.0
             assert call_args.days_back == 365
 
     def test_prepare_enhanced_maps(self, enhancer, sample_score_maps):

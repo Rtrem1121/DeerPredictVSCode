@@ -69,10 +69,14 @@ class MatureBuckPointsGenerator:
         # Point generation parameters
         self.min_distance_between_points = 100  # meters
         self.max_stand_to_bedding_distance = 457  # 1500 feet in meters
+        self._current_season: Optional[str] = None
+        self._gee_data: Dict[str, Any] = {}
+        self._weather_data: Dict[str, Any] = {}
         
-    def generate_optimized_points(self, prediction_data: Dict[str, Any], 
-                                lat: float, lon: float, 
-                                weather_data: Dict[str, Any]) -> Dict[str, List[OptimizedPoint]]:
+    def generate_optimized_points(self, prediction_data: Dict[str, Any],
+                                lat: float, lon: float,
+                                weather_data: Dict[str, Any],
+                                season: Optional[str] = None) -> Dict[str, List[OptimizedPoint]]:
         """
         Generate all optimized points using real-time data
         
@@ -86,6 +90,15 @@ class MatureBuckPointsGenerator:
         """
         
         logger.info(f"≡ƒÄ» Generating optimized points for {lat:.4f}, {lon:.4f}")
+
+        active_season = (season or prediction_data.get('season') or 'rut').lower()
+        original_min_distance = self.min_distance_between_points
+        if active_season in ['rut', 'pre_rut', 'post_rut']:
+            self.min_distance_between_points = max(self.min_distance_between_points, 200)
+
+        self._current_season = active_season
+        self._gee_data = prediction_data.get('gee_data', {}) if isinstance(prediction_data, dict) else {}
+        self._weather_data = weather_data if isinstance(weather_data, dict) else {}
         
         # Extract real-time data sources
         terrain_features = prediction_data.get('terrain_features', {})
@@ -107,49 +120,133 @@ class MatureBuckPointsGenerator:
         bedding_features = bedding_zones.get('features', [])
         logger.info(f"≡ƒ¢î Using {len(bedding_features)} real bedding zones from enhanced predictor")
         
-        # Generate coordinate grid for analysis
-        coordinate_grid = self._generate_coordinate_grid(lat, lon)
+        try:
+            # Generate coordinate grid for analysis
+            coordinate_grid = self._generate_coordinate_grid(lat, lon)
         
-        # Generate bedding sites first (3 sites) - USE REAL BEDDING ZONES
-        bedding_sites = self._generate_bedding_sites(
-            coordinate_grid, score_maps, security_analysis, thermal_analysis, terrain_features, bedding_zones
-        )
+            # Generate bedding sites first (3 sites) - USE REAL BEDDING ZONES
+            bedding_sites = self._generate_bedding_sites(
+                coordinate_grid, score_maps, security_analysis, thermal_analysis, terrain_features, bedding_zones
+            )
         
-        # Generate single best feeding site within 1500 feet (1 site)
-        feeding_sites = self._generate_single_best_feeding_site(
-            coordinate_grid, score_maps, security_analysis, terrain_features, lat, lon
-        )
+            # Generate single best feeding site within 1500 feet (1 site)
+            feeding_sites = self._generate_single_best_feeding_site(
+                coordinate_grid, score_maps, security_analysis, terrain_features, lat, lon
+            )
         
-        # Generate stand sites using FULL analysis to intercept deer from bedding to feeding (3 sites)
-        stand_sites = self._generate_interception_stands(
-            coordinate_grid, score_maps, security_analysis, thermal_analysis, terrain_features, 
-            bedding_sites, feeding_sites
-        )
+            # Generate stand sites using FULL analysis to intercept deer from bedding to feeding (3 sites)
+            stand_sites = self._generate_interception_stands(
+                coordinate_grid, score_maps, security_analysis, thermal_analysis, terrain_features,
+                bedding_sites, feeding_sites
+            )
         
-        # DISABLED: Camera generation per user request
-        camera_placements = []  # Return empty list instead
+            # DISABLED: Camera generation per user request
+            camera_placements = []  # Return empty list instead
+
+            result = {
+                'stand_sites': stand_sites,
+                'bedding_sites': bedding_sites,
+                'feeding_sites': feeding_sites,
+                'camera_placements': camera_placements
+            }
         
-        result = {
-            'stand_sites': stand_sites,
-            'bedding_sites': bedding_sites,
-            'feeding_sites': feeding_sites,
-            'camera_placements': camera_placements
+            # DEBUG: Log each point type with strategy
+            logger.info(f"Γ£à Generated {len(bedding_sites)} bedding, {len(stand_sites)} interception stands, "
+                       f"{len(feeding_sites)} feeding (best within 1500ft)")
+
+            for i, stand in enumerate(stand_sites, 1):
+                logger.info(f"   Stand {i}: {stand.strategy} at ({stand.lat:.5f}, {stand.lon:.5f}) score={stand.score:.2f}")
+
+            for i, bed in enumerate(bedding_sites, 1):
+                logger.info(f"   Bedding {i}: {bed.strategy} at ({bed.lat:.5f}, {bed.lon:.5f}) score={bed.score:.2f}")
+
+            for i, feed in enumerate(feeding_sites, 1):
+                logger.info(f"   Feeding {i}: {feed.strategy} at ({feed.lat:.5f}, {feed.lon:.5f}) score={feed.score:.2f}")
+
+            return result
+        finally:
+            self.min_distance_between_points = original_min_distance
+            self._current_season = None
+            self._gee_data = {}
+            self._weather_data = {}
+
+    @staticmethod
+    def _calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate bearing from point 1 to point 2 in degrees."""
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        dlon_rad = math.radians(lon2 - lon1)
+        y = math.sin(dlon_rad) * math.cos(lat2_rad)
+        x = (math.cos(lat1_rad) * math.sin(lat2_rad) -
+             math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(dlon_rad))
+        bearing = (math.degrees(math.atan2(y, x)) + 360.0) % 360.0
+        return bearing
+
+    @staticmethod
+    def _angular_diff(angle1: float, angle2: float) -> float:
+        diff = abs(angle1 - angle2)
+        return min(diff, 360.0 - diff)
+
+    def _ndvi_bedding_penalty(self) -> float:
+        """Penalty multiplier for bedding scores during rut when NDVI trend is declining."""
+        if self._current_season not in ['rut', 'pre_rut', 'post_rut']:
+            return 1.0
+        gee_data = self._gee_data if isinstance(self._gee_data, dict) else {}
+        ndvi_trend = gee_data.get('ndvi_trend') if isinstance(gee_data.get('ndvi_trend'), dict) else {}
+        delta = ndvi_trend.get('delta')
+        canopy = gee_data.get('canopy_coverage')
+        try:
+            delta_val = float(delta)
+        except (TypeError, ValueError):
+            return 1.0
+        try:
+            canopy_val = float(canopy) if canopy is not None else None
+        except (TypeError, ValueError):
+            canopy_val = None
+        if canopy_val is not None and canopy_val >= 0.7 and delta_val <= -0.05:
+            return 0.7
+        if canopy_val is not None and canopy_val >= 0.6 and delta_val <= -0.08:
+            return 0.65
+        return 1.0
+
+    @staticmethod
+    def _degrees_to_compass(degrees: Optional[float]) -> Optional[str]:
+        if degrees is None:
+            return None
+        dirs = [
+            "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
+        ]
+        try:
+            d = float(degrees) % 360.0
+        except (TypeError, ValueError):
+            return None
+        return dirs[int((d + 11.25) / 22.5) % 16]
+
+    def _wind_tags(self) -> Dict[str, Any]:
+        weather = self._weather_data if isinstance(self._weather_data, dict) else {}
+        wind_direction = weather.get('wind_direction')
+        wind_speed = weather.get('wind_speed')
+        if not isinstance(wind_direction, (int, float)):
+            return {}
+        scent_bearing = (float(wind_direction) + 180.0) % 360.0
+        return {
+            'wind_direction': float(wind_direction),
+            'wind_speed': float(wind_speed) if isinstance(wind_speed, (int, float)) else wind_speed,
+            'wind_compass': self._degrees_to_compass(float(wind_direction)),
+            'scent_cone_direction': scent_bearing,
+            'scent_cone_compass': self._degrees_to_compass(scent_bearing),
         }
-        
-        # DEBUG: Log each point type with strategy
-        logger.info(f"Γ£à Generated {len(bedding_sites)} bedding, {len(stand_sites)} interception stands, "
-                   f"{len(feeding_sites)} feeding (best within 1500ft)")
-        
-        for i, stand in enumerate(stand_sites, 1):
-            logger.info(f"   Stand {i}: {stand.strategy} at ({stand.lat:.5f}, {stand.lon:.5f}) score={stand.score:.2f}")
-        
-        for i, bed in enumerate(bedding_sites, 1):
-            logger.info(f"   Bedding {i}: {bed.strategy} at ({bed.lat:.5f}, {bed.lon:.5f}) score={bed.score:.2f}")
-        
-        for i, feed in enumerate(feeding_sites, 1):
-            logger.info(f"   Feeding {i}: {feed.strategy} at ({feed.lat:.5f}, {feed.lon:.5f}) score={feed.score:.2f}")
-        
-        return result
+
+    def _decluster_points(self, points: List[OptimizedPoint], min_distance_m: float) -> List[OptimizedPoint]:
+        if not points:
+            return []
+        ordered = sorted(points, key=lambda p: float(p.score), reverse=True)
+        kept: List[OptimizedPoint] = []
+        for p in ordered:
+            if all(self._calculate_distance_meters(p.lat, p.lon, k.lat, k.lon) >= min_distance_m for k in kept):
+                kept.append(p)
+        return kept
     
     def _generate_coordinate_grid(self, center_lat: float, center_lon: float) -> np.ndarray:
         """Generate coordinate grid matching prediction analysis area"""
@@ -198,9 +295,14 @@ class MatureBuckPointsGenerator:
         travel_scores = score_maps.get('travel', np.zeros((self.grid_size, self.grid_size)))
         bedding_scores = score_maps.get('bedding', np.zeros((self.grid_size, self.grid_size)))
         feeding_scores = score_maps.get('feeding', np.zeros((self.grid_size, self.grid_size)))
-        
-        # Calculate combined score for each position
-        combined_scores = (travel_scores * 0.5 + bedding_scores * 0.3 + feeding_scores * 0.2) * 2
+
+        bedding_scores = bedding_scores * self._ndvi_bedding_penalty()
+
+        # Calculate combined score for each position (rut emphasizes travel + bedding)
+        if self._current_season in ['rut', 'pre_rut', 'post_rut']:
+            combined_scores = (travel_scores * 0.6 + bedding_scores * 0.35 + feeding_scores * 0.05) * 2.2
+        else:
+            combined_scores = (travel_scores * 0.5 + bedding_scores * 0.3 + feeding_scores * 0.2) * 2
         
         # Apply security bonus/penalty
         security_score = security_analysis.get('overall_security_score', 50) / 100
@@ -245,7 +347,8 @@ class MatureBuckPointsGenerator:
                 'feeding_score': float(feeding_scores[best_row, best_col] * 2),
                 'security_multiplier': security_multiplier,
                 'thermal_bonus': thermal_bonus,
-                'wind_advantage': thermal_analysis.get('dominant_wind_type', 'standard')
+                'wind_advantage': thermal_analysis.get('dominant_wind_type', 'standard'),
+                **self._wind_tags()
             }
         )
     
@@ -934,8 +1037,11 @@ class MatureBuckPointsGenerator:
         )
         if security_stand:
             stands.append(security_stand)
-        
-        return stands
+
+        min_sep = self.min_distance_between_points
+        if self._current_season in ['rut', 'pre_rut', 'post_rut']:
+            min_sep = max(min_sep, 200)
+        return self._decluster_points(stands, min_sep)
     
     def _find_travel_interception_stand(self, coordinates: np.ndarray, score_maps: Dict[str, np.ndarray],
                                        security_analysis: Dict[str, Any], thermal_analysis: Dict[str, Any],
@@ -947,9 +1053,14 @@ class MatureBuckPointsGenerator:
         travel_scores = score_maps.get('travel', np.zeros((self.grid_size, self.grid_size)))
         bedding_scores = score_maps.get('bedding', np.zeros((self.grid_size, self.grid_size)))
         feeding_scores = score_maps.get('feeding', np.zeros((self.grid_size, self.grid_size)))
-        
-        # Create interception score: high travel, between bedding and feeding
-        interception_scores = travel_scores.copy() * 2.0
+
+        bedding_scores = bedding_scores * self._ndvi_bedding_penalty()
+
+        # Create interception score: rut emphasizes travel + bedding, de-emphasize feeding
+        if self._current_season in ['rut', 'pre_rut', 'post_rut']:
+            interception_scores = (travel_scores.copy() * 2.6) + (bedding_scores * 0.6) + (feeding_scores * 0.1)
+        else:
+            interception_scores = travel_scores.copy() * 2.0
         
         # Bonus for being between bedding and feeding areas
         for i in range(self.grid_size):
@@ -990,6 +1101,21 @@ class MatureBuckPointsGenerator:
         if thermal_analysis.get('thermal_analysis', {}).get('is_active', False):
             thermal_strength = thermal_analysis.get('thermal_analysis', {}).get('strength', 0)
             interception_scores *= (1.0 + thermal_strength / 20)
+
+        # Rut scent management: penalize stands that blow scent into bedding
+        wind_direction = self._weather_data.get('wind_direction') if isinstance(self._weather_data, dict) else None
+        if self._current_season in ['rut', 'pre_rut', 'post_rut'] and isinstance(wind_direction, (int, float)) and bedding_sites:
+            avg_bed_lat = np.mean([b.lat for b in bedding_sites])
+            avg_bed_lon = np.mean([b.lon for b in bedding_sites])
+            scent_bearing = (float(wind_direction) + 180.0) % 360.0
+            for i in range(self.grid_size):
+                for j in range(self.grid_size):
+                    coord_idx = i * self.grid_size + j
+                    if coord_idx < len(coordinates):
+                        coord = coordinates[coord_idx]
+                        bearing_to_bed = self._calculate_bearing(coord[0], coord[1], avg_bed_lat, avg_bed_lon)
+                        if self._angular_diff(bearing_to_bed, scent_bearing) <= 45.0:
+                            interception_scores[i, j] *= 0.4
         
         # Find best interception point
         best_row, best_col = np.unravel_index(np.argmax(interception_scores), interception_scores.shape)
@@ -1022,7 +1148,8 @@ class MatureBuckPointsGenerator:
                 'interception_type': 'primary_corridor',
                 'security_multiplier': security_multiplier,
                 'wind_advantage': thermal_analysis.get('dominant_wind_type', 'standard'),
-                'position': 'bedding_to_feeding_route'
+                'position': 'bedding_to_feeding_route',
+                **self._wind_tags()
             }
         )
     
@@ -1104,7 +1231,8 @@ class MatureBuckPointsGenerator:
                 'thermal_strength': thermal_analysis.get('thermal_analysis', {}).get('strength', 0),
                 'interception_type': 'thermal_advantage',
                 'wind_advantage': thermal_analysis.get('dominant_wind_type', 'standard'),
-                'travel_base_score': float(travel_scores[best_row, best_col] * 2)
+                'travel_base_score': float(travel_scores[best_row, best_col] * 2),
+                **self._wind_tags()
             }
         )
     
@@ -1221,7 +1349,8 @@ class MatureBuckPointsGenerator:
                 'access_pressure': threat_levels.get('access_points', 0),
                 'road_pressure': threat_levels.get('road_proximity', 0),
                 'interception_type': 'security_corridor',
-                'travel_base_score': float(travel_scores[best_row, best_col] * 2)
+                'travel_base_score': float(travel_scores[best_row, best_col] * 2),
+                **self._wind_tags()
             }
         )
     

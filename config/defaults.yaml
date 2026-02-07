@@ -15,7 +15,7 @@ deer_prediction_config:
       human_avoidance_buffer: 800.0    # Meters from human activity to avoid
       
     terrain:
-      elevation_preference_min: 305.0  # Minimum preferred elevation (meters)
+      elevation_preference_min: 100.0  # Minimum preferred elevation (meters)
       slope_preference_max: 30.0       # Maximum comfortable slope (degrees)
       water_proximity_max: 400.0       # Maximum acceptable distance to water (meters)
       
@@ -213,12 +213,20 @@ deer_prediction_config:
   # Optional dense LiDAR pre-scan (terrain-only) before GEE refinement
   lidar_dense_scan:
     enabled: false
-    points: 200000
-    radius_m: 800
-    top_k: 20
+    points: 100000
+    radius_m: 400
+    top_k: 10
     terrain_threshold: 0
-    chunk_size: 2000
-    min_separation_m: 75
+    chunk_size: 1000
+    min_separation_m: 37
+
+  # Corridor scoring (LiDAR-derived travel feature alignment)
+  corridor_scoring:
+    min_strength: 0.35
+    max_distance_m: 200
+    min_alignment_score: 55
+    path_max_link_m: 200
+    path_max_bearing_diff_deg: 60
 
   # Validation and Constraints
   validation:

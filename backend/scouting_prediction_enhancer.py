@@ -30,6 +30,9 @@ class ScoutingPredictionEnhancer:
     
     def __init__(self):
         self.data_manager = get_scouting_data_manager()
+
+        # Hard cutoff for stale observations
+        self.default_max_age_days = 365
         
         # Enhancement parameters for different observation types
         self.enhancement_config = {
@@ -39,6 +42,7 @@ class ScoutingPredictionEnhancer:
                 "bedding_boost": 15.0,  # Additional boost to nearby bedding areas
                 "travel_boost": 10.0,   # Additional boost to travel corridors
                 "decay_days": 14,       # How long enhancement lasts
+                "max_age_days": 90,
                 "mature_buck_indicator": True  # Strong indicator of mature buck presence
             },
             ObservationType.RUB_LINE: {
@@ -47,6 +51,7 @@ class ScoutingPredictionEnhancer:
                 "travel_boost": 25.0,   # Strong travel corridor indicator
                 "bedding_boost": 8.0,
                 "decay_days": 21,       # Rubs last longer than scrapes
+                "max_age_days": 180,
                 "mature_buck_indicator": True
             },
             ObservationType.BEDDING_AREA: {
@@ -55,6 +60,7 @@ class ScoutingPredictionEnhancer:
                 "bedding_boost": 30.0,  # Major bedding area boost
                 "travel_boost": 5.0,
                 "decay_days": 30,       # Bedding areas are more permanent
+                "max_age_days": 365,
                 "mature_buck_indicator": False  # Could be any deer
             },
             ObservationType.TRAIL_CAMERA: {
@@ -63,6 +69,7 @@ class ScoutingPredictionEnhancer:
                 "travel_boost": 20.0,
                 "bedding_boost": 5.0,
                 "decay_days": 7,        # Camera data is time-sensitive
+                "max_age_days": 90,
                 "mature_buck_indicator": False,  # Depends on camera data
                 "mature_buck_bonus": 32.0,      # Bonus when a mature buck is confirmed
                 "recent_sighting_days": 14,     # How long a sighting stays "hot"
@@ -74,6 +81,7 @@ class ScoutingPredictionEnhancer:
                 "travel_boost": 15.0,
                 "bedding_boost": 3.0,
                 "decay_days": 3,        # Tracks fade quickly
+                "max_age_days": 30,
                 "mature_buck_indicator": False
             },
             ObservationType.FEEDING_SIGN: {
@@ -82,6 +90,7 @@ class ScoutingPredictionEnhancer:
                 "travel_boost": 5.0,
                 "bedding_boost": 2.0,
                 "decay_days": 7,
+                "max_age_days": 90,
                 "mature_buck_indicator": False
             }
         }
@@ -136,10 +145,15 @@ class ScoutingPredictionEnhancer:
     def _get_relevant_observations(self, lat: float, lon: float) -> List[ScoutingObservation]:
         """Get relevant scouting observations for the given area."""
         from .scouting_models import ScoutingQuery
+        import os
+        try:
+            radius_miles = float(os.getenv("SCOUTING_PREDICTION_RADIUS_MILES", "2.0"))
+        except Exception:
+            radius_miles = 2.0
         query = ScoutingQuery(
             lat=lat,
             lon=lon,
-            radius_miles=5.0,  # Search within 5 miles (increased from 2 miles)
+            radius_miles=radius_miles,  # Tighten spatial relevance for prediction priors
             days_back=365      # Use observations from last year (increased from 60 days)
         )
         return self.data_manager.get_observations(query)
@@ -215,6 +229,12 @@ class ScoutingPredictionEnhancer:
             else:
                 now = datetime.now()
             age_days = (now - obs.timestamp).days
+            max_age_days = config.get("max_age_days", self.default_max_age_days)
+            if max_age_days is not None and age_days > int(max_age_days):
+                logger.debug(
+                    f"Skipping {obs.observation_type} ({obs.id}) - age {age_days}d exceeds {max_age_days}d cutoff"
+                )
+                return None
             decay_factor = max(0.1, 1.0 - (age_days / config["decay_days"]))
             
             # Calculate confidence factor

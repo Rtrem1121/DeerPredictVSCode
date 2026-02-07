@@ -667,7 +667,7 @@ class MatureBuckBehaviorModel:
         
         # Add specific terrain-based stand recommendations
         enhanced_prediction['terrain_stand_recommendations'] = self._generate_terrain_based_stands(
-            terrain_analysis, lat, lon
+            terrain_analysis, lat, lon, season
         )
         
         # Add natural funnel analysis
@@ -1329,7 +1329,7 @@ class MatureBuckBehaviorModel:
         enhanced_bedding.sort(key=lambda x: x['confidence'], reverse=True)
         return enhanced_bedding[:4]  # Return top 4 enhanced bedding areas
     
-    def _generate_terrain_based_stands(self, terrain_analysis: Dict, lat: float, lon: float) -> List[Dict]:
+    def _generate_terrain_based_stands(self, terrain_analysis: Dict, lat: float, lon: float, season: str) -> List[Dict]:
         """
         Generate stand recommendations based on detected terrain features
         
@@ -1462,10 +1462,43 @@ class MatureBuckBehaviorModel:
             }
             stand_recommendations.append(stand)
         
+        # Rut boost: prioritize funnels, saddles, and corridor pinch points
+        if season in ["rut", "pre_rut", "post_rut"]:
+            for stand in stand_recommendations:
+                stand_type = str(stand.get('type', ''))
+                rut_bonus = 0.0
+                if "Funnel" in stand_type:
+                    rut_bonus = 12.0
+                elif "Saddle" in stand_type:
+                    rut_bonus = 10.0
+                elif "Ridge" in stand_type or "Corridor" in stand_type:
+                    rut_bonus = 8.0
+                elif "Drainage" in stand_type:
+                    rut_bonus = 6.0
+                stand['mature_buck_score'] = float(stand.get('mature_buck_score', 0.0)) + rut_bonus
+                stand['rut_bonus'] = rut_bonus
+
         # Sort by mature buck score
         stand_recommendations.sort(key=lambda x: x['mature_buck_score'], reverse=True)
-        
+
+        min_sep = 200.0 if season in ["rut", "pre_rut", "post_rut"] else 100.0
+        stand_recommendations = self._decluster_stands_by_distance(stand_recommendations, min_sep)
+
         return stand_recommendations[:4]  # Return top 4 terrain-based stands
+
+    def _decluster_stands_by_distance(self, stands: List[Dict], min_sep_m: float) -> List[Dict]:
+        if not stands:
+            return []
+        kept: List[Dict] = []
+        for stand in stands:
+            lat = stand.get('lat')
+            lon = stand.get('lon')
+            if lat is None or lon is None:
+                continue
+            if all(self._calculate_haversine_distance(lat, lon, s.get('lat'), s.get('lon')) * 1609.34 >= min_sep_m
+                   for s in kept if s.get('lat') is not None and s.get('lon') is not None):
+                kept.append(stand)
+        return kept
     
     def _generate_terrain_behavioral_insights(self, terrain_analysis: Dict, season: str, weather_data: Dict) -> List[str]:
         """

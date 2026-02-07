@@ -1001,6 +1001,11 @@ class VegetationAnalyzer:
     def _analyze_water_sources(self, area: ee.Geometry) -> Dict[str, Any]:
         """Analyze proximity and availability of water sources"""
         try:
+            def _safe_float(value: Any, default: float = 0.0) -> float:
+                if isinstance(value, (int, float)):
+                    return float(value)
+                return default
+
             # Use JRC Global Surface Water dataset
             water = ee.Image('JRC/GSW1_4/GlobalSurfaceWater')
             occurrence = water.select('occurrence')
@@ -1011,12 +1016,15 @@ class VegetationAnalyzer:
                 geometry=area,
                 scale=30,
                 maxPixels=1e9
-            ).getInfo()
+            ).getInfo() or {}
+
+            occurrence_mean = _safe_float(water_stats.get('occurrence_mean'))
+            occurrence_max = _safe_float(water_stats.get('occurrence_max'))
             
             water_availability = {
-                'water_occurrence_percent': round(water_stats.get('occurrence_mean', 0), 1),
-                'max_water_occurrence': round(water_stats.get('occurrence_max', 0), 1),
-                'water_reliability': self._assess_water_reliability(water_stats.get('occurrence_mean', 0)),
+                'water_occurrence_percent': round(occurrence_mean, 1),
+                'max_water_occurrence': round(occurrence_max, 1),
+                'water_reliability': self._assess_water_reliability(occurrence_mean),
                 'seasonal_water_score': self._calculate_seasonal_water_score(water_stats)
             }
             

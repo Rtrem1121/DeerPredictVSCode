@@ -33,4 +33,8 @@ deer_prediction_config:
   # Enable dense LiDAR pre-scan in production
   lidar_dense_scan:
     enabled: true
-    points: 200000
+    points: 100000
+
+  corridor_scoring:
+    path_max_link_m: 200
+    path_max_bearing_diff_deg: 60

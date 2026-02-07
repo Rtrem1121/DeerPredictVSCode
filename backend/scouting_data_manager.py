@@ -107,7 +107,7 @@ class ScoutingDataManager:
             # Atomic write using temporary file
             temp_file = f"{self.data_file}.tmp"
             with open(temp_file, 'w') as f:
-                json.dump(data, f, indent=2)
+                json.dump(self._json_safe(data), f, indent=2)
             
             # Replace original file atomically
             os.replace(temp_file, self.data_file)
@@ -132,7 +132,7 @@ class ScoutingDataManager:
                 data = self._load_data()
                 
                 # Convert observation to dict and add
-                obs_dict = observation.to_dict()
+                obs_dict = self._json_safe(observation.to_dict())
                 data["observations"].append(obs_dict)
                 
                 # Save updated data
@@ -172,10 +172,19 @@ class ScoutingDataManager:
             
             logger.info(f"Retrieved {len(observations)} observations for query")
             return observations
-            
         except Exception as e:
             logger.error(f"Failed to get observations: {e}")
             return []
+
+    @staticmethod
+    def _json_safe(obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        if isinstance(obj, dict):
+            return {key: ScoutingDataManager._json_safe(value) for key, value in obj.items()}
+        if isinstance(obj, list):
+            return [ScoutingDataManager._json_safe(item) for item in obj]
+        return obj
     
     def get_observation_by_id(self, observation_id: str) -> Optional[ScoutingObservation]:
         """Get a specific observation by ID"""

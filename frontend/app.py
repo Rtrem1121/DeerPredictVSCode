@@ -792,6 +792,16 @@ with tab_hotspots:
             if badges_html or canopy_str:
                 st.markdown(badges_html + canopy_str, unsafe_allow_html=True)
 
+            # ── "Why this stand" narrative ───────────────────────────
+            top_why = top_rec.get("why")
+            if top_why:
+                st.markdown(
+                    f'<div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px;'
+                    f'padding:10px 14px;margin:8px 0;font-size:0.92em;line-height:1.5">'
+                    f'<b>💡 Why this stand:</b> {top_why}</div>',
+                    unsafe_allow_html=True,
+                )
+
             # ── Bedding Card ─────────────────────────────────────────
             nearest_bed = top_rec.get("nearest_bedding")
             bed_prox = top_rec.get("bedding_proximity_score")
@@ -886,6 +896,16 @@ with tab_hotspots:
             )
             sel_rec = stand_recs[int(selected_idx)]
 
+            # ── "Why this stand" for selected ───────────────────────
+            sel_why = sel_rec.get("why")
+            if sel_why:
+                st.markdown(
+                    f'<div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px;'
+                    f'padding:10px 14px;margin:8px 0;font-size:0.92em;line-height:1.5">'
+                    f'<b>💡 Why this stand:</b> {sel_why}</div>',
+                    unsafe_allow_html=True,
+                )
+
             # ── Detail Cards ────────────────────────────────────────
             d1, d2, d3 = st.columns(3)
             with d1:
@@ -910,7 +930,8 @@ with tab_hotspots:
                 st.markdown("**Scoring Breakdown**")
                 for label, key in [("Final Score", "final_score"), ("Combined", "combined_score"),
                                     ("Terrain Norm", "terrain_norm"), ("Behavior", "behavior_score"),
-                                    ("Bedding Proximity", "bedding_proximity_score")]:
+                                    ("Bedding Proximity", "bedding_proximity_score"),
+                                    ("Corridor Proximity", "corridor_proximity_score")]:
                     v = sel_rec.get(key)
                     if isinstance(v, (int, float)):
                         st.markdown(f"**{label}:** {float(v):.3f}")
@@ -1019,6 +1040,53 @@ with tab_hotspots:
 
                     bedding_fg.add_to(max_map)
 
+                # ── Movement Corridors (M2) ──────────────────────────
+                corridor_data = max_accuracy_report.get("corridors")
+                show_corridors = st.checkbox("Show movement corridors", value=True, key="ma_show_corridors") if corridor_data else False
+                if show_corridors and isinstance(corridor_data, dict):
+                    corridor_fg = folium.FeatureGroup(name="🦌 Movement Corridors")
+                    polylines = corridor_data.get("polylines", [])
+                    num_paths = len(polylines)
+                    for idx, pl in enumerate(polylines):
+                        if not pl or len(pl) < 2:
+                            continue
+                        # Color gradient: primary corridors are darker
+                        opacity = max(0.4, 0.85 - idx * 0.03)
+                        weight = max(2, 5 - idx * 0.2)
+                        folium.PolyLine(
+                            pl, color="#dc2626", weight=weight, opacity=opacity,
+                            dash_array="6 4",
+                            tooltip=f"🦌 Corridor #{idx + 1} of {num_paths}",
+                        ).add_to(corridor_fg)
+                    # Corridor nodes
+                    corridor_nodes = corridor_data.get("nodes", [])
+                    for cn in corridor_nodes:
+                        cn_lat, cn_lon = cn.get("lat"), cn.get("lon")
+                        cn_kind = cn.get("kind", "")
+                        cn_name = cn.get("name", "")
+                        if cn_lat is None or cn_lon is None:
+                            continue
+                        if cn_kind == "evidence":
+                            folium.CircleMarker(
+                                [cn_lat, cn_lon], radius=8,
+                                color="#b91c1c", fill=True, fill_color="#ef4444", fill_opacity=0.7, weight=2,
+                                tooltip=f"📌 Evidence: {cn_name}",
+                            ).add_to(corridor_fg)
+                    corridor_fg.add_to(max_map)
+
+                    # Corridor summary banner
+                    coverage = corridor_data.get("corridor_coverage_pct", 0)
+                    n_paths = corridor_data.get("num_paths", 0)
+                    n_nodes = corridor_data.get("num_nodes", 0)
+                    st.markdown(
+                        f'<div style="background:linear-gradient(135deg,#dc262615,#dc262608);'
+                        f'border-left:4px solid #dc2626;border-radius:8px;padding:10px 14px;margin:8px 0">'
+                        f'<span style="font-weight:700">🦌 Movement Corridors</span> · '
+                        f'{n_paths} paths · {n_nodes} nodes · {coverage:.1f}% corridor coverage'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
                 # Stand markers — color-coded by rank
                 stands_fg = folium.FeatureGroup(name="🎯 Stand Sites")
                 stand_colors = ["red", "blue", "purple", "darkred", "orange", "darkblue", "cadetblue", "darkgreen", "gray", "lightred"]
@@ -1097,6 +1165,7 @@ with tab_hotspots:
                     '📌 <span style="color:#7c3aed">#3+ Stands</span><br>'
                     '🟢 Prime Bedding<br>'
                     '🟠 Secondary Bedding<br>'
+                    '<span style="color:#dc2626">━━</span> Movement Corridor<br>'
                     '--- Stand→Bed link'
                     '</div>'
                 )

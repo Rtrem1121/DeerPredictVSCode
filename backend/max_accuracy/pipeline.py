@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
@@ -8,6 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from backend.corridor import CorridorEngine, CorridorConfig
 from backend.services.lidar_processor import DEMFileManager, RASTERIO_AVAILABLE  # type: ignore
 from backend.utils.geo import (
     angular_diff,
@@ -132,13 +134,10 @@ class MaxAccuracyPipeline:
             run_month, run_day, run_hour = 11, 10, 7  # default to peak rut morning
 
         rut_phase = classify_rut_phase(run_month, run_day)
-        # Override season with more precise rut phase when applicable
-        if rut_phase in {"pre_rut", "seeking", "peak_rut", "post_rut"}:
-            effective_season = rut_phase
-        elif rut_phase == "late_season":
-            effective_season = "late"
-        else:
-            effective_season = season
+        # Always use classify_rut_phase result — it returns well-defined keys
+        # (early_season, pre_rut, seeking, peak_rut, post_rut, late_season)
+        # that match corridor SEASON_PROFILES and behavior weight tables.
+        effective_season = rut_phase
         logger.info(
             "MaxAccuracy: date=%s rut_phase=%s effective_season=%s",
             date_time, rut_phase, effective_season,
@@ -267,6 +266,28 @@ class MaxAccuracyPipeline:
                 },
             )
 
+            # ── Corridor analysis (M2) ──
+            t0 = time.monotonic()
+            corridor_data = self._run_corridor_analysis(
+                dem_path, corners, bedding_zones, effective_season,
+            )
+            if corridor_data:
+                logger.info(
+                    "MaxAccuracy: corridor analysis complete in %.2fs (%d paths)",
+                    time.monotonic() - t0,
+                    corridor_data.get("num_paths", 0),
+                )
+                report_progress(
+                    "corridors_computed",
+                    {
+                        "num_paths": corridor_data.get("num_paths", 0),
+                        "coverage_pct": corridor_data.get("corridor_coverage_pct", 0),
+                        "elapsed_s": round(time.monotonic() - t0, 2),
+                    },
+                )
+            else:
+                logger.info("MaxAccuracy: corridor analysis skipped or failed")
+
             t0 = time.monotonic()
             stand_recommendations = self._select_stands(combined, corners, effective_season, bedding_zones)
             logger.info(
@@ -281,6 +302,24 @@ class MaxAccuracyPipeline:
                     "elapsed_s": round(time.monotonic() - t0, 2),
                 },
             )
+
+            # ── M3: Corridor proximity + stand narratives ──
+            try:
+                from backend.corridor.stand_reasoning import (
+                    enrich_stands_with_corridor_proximity,
+                    generate_stand_narrative,
+                )
+                enrich_stands_with_corridor_proximity(stand_recommendations, corridor_data)
+                for idx, rec in enumerate(stand_recommendations):
+                    rec["why"] = generate_stand_narrative(
+                        rec,
+                        rank=idx + 1,
+                        bedding_zones=bedding_zones,
+                        corridor_data=corridor_data,
+                        season=effective_season,
+                    )
+            except Exception:
+                logger.exception("MaxAccuracy: stand reasoning failed (non-fatal)")
 
             logger.info("MaxAccuracy: run complete in %.2fs", time.monotonic() - start_time)
             report_progress(
@@ -318,6 +357,7 @@ class MaxAccuracyPipeline:
                     for b in bedding_zones
                 ],
                 "stand_recommendations": stand_recommendations,
+                "corridors": corridor_data,
             }
         except Exception as exc:
             logger.exception("MaxAccuracy: run failed")
@@ -876,6 +916,132 @@ class MaxAccuracyPipeline:
             bedding[0].get("bedding_quality", 0) if bedding else 0,
         )
         return bedding
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Corridor Analysis (M2)
+    # ─────────────────────────────────────────────────────────────────────────
+    def _run_corridor_analysis(
+        self,
+        dem_path: str,
+        corners: List[Tuple[float, float]],
+        bedding_zones: List[Dict[str, Any]],
+        season: str,
+        corridor_cell_m: float = 10.0,
+    ) -> Optional[Dict[str, Any]]:
+        """Build movement corridors from the DEM at corridor resolution.
+
+        Reads the DEM at *corridor_cell_m* resolution (downsampled from
+        native), computes terrain metrics, builds a cost surface, and
+        routes least-cost paths between bedding zone nodes.
+
+        Returns a serialisable dict (from CorridorResult.to_dict()) or
+        None on failure.
+        """
+        try:
+            import rasterio  # type: ignore
+            from rasterio.warp import transform as rasterio_transform  # type: ignore
+        except ImportError:
+            logger.warning("CorridorAnalysis: rasterio not available")
+            return None
+
+        if len(bedding_zones) < 2:
+            logger.info("CorridorAnalysis: <2 bedding zones, skipping corridor analysis")
+            return None
+
+        try:
+            lats = [c[0] for c in corners]
+            lons = [c[1] for c in corners]
+            min_lat, max_lat = min(lats), max(lats)
+            min_lon, max_lon = min(lons), max(lons)
+
+            lat_center = (min_lat + max_lat) / 2.0
+            m_per_deg_lat = 111_132.0
+            m_per_deg_lon = 111_320.0 * math.cos(math.radians(lat_center))
+
+            with rasterio.open(dem_path) as src:
+                xs, ys = rasterio_transform("EPSG:4326", src.crs, [min_lon, max_lon], [min_lat, max_lat])
+                min_x, max_x = min(xs), max(xs)
+                min_y, max_y = min(ys), max(ys)
+
+                window = rasterio.windows.from_bounds(
+                    min_x, min_y, max_x, max_y, transform=src.transform,
+                )
+                window = window.round_offsets().round_lengths()
+
+                # Target grid shape at corridor_cell_m resolution
+                extent_lat_m = (max_lat - min_lat) * m_per_deg_lat
+                extent_lon_m = (max_lon - min_lon) * m_per_deg_lon
+                target_rows = max(10, int(extent_lat_m / corridor_cell_m))
+                target_cols = max(10, int(extent_lon_m / corridor_cell_m))
+
+                # Read DEM downsampled to target resolution
+                elev = src.read(
+                    1, window=window, masked=True,
+                    out_shape=(target_rows, target_cols),
+                ).astype("float32").filled(np.nan)
+
+            if not np.isfinite(elev).any():
+                logger.warning("CorridorAnalysis: DEM has no valid data in corridor window")
+                return None
+
+            # Replace NaN with nearest valid for metric computation
+            elev = np.nan_to_num(elev, nan=float(np.nanmean(elev)))
+
+            # Compute terrain metrics at corridor resolution
+            metrics = compute_metrics(
+                elev, corridor_cell_m,
+                self.config.tpi_small_m,
+                self.config.tpi_large_m,
+            )
+
+            slope_deg_grid = metrics["slope_deg"]
+            ridgeline_grid = detect_ridgelines(
+                metrics["tpi_large"], metrics["slope_deg"], metrics["relief_small"],
+            )
+            drainage_grid = detect_drainages(
+                metrics["tpi_small"], metrics["tpi_large"],
+                metrics["curvature"], metrics["relief_small"],
+            )
+
+            # Corridor score (same formula as main pipeline)
+            corridor_grid = (
+                np.clip(1.0 - np.abs(metrics["tpi_large"]) / np.maximum(metrics["relief_small"], 1.0), 0.0, 1.0)
+                * np.clip(metrics["relief_small"] / 10.0, 0.0, 1.0)
+            )
+
+            # Build nodes from bedding zones (top 20 by quality)
+            sorted_bz = sorted(bedding_zones, key=lambda b: b.get("bedding_quality", 0), reverse=True)
+            nodes = [
+                {
+                    "lat": float(bz["lat"]),
+                    "lon": float(bz["lon"]),
+                    "kind": "bedding",
+                    "name": f"Bed #{i + 1}",
+                    "weight": float(bz.get("bedding_quality", 0.5)),
+                }
+                for i, bz in enumerate(sorted_bz[:20])
+            ]
+
+            config = CorridorConfig(cell_m=corridor_cell_m, max_node_pairs=50)
+            engine = CorridorEngine(config)
+            result = engine.run_from_metrics(
+                slope_deg_grid, corridor_grid, ridgeline_grid, drainage_grid,
+                origin_lat=min_lat, origin_lon=min_lon,
+                nodes=nodes, season=season,
+                m_per_deg_lat=m_per_deg_lat, m_per_deg_lon=m_per_deg_lon,
+            )
+
+            summary = result.to_dict()
+            logger.info(
+                "CorridorAnalysis: %d paths, %.1f%% corridor coverage",
+                summary["num_paths"],
+                summary["corridor_coverage_pct"],
+            )
+            return summary
+
+        except Exception:
+            logger.exception("CorridorAnalysis: failed")
+            return None
 
     def _score_bedding_proximity(
         self,

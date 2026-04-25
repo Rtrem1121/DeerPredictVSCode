@@ -9,7 +9,9 @@ Author: System Refactoring
 Version: 2.0.0
 """
 
+import asyncio
 import logging
+import threading
 from typing import TypeVar, Type, Any, Dict, Optional, Callable, List
 from abc import ABC
 from dataclasses import dataclass
@@ -38,46 +40,71 @@ class ServiceContainer:
         self._factories: Dict[Type, Callable] = {}
         self._singletons: Dict[Type, Any] = {}
         self._transients: set = set()
+        # Guards _factories / _singletons / _transients against concurrent
+        # mutation. FastAPI runs sync handlers on a thread pool, so two
+        # concurrent first-touch calls could otherwise both invoke a
+        # singleton factory and stash competing instances.
+        self._lock = threading.RLock()
         self.logger = logging.getLogger(__name__)
-    
+
     def register_singleton(self, service_type: Type[T], factory: Callable[[], T]) -> None:
         """Register a service as singleton (single instance per container)"""
-        self._factories[service_type] = factory
+        with self._lock:
+            self._factories[service_type] = factory
         self.logger.debug(f"Registered singleton service: {service_type.__name__}")
-    
+
     def register_transient(self, service_type: Type[T], factory: Callable[[], T]) -> None:
         """Register a service as transient (new instance per request)"""
-        self._factories[service_type] = factory
-        self._transients.add(service_type)
+        with self._lock:
+            self._factories[service_type] = factory
+            self._transients.add(service_type)
         self.logger.debug(f"Registered transient service: {service_type.__name__}")
-    
+
     def register_instance(self, service_type: Type[T], instance: T) -> None:
         """Register a specific instance of a service"""
-        self._singletons[service_type] = instance
+        with self._lock:
+            self._singletons[service_type] = instance
         self.logger.debug(f"Registered service instance: {service_type.__name__}")
-    
+
     def get(self, service_type: Type[T]) -> T:
         """Get an instance of the specified service type"""
         try:
-            # Check if it's a singleton and already instantiated
-            if service_type in self._singletons:
-                return self._singletons[service_type]
-            
-            # Check if we have a factory
-            if service_type not in self._factories:
-                raise ValueError(f"Service not registered: {service_type.__name__}")
-            
-            # Create instance
-            factory = self._factories[service_type]
+            # Fast path: already-instantiated singleton (read is fine
+            # without the lock since dict reads are atomic in CPython).
+            existing = self._singletons.get(service_type)
+            if existing is not None:
+                return existing
+
+            with self._lock:
+                # Re-check after acquiring the lock (double-checked
+                # locking) to avoid running the factory twice when two
+                # threads race on first-touch.
+                existing = self._singletons.get(service_type)
+                if existing is not None:
+                    return existing
+
+                if service_type not in self._factories:
+                    raise ValueError(f"Service not registered: {service_type.__name__}")
+
+                factory = self._factories[service_type]
+                is_transient = service_type in self._transients
+
+            # Run the factory outside the lock so a slow-initializing
+            # service (e.g., Redis pool warmup) doesn't block other
+            # service lookups.
             instance = factory()
-            
-            # Store if singleton
-            if service_type not in self._transients:
-                self._singletons[service_type] = instance
-            
+
+            if not is_transient:
+                with self._lock:
+                    # Another thread may have stored an instance while we
+                    # were running the factory; keep the first-stored one
+                    # so callers always see the same singleton.
+                    self._singletons.setdefault(service_type, instance)
+                    instance = self._singletons[service_type]
+
             self.logger.debug(f"Created service instance: {service_type.__name__}")
             return instance
-            
+
         except Exception as e:
             self.logger.error(f"Failed to create service {service_type.__name__}: {e}")
             raise
@@ -189,12 +216,42 @@ def _setup_default_services() -> None:
 
 
 def reset_container() -> None:
-    """Reset the global container (useful for testing)"""
+    """Reset the global container (useful for testing).
+
+    Performs a best-effort synchronous shutdown of the previous container
+    so its services release Redis pools, aiohttp sessions, etc., before
+    we drop the reference. If we're already inside a running event loop
+    (e.g., called from an async test), schedule the shutdown there;
+    otherwise spin up a short-lived loop.
+    """
     global _container
-    if _container:
-        import asyncio
-        asyncio.create_task(_container.shutdown())
+    previous = _container
     _container = None
+
+    if previous is None:
+        return
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    try:
+        if loop is None:
+            # No running loop — drive shutdown synchronously.
+            asyncio.run(previous.shutdown())
+        else:
+            # Inside an event loop. Schedule shutdown without blocking;
+            # add a done-callback so unhandled exceptions surface in logs
+            # instead of being silently swallowed by GC.
+            task = loop.create_task(previous.shutdown())
+            task.add_done_callback(
+                lambda t: t.exception() and logger.error(
+                    "Container shutdown raised: %s", t.exception()
+                )
+            )
+    except Exception as exc:
+        logger.warning("reset_container: shutdown failed: %s", exc)
 
 
 # Convenience functions for common dependency injection patterns

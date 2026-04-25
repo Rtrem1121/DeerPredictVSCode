@@ -21,18 +21,15 @@ from backend.utils.terrain_scoring import (
     classify_rut_phase,
     detect_drainages,
     detect_ridgelines,
-    ridge_proximity_preference,
     scent_carry_distance,
     scent_cone_half_width,
-    season_canopy_score,
-    slope_preference,
 )
 
 from .behavior import score_behavior
 from .config import MaxAccuracyConfig
 from .gee import get_gee_summary
 from .grid import generate_dense_grid
-from .terrain_metrics import compute_metrics, score_bench_saddle
+from .terrain_metrics import compute_metrics
 from .wind import build_wind_options, get_wind_data
 
 logger = logging.getLogger(__name__)
@@ -389,9 +386,6 @@ class MaxAccuracyPipeline:
 
         if not points:
             return []
-
-        def clamp01(value: float) -> float:
-            return max(0.0, min(1.0, value))
 
         lats = [p[0] for p in points]
         lons = [p[1] for p in points]

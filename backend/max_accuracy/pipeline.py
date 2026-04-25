@@ -490,8 +490,14 @@ class MaxAccuracyPipeline:
                         self.config.tpi_large_m,
                     )
                 except Exception:
-                    logger.exception("MaxAccuracy: terrain metrics failed for tile %s/%s", tile_idx, total_tiles)
-                    raise
+                    # Match the DEM-read failure semantics above: skip the
+                    # bad tile and keep scoring the rest of the property
+                    # rather than aborting the whole run.
+                    logger.exception(
+                        "MaxAccuracy: terrain metrics failed for tile %s/%s — skipping",
+                        tile_idx, total_tiles,
+                    )
+                    continue
 
                 elev_min = float(np.nanmin(elev))
                 elev_max = float(np.nanmax(elev))

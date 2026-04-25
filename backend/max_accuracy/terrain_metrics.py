@@ -86,7 +86,12 @@ def score_bench_saddle(
     relief_small: float,
     curvature: float,
 ) -> Tuple[float, float]:
-    """Return (bench_score, saddle_score) for a point."""
+    """Return (bench_score, saddle_score) for a single point.
+
+    NOTE: The vectorised pipeline inlines equivalent logic for performance.
+    This helper is kept for unit-test coverage and point-level debugging.
+    Do not add new callers; prefer the vectorised path in pipeline.py.
+    """
 
     def clamp01(value: float) -> float:
         return max(0.0, min(1.0, value))

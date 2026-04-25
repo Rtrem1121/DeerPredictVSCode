@@ -47,7 +47,7 @@ class MovementType(str, Enum):
     UNKNOWN = "unknown"
 
 
-def _is_daylight(ts: datetime, lat: float) -> bool:
+def _is_daylight(ts: datetime) -> bool:
     """Approximate daylight check using civil-twilight estimation.
 
     Uses a simple solar-noon heuristic for the latitude band
@@ -61,10 +61,18 @@ def _is_daylight(ts: datetime, lat: float) -> bool:
         1: 4.5, 2: 5.0, 3: 5.8, 4: 6.5, 5: 7.0, 6: 7.5,
         7: 7.3, 8: 6.7, 9: 5.8, 10: 5.0, 11: 4.5, 12: 4.3,
     }
-    # Convert to US/Eastern naive hour for comparison
+    # Convert to US/Eastern naive hour for comparison.
+    # DST in the US is approximately Mar 8 – Nov 1 (second Sunday of
+    # March to first Sunday of November).  Using fixed dates is accurate
+    # to within a week at the boundaries, which is sufficient for a
+    # binary daylight flag.
     utc_hour = ts.hour + ts.minute / 60.0
-    # Eastern offset: UTC-5 standard, UTC-4 DST (March–Nov approx)
-    dst = 4 if 3 <= ts.month <= 11 else 5
+    dst = (
+        4 if (ts.month > 3 and ts.month < 11)
+        or (ts.month == 3 and ts.day >= 8)
+        or (ts.month == 11 and ts.day <= 1)
+        else 5
+    )
     local_hour = (utc_hour - dst) % 24
 
     half_day = _offsets_by_month.get(ts.month, 6.0)
@@ -116,7 +124,7 @@ class BuckEvent(BaseModel):
     def model_post_init(self, __context) -> None:
         if self.daylight is None:
             object.__setattr__(
-                self, "daylight", _is_daylight(self.timestamp, self.lat)
+                self, "daylight", _is_daylight(self.timestamp)
             )
 
     # -- Maturity helpers --------------------------------------------------

@@ -669,56 +669,64 @@ class PredictionService:
         """
         try:
             grid_size = 10
-            
-            # Try to use Vermont spatial food grid if coordinates available
-            if lat is not None and lon is not None:
+
+            # Primary path: use vegetation analyzer Vermont food classification when available.
+            if lat is not None and lon is not None and self.vegetation_analyzer is not None:
                 try:
-                    from backend.vermont_food_classifier import get_vermont_food_classifier
-                    
-                    vt_classifier = get_vermont_food_classifier()
-                    
-                    # Get spatial food grid with GPS-mapped food sources
-                    spatial_result = vt_classifier.create_spatial_food_grid(
-                        center_lat=lat,
-                        center_lon=lon,
+                    veg_result = self.vegetation_analyzer.analyze_hunting_area(
+                        lat=lat,
+                        lon=lon,
+                        radius_km=2.0,
                         season=season,
-                        grid_size=grid_size,
-                        span_deg=0.04,
-                        radius_m=2000
                     )
-                    
-                    # Extract food grid (0-1 scale)
-                    food_grid = spatial_result['food_grid']
-                    
-                    # Convert to 0-10 scale for scoring
-                    scores = food_grid * 10.0
-                    
-                    # Log spatial food grid results
-                    grid_metadata = spatial_result.get('grid_metadata', {})
-                    food_patches = spatial_result.get('food_patch_locations', [])
-                    
-                    logger.info(f"[OSM] SPATIAL FOOD GRID: {len(food_patches)} high-quality patches identified")
-                    logger.info(f"   Mean quality: {grid_metadata.get('mean_grid_quality', 0):.2f}, "
-                               f"Range: {food_grid.min():.2f}-{food_grid.max():.2f}")
-                    
-                    # Log top food patch locations
-                    if food_patches:
-                        top_patch = food_patches[0]
-                        logger.info(f"   [FOOD] Best food: {top_patch['lat']:.4f}, {top_patch['lon']:.4f} "
-                                   f"(quality: {top_patch['quality']:.2f})")
-                    
-                    # Store spatial data in result for stand placement
-                    result['vermont_food_grid'] = {
-                        'food_grid': food_grid.tolist(),
-                        'food_patch_locations': food_patches,
-                        'grid_coordinates': spatial_result.get('grid_coordinates', {}),
-                        'metadata': grid_metadata
-                    }
-                    
-                    return scores
-                    
+                    food_sources = veg_result.get('food_sources', {}) if isinstance(veg_result, dict) else {}
+                    overall_food_score = float(food_sources.get('overall_food_score', 0.0))
+
+                    if overall_food_score > 0:
+                        # Build a spatially-varying grid: each cell gets a per-patch
+                        # quality score based on proximity to reported food patch
+                        # locations returned by the food classifier. Falls back to a
+                        # uniform field if no patch locations are present.
+                        food_patches = food_sources.get('food_patch_locations', [])
+                        scores = np.ones((grid_size, grid_size)) * (overall_food_score * 10.0)
+                        if food_patches and lat is not None and lon is not None:
+                            try:
+                                lat_grid, lon_grid = self._generate_score_grid(
+                                    lat, lon, grid_size=grid_size, span_deg=0.04
+                                )
+                                for i in range(grid_size):
+                                    for j in range(grid_size):
+                                        cell_lat = float(lat_grid[i, j])
+                                        cell_lon = float(lon_grid[i, j])
+                                        best = 0.0
+                                        for patch in food_patches:
+                                            plat = float(patch.get('lat', lat))
+                                            plon = float(patch.get('lon', lon))
+                                            quality = float(patch.get('quality', overall_food_score))
+                                            dist_m = haversine(cell_lat, cell_lon, plat, plon)
+                                            influence = float(np.exp(-((dist_m / 400.0) ** 2)))
+                                            best = max(best, influence * quality)
+                                        scores[i, j] = max(overall_food_score * 2.0, best * 10.0)
+                            except Exception:
+                                logger.debug("Vermont food spatial grid failed, using uniform field", exc_info=True)
+                        scores = np.clip(scores, 0.0, 10.0)
+                        # Persist the grid and patch locations so _extract_travel_scores
+                        # can use them as a feeding anchor without a second GEE call.
+                        if isinstance(result, dict):
+                            result['vermont_food_grid'] = {
+                                'food_patch_locations': food_patches,
+                                'overall_score': overall_food_score,
+                                'season': season,
+                            }
+                        logger.info(
+                            "[DEER] VERMONT FOOD ANALYSIS: season=%s overall_food_score=%.2f patches=%d",
+                            season,
+                            overall_food_score,
+                            len(food_patches),
+                        )
+                        return np.clip(scores, 0.0, 10.0)
                 except Exception as e:
-                    logger.warning(f"[WARN] Spatial food grid creation failed, using fallback: {e}")
+                    logger.warning(f"[WARN] Vermont vegetation food analysis failed, using fallback: {e}")
             
             # Fallback to generic feeding area scoring
             scores = np.ones((grid_size, grid_size)) * 4.0  # Base feeding score

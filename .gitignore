@@ -56,3 +56,5 @@ analytics_data/
 # Temp files
 *_tmp.txt
 test_results.txt
+# Generated test artifact (written by test_open_meteo_structure.py; not for tracking)
+open_meteo_sample_response.json

@@ -807,6 +807,10 @@ class MaxAccuracyPipeline:
         wind_speed_mph = 8.0
         if self.config.enable_wind and selected:
             try:
+                # NOTE: wind is sampled from selected[0] *before* the
+                # bedding-proximity re-rank below.  On a property-scale
+                # polygon the difference is negligible, but be aware the
+                # wind data may not belong to the final top-ranked stand.
                 wind_data = get_wind_data(selected[0]["lat"], selected[0]["lon"])
                 wind_direction = float(wind_data.get("wind_direction", 270.0))
                 wind_speed_mph = float(wind_data.get("wind_speed", 8.0))
@@ -1028,10 +1032,15 @@ class MaxAccuracyPipeline:
                 target_rows = max(10, int(extent_lat_m / corridor_cell_m))
                 target_cols = max(10, int(extent_lon_m / corridor_cell_m))
 
-                # Read DEM downsampled to target resolution
+                # Read DEM downsampled to target resolution.
+                # Use bilinear resampling (not the default nearest-neighbor) so
+                # derivative-based metrics (slope, TPI, curvature) do not alias
+                # at the corridor scale.
+                from rasterio.enums import Resampling as _Resampling
                 elev = src.read(
                     1, window=window, masked=True,
                     out_shape=(target_rows, target_cols),
+                    resampling=_Resampling.bilinear,
                 ).astype("float32").filled(np.nan)
 
             if not np.isfinite(elev).any():

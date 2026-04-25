@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from backend.max_accuracy import MaxAccuracyConfig, MaxAccuracyPipeline
 
@@ -41,6 +41,23 @@ class MaxAccuracyConfigOverrides(BaseModel):
     min_per_quadrant: Optional[int] = Field(None, ge=0, le=20)
     enable_tiling: Optional[bool] = None
     tile_size_px: Optional[int] = Field(None, ge=256, le=8192)
+    # Bedding identification thresholds
+    bedding_min_shelter: Optional[float] = Field(None, ge=0.0, le=1.0)
+    bedding_min_bench: Optional[float] = Field(None, ge=0.0, le=1.0)
+    bedding_min_roughness: Optional[float] = Field(None, ge=0.0, le=20.0)
+    bedding_slope_min: Optional[float] = Field(None, ge=0.0, le=45.0)
+    bedding_slope_max: Optional[float] = Field(None, ge=0.0, le=45.0)
+    bedding_proximity_weight: Optional[float] = Field(None, ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def tpi_scales_must_be_ordered(self) -> "MaxAccuracyConfigOverrides":
+        small = self.tpi_small_m
+        large = self.tpi_large_m
+        if small is not None and large is not None and small >= large:
+            raise ValueError(
+                f"tpi_small_m ({small}) must be less than tpi_large_m ({large})"
+            )
+        return self
 
 
 class MaxAccuracyRequest(BaseModel):
@@ -254,7 +271,15 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
                 _progress("error", {"error": str(exc)})
 
         loop = asyncio.get_running_loop()
-        loop.run_in_executor(None, _runner)
+        # Stash the future so the event loop holds a reference to the worker.
+        # Without this, a worker crash before writing status leaves the job
+        # in "queued" until the stale-detector (STALE_JOB_MINUTES) trips.
+        _future = loop.run_in_executor(None, _runner)
+        _future.add_done_callback(
+            lambda f: f.exception() and logger.error(
+                "MaxAccuracy worker thread raised an unhandled exception for job %s", job_id, exc_info=f.exception()
+            )
+        )
 
         return MaxAccuracyResponse(success=True, job_id=job_id)
     except HTTPException as exc:

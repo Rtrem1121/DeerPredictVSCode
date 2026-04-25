@@ -14,13 +14,27 @@ import os
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _utc_now_iso() -> str:
+    """Return current UTC time as an ISO-8601 string ending in 'Z'.
+
+    Wraps timezone-aware datetime.now() and replaces the offset with 'Z'
+    for consistent on-disk format. Avoids deprecated datetime.utcnow().
+    """
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 from backend.services.hotspot.clustering import (
     best_site_score_0_200,
@@ -103,8 +117,8 @@ class HotspotJobService:
                 return HotspotJob(
                     job_id=job_id,
                     status=status,
-                    created_at=state.get("created_at") or datetime.utcnow().isoformat() + "Z",
-                    updated_at=state.get("updated_at") or datetime.utcnow().isoformat() + "Z",
+                    created_at=state.get("created_at") or _utc_now_iso(),
+                    updated_at=state.get("updated_at") or _utc_now_iso(),
                     total=int(state.get("total") or 0),
                     completed=int(state.get("completed") or 0),
                     message=state.get("message") or "Recovered from disk",
@@ -120,7 +134,7 @@ class HotspotJobService:
         if not report_path_f.exists() and not map_path_f.exists():
             return None
 
-        now = datetime.utcnow().isoformat() + "Z"
+        now = _utc_now_iso()
         status = "completed" if report_path_f.exists() else "unknown"
         job = HotspotJob(
             job_id=job_id,
@@ -137,7 +151,7 @@ class HotspotJobService:
 
     def create_job(self, total: int, message: str) -> HotspotJob:
         job_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat() + "Z"
+        now = _utc_now_iso()
         job = HotspotJob(
             job_id=job_id,
             status="queued",
@@ -173,7 +187,7 @@ class HotspotJobService:
             for k, v in kwargs.items():
                 if hasattr(job, k):
                     setattr(job, k, v)
-            job.updated_at = datetime.utcnow().isoformat() + "Z"
+            job.updated_at = _utc_now_iso()
         self._persist_job_state(job)
 
     async def run_job(
@@ -360,7 +374,7 @@ class HotspotJobService:
 
         report = {
             "job_id": job_id,
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": _utc_now_iso(),
             "inputs": {
                 "corners": [{"lat": c[0], "lon": c[1]} for c in corners],
                 "mode": mode,

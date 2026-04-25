@@ -6,7 +6,9 @@ import logging
 import os
 import socket
 import shutil
+import threading
 import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -36,6 +38,37 @@ def _parse_stale_minutes() -> int:
 
 
 STALE_JOB_MINUTES = _parse_stale_minutes()
+
+
+def _parse_max_workers() -> int:
+    raw = os.getenv("MAX_ACCURACY_MAX_WORKERS", "2")
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError("must be positive")
+        return min(value, 16)
+    except ValueError:
+        logger.warning(
+            "Invalid MAX_ACCURACY_MAX_WORKERS=%r — defaulting to 2", raw
+        )
+        return 2
+
+
+# Dedicated executor for the long-running pipeline.run() call. Using
+# loop.run_in_executor(None, ...) shares FastAPI's default 10-thread
+# pool with every sync handler; one queued max-accuracy run there can
+# starve /health checks. A small dedicated pool also gives us a real
+# capacity ceiling so we can reject the (N+1)-th submission instead of
+# silently queuing it indefinitely.
+_MAX_ACCURACY_EXECUTOR = ThreadPoolExecutor(
+    max_workers=_parse_max_workers(),
+    thread_name_prefix="maxacc-worker",
+)
+# Track in-flight worker futures by job_id so they survive the request
+# scope (without this, the only reference is the add_done_callback
+# closure — fragile if the closure is dropped).
+_INFLIGHT_FUTURES: Dict[str, "Future[None]"] = {}
+_INFLIGHT_LOCK = threading.Lock()
 
 
 max_accuracy_router = APIRouter(tags=["property-hotspots", "max-accuracy"])
@@ -125,6 +158,7 @@ def _cleanup_old_jobs(max_age_days: int = JOB_RETENTION_DAYS) -> None:
         dirs_to_scan.append(hotspot_dir)
 
     removed = 0
+    removed_ids: list[str] = []
     for parent in dirs_to_scan:
         if not parent.is_dir():
             continue
@@ -136,8 +170,13 @@ def _cleanup_old_jobs(max_age_days: int = JOB_RETENTION_DAYS) -> None:
                 if mtime < cutoff:
                     shutil.rmtree(child, ignore_errors=True)
                     removed += 1
+                    removed_ids.append(child.name)
             except OSError:
                 logger.debug("Job cleanup: failed to inspect/remove %s", child, exc_info=True)
+    if removed_ids:
+        with _STATUS_LOCKS_GUARD:
+            for jid in removed_ids:
+                _STATUS_LOCKS.pop(jid, None)
     if removed:
         logger.info("Job cleanup: removed %d job directories older than %d days", removed, max_age_days)
 
@@ -188,12 +227,33 @@ def _is_job_stale(status: Dict[str, Any], stale_minutes: int = STALE_JOB_MINUTES
     return updated < cutoff
 
 
+# One lock per job_id so concurrent writers (worker progress thread +
+# any reaper) don't truncate each other's writes mid-flight.
+_STATUS_LOCKS: Dict[str, threading.Lock] = {}
+_STATUS_LOCKS_GUARD = threading.Lock()
+
+
+def _status_lock(job_id: str) -> threading.Lock:
+    with _STATUS_LOCKS_GUARD:
+        lock = _STATUS_LOCKS.get(job_id)
+        if lock is None:
+            lock = threading.Lock()
+            _STATUS_LOCKS[job_id] = lock
+        return lock
+
+
 def _write_status(job_id: str, status: Dict[str, Any]) -> None:
     jobs_dir = _resolve_jobs_dir()
     job_dir = jobs_dir / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     status_path = job_dir / "status.json"
-    status_path.write_text(json.dumps(status, indent=2), encoding="utf-8")
+    tmp_path = status_path.with_suffix(".json.tmp")
+    payload = json.dumps(status, indent=2)
+    with _status_lock(job_id):
+        # Write-then-rename for atomic publish: a concurrent reader
+        # never sees a partially written status.json.
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, status_path)
 
 
 def _persist_report(report: Dict[str, Any], job_id: str | None = None) -> Dict[str, Any]:
@@ -250,8 +310,6 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
     try:
         pipeline, corners = _build_pipeline(request)
 
-        import asyncio
-
         job_id = uuid.uuid4().hex
         now = datetime.now(timezone.utc).isoformat()
         _write_status(
@@ -303,16 +361,31 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
             except Exception as exc:
                 _progress("error", {"error": str(exc)})
 
-        loop = asyncio.get_running_loop()
-        # Stash the future so the event loop holds a reference to the worker.
-        # Without this, a worker crash before writing status leaves the job
-        # in "queued" until the stale-detector (STALE_JOB_MINUTES) trips.
-        _future = loop.run_in_executor(None, _runner)
-        _future.add_done_callback(
-            lambda f: f.exception() and logger.error(
-                "MaxAccuracy worker thread raised an unhandled exception for job %s", job_id, exc_info=f.exception()
-            )
-        )
+        future = _MAX_ACCURACY_EXECUTOR.submit(_runner)
+        with _INFLIGHT_LOCK:
+            _INFLIGHT_FUTURES[job_id] = future
+
+        def _on_done(f: "Future[None]") -> None:
+            with _INFLIGHT_LOCK:
+                _INFLIGHT_FUTURES.pop(job_id, None)
+            exc = f.exception()
+            if exc is not None:
+                logger.error(
+                    "MaxAccuracy worker raised an unhandled exception for job %s",
+                    job_id, exc_info=exc,
+                )
+                # Worker died before writing terminal status — record it
+                # so the GET /report path doesn't have to wait for the
+                # stale-job timer to expire.
+                try:
+                    _progress("error", {"error": f"Worker crashed: {exc}"})
+                except Exception:
+                    logger.debug(
+                        "Failed to record terminal error for job %s", job_id,
+                        exc_info=True,
+                    )
+
+        future.add_done_callback(_on_done)
 
         return MaxAccuracyResponse(success=True, job_id=job_id)
     except HTTPException as exc:
@@ -332,19 +405,20 @@ async def get_max_accuracy_report(job_id: str) -> MaxAccuracyResponse:
             if not status:
                 raise HTTPException(status_code=404, detail="Report not found")
 
-            if _is_job_stale(status):
-                status["state"] = "stale"
-                status["stage"] = "stale"
-                status["updated_at"] = datetime.now(timezone.utc).isoformat()
-                status.setdefault("payload", {})
-                status["payload"]["error"] = (
-                    f"Job exceeded stale threshold of {STALE_JOB_MINUTES} minutes without completion"
+            # Report stale-ness derived from timestamp, but DO NOT persist
+            # the mutation. Writing 'stale' from the read path races the
+            # worker's progress writes and the worker doesn't observe it
+            # to actually cancel. The stale label is purely informational.
+            error_payload = (status.get("payload") or {}).get("error")
+            if not error_payload and _is_job_stale(status):
+                error_payload = (
+                    f"Job exceeded stale threshold of {STALE_JOB_MINUTES} "
+                    "minutes without completion"
                 )
-                _write_status(job_id, status)
 
             return MaxAccuracyResponse(
                 success=False,
-                error=str((status.get("payload") or {}).get("error") or f"Job state: {status.get('state', 'unknown')}"),
+                error=str(error_payload or f"Job state: {status.get('state', 'unknown')}"),
                 job_id=job_id,
             )
         report = json.loads(report_path.read_text(encoding="utf-8"))

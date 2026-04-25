@@ -131,9 +131,8 @@ class MaxAccuracyPipeline:
             dt = _dt.fromisoformat(date_time.replace("Z", "+00:00"))
             run_month = dt.month
             run_day = dt.day
-            run_hour = dt.hour
         except Exception:
-            run_month, run_day, run_hour = 11, 10, 7  # default to peak rut morning
+            run_month, run_day = 11, 10  # default to peak rut
 
         rut_phase = classify_rut_phase(run_month, run_day)
         # Always use classify_rut_phase result — it returns well-defined keys
@@ -817,10 +816,10 @@ class MaxAccuracyPipeline:
                 wind_speed_mph = 8.0
 
         for candidate in selected:
-            candidate["wind_speed_mph"] = wind_speed_mph
             if not self.config.enable_wind:
                 candidate["wind_options"] = []
                 continue
+            candidate["wind_speed_mph"] = wind_speed_mph
             try:
                 candidate["wind_options"] = build_wind_options(
                     candidate["lat"],

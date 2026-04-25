@@ -91,7 +91,7 @@ Single-page Streamlit app in [frontend/app.py](frontend/app.py). The "Max Accura
 - Numpy types must be converted before JSON serialization on the legacy path (`convert_numpy_types`); the max-accuracy pipeline returns plain Python via `dataclasses.asdict` and explicit casts.
 - Tests are organized by marker, not just folder. Always tag new tests (`@pytest.mark.unit` etc.) — the CI matrix selects by marker.
 - Quarantined code lives under `archive/`, `debug_archive/`, and `dead_code_backups/` — `pytest.ini` excludes these from collection. Do not add new code there.
-- Root-level `*.py` files (`enhanced_bedding_zone_predictor.py`, `optimized_biological_integration.py`, etc.) are bind-mounted into the container; edits take effect on backend restart without a rebuild. Code under `backend/` is also bind-mounted (`./backend:/app/backend`).
+- Code under `backend/` is bind-mounted (`./backend:/app/backend`); edits take effect on backend restart without a rebuild. Root-level `*.py` files are **not** bind-mounted — they are baked in via `COPY` at image build time (see `docker-compose.yml`).
 
 ## Where things live
 
@@ -103,6 +103,10 @@ Single-page Streamlit app in [frontend/app.py](frontend/app.py). The "Max Accura
 | Pipeline tunables | [backend/max_accuracy/config.py](backend/max_accuracy/config.py) |
 | DEM I/O | [backend/services/lidar_processor.py](backend/services/lidar_processor.py) |
 | Legacy prediction path | [backend/services/prediction_service.py](backend/services/prediction_service.py) + [enhanced_bedding_zone_predictor.py](enhanced_bedding_zone_predictor.py) |
+
+## Known architectural debt
+
+- **`enhanced_bedding_zone_predictor.py` (~4 100 lines, root-level)** — monolith with an inverted import direction (root file imports from `backend/`). No quick fix; decompose incrementally by extracting cohesive sub-modules into `backend/`. Do not add new logic to this file; prefer `backend/max_accuracy/` for new features.
 | Frontend | [frontend/app.py](frontend/app.py) |
 | Architecture deep-dive | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Test layout | [tests/README.md](tests/README.md) |

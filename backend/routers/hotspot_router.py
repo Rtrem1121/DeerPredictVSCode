@@ -1,12 +1,31 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
+
+# Jobs stuck in queued/running longer than this are considered stale.
+HOTSPOT_STALE_MINUTES = int(os.getenv("HOTSPOT_STALE_MINUTES", "30"))
+
+
+def _is_hotspot_job_stale(job_updated_at: str, job_status: str) -> bool:
+    if job_status not in {"queued", "running"}:
+        return False
+    try:
+        updated = datetime.fromisoformat(job_updated_at.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=HOTSPOT_STALE_MINUTES)
+    return updated < cutoff
 
 from backend.services.hotspot import get_hotspot_job_service
 
@@ -148,7 +167,20 @@ async def get_hotspot_status(job_id: str) -> JobStatusResponse:
     job = service.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return JobStatusResponse(success=True, job=job.__dict__)
+    if _is_hotspot_job_stale(job.updated_at, job.status):
+        logger.warning(
+            "Hotspot job %s is stale (status=%s updated_at=%s)",
+            job_id, job.status, job.updated_at,
+        )
+        service.update_job(
+            job_id,
+            status="stale",
+            error=f"Job exceeded stale threshold of {HOTSPOT_STALE_MINUTES} minutes without completion",
+        )
+        job = service.get_job(job_id)
+    job_dict = job.__dict__.copy()
+    job_dict["worker_pid"] = os.getpid()
+    return JobStatusResponse(success=True, job=job_dict)
 
 
 @hotspot_router.get("/property-hotspots/report/{job_id}")

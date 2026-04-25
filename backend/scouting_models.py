@@ -210,7 +210,7 @@ class ScoutingObservation(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage"""
-        data = self.dict()
+        data = self.model_dump()
         data['timestamp'] = self.timestamp.astimezone(timezone.utc).isoformat()
         return data
     

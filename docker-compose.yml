@@ -34,8 +34,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64G
-          cpus: '0.5'
+          memory: 8g
+          cpus: '2.0'
 
   frontend:
     build:

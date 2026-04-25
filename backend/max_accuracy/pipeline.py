@@ -954,8 +954,16 @@ class MaxAccuracyPipeline:
             meets_bench = bench >= self.config.bedding_min_bench
             meets_roughness = roughness >= self.config.bedding_min_roughness
             meets_elevation = elevation >= elev_threshold
+            meets_aspect = aspect_score >= self.config.bedding_min_aspect_score
 
-            if not (meets_shelter and meets_slope and meets_bench and meets_roughness and meets_elevation):
+            if not (
+                meets_shelter
+                and meets_slope
+                and meets_bench
+                and meets_roughness
+                and meets_elevation
+                and meets_aspect
+            ):
                 continue
 
             # Composite bedding quality score (0-1)
@@ -979,13 +987,14 @@ class MaxAccuracyPipeline:
 
             c["is_probable_bedding"] = True
             c["bedding_quality"] = round(bedding_quality, 3)
-            c["bedding_criteria_met"] = 5  # all hard filters passed
+            c["bedding_criteria_met"] = 6  # all hard filters passed
             c["bedding_criteria"] = {
                 "shelter": meets_shelter,
                 "slope": meets_slope,
                 "bench": meets_bench,
                 "roughness": meets_roughness,
                 "elevation": meets_elevation,
+                "aspect": meets_aspect,
             }
             bedding.append(c)
 

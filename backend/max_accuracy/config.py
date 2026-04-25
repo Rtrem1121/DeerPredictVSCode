@@ -42,7 +42,10 @@ class MaxAccuracyConfig:
     bedding_slope_min: float = 7.0     # benches are flat spots — slope is lower on the bed itself
     bedding_slope_max: float = 15.0    # too steep = not comfortable
     bedding_min_bench: float = 0.65    # prominent sidehill bench character
-    bedding_min_aspect_score: float = 0.4  # south-facing thermal advantage
+    # Hard threshold on south/SE-facing thermal advantage. Defaults to 0.0
+    # (off) to preserve historical behavior — aspect was advisory before
+    # this knob was wired in. Raise to ~0.4 to require south-facing beds.
+    bedding_min_aspect_score: float = 0.0
     bedding_min_elev_percentile: float = 0.40  # bed in upper 60% of terrain (not valley floor)
 
     # Bedding proximity scoring

@@ -47,6 +47,7 @@ class MaxAccuracyConfigOverrides(BaseModel):
     bedding_min_roughness: Optional[float] = Field(None, ge=0.0, le=20.0)
     bedding_slope_min: Optional[float] = Field(None, ge=0.0, le=45.0)
     bedding_slope_max: Optional[float] = Field(None, ge=0.0, le=45.0)
+    bedding_min_aspect_score: Optional[float] = Field(None, ge=0.0, le=1.0)
     bedding_proximity_weight: Optional[float] = Field(None, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
@@ -56,6 +57,17 @@ class MaxAccuracyConfigOverrides(BaseModel):
         if small is not None and large is not None and small >= large:
             raise ValueError(
                 f"tpi_small_m ({small}) must be less than tpi_large_m ({large})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def bedding_slope_must_be_ordered(self) -> "MaxAccuracyConfigOverrides":
+        slope_min = self.bedding_slope_min
+        slope_max = self.bedding_slope_max
+        if slope_min is not None and slope_max is not None and slope_min >= slope_max:
+            raise ValueError(
+                f"bedding_slope_min ({slope_min}) must be less than "
+                f"bedding_slope_max ({slope_max})"
             )
         return self
 

@@ -63,9 +63,8 @@ def compute_metrics(
     tpi_small = elev - mean_small
     tpi_large = elev - mean_large
 
-    # Local relief and roughness
+    # Local relief and roughness (mean_small already computed above for TPI)
     rel_small = _safe_extrema_filter(elev, size=small_px, mode="max") - _safe_extrema_filter(elev, size=small_px, mode="min")
-    mean_small = _safe_uniform_filter(elev, size=small_px)
     mean_sq_small = _safe_uniform_filter(elev * elev, size=small_px)
     roughness = np.sqrt(np.maximum(mean_sq_small - mean_small * mean_small, 0.0))
 

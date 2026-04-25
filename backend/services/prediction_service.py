@@ -387,7 +387,7 @@ class PredictionService:
             
             if weather_data:
                 temp = weather_data.get('temperature', 0)
-                logger.info(f"[WEATHER] Weather Integration: Temperature={temp:.1f}┬░F")
+                logger.info(f"[WEATHER] Weather Integration: Temperature={temp:.1f}\u00b0F")
             
             # Log individual zone details for validation
             if bedding_zones and 'features' in bedding_zones:
@@ -416,9 +416,11 @@ class PredictionService:
             # Apply real-time hunting context analysis
             try:
                 effective_time = target_datetime or datetime.now()
-                # Ensure timezone-naive datetime for context analysis
+                # Convert to America/New_York before stripping timezone so that
+                # downstream .strftime calls use the correct local hour, not UTC.
                 if effective_time.tzinfo is not None:
-                    effective_time = effective_time.replace(tzinfo=None)
+                    from zoneinfo import ZoneInfo
+                    effective_time = effective_time.astimezone(ZoneInfo("America/New_York")).replace(tzinfo=None)
                 logger.info(
                     "[CONTEXT] Applying real-time context analysis for %s on %s",
                     effective_time.strftime('%H:%M'),
@@ -657,7 +659,7 @@ class PredictionService:
         except (KeyError, TypeError, AttributeError):
             return np.ones((10, 10)) * 5.0
 
-    def _extract_feeding_scores(self, result: Dict, lat: float = None, lon: float = None, season: str = 'early_season') -> np.ndarray:
+    def _extract_feeding_scores(self, result: Dict, lat: Optional[float] = None, lon: Optional[float] = None, season: str = 'early_season') -> np.ndarray:
         """
         Extract feeding scores from prediction results with Vermont food classification.
         

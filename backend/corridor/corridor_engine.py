@@ -261,29 +261,33 @@ class CorridorEngine:
             return cost
 
         cost = cost.copy()  # don't mutate caller's array
+        sigma = radius_m / 2.0  # hoisted — same for every node
+        two_sigma_sq = 2.0 * sigma * sigma
+
         for n in evidence_nodes:
             lat, lon = n["lat"], n["lon"]
             cr = int(round((lat - origin_lat) * m_per_deg_lat / cell_m))
             cc = int(round((lon - origin_lon) * m_per_deg_lon / cell_m))
             w = float(n.get("weight", 1.0))
+            clamped_w = min(w, 1.0)
 
             r_lo = max(0, cr - radius_cells)
             r_hi = min(rows, cr + radius_cells + 1)
             c_lo = max(0, cc - radius_cells)
             c_hi = min(cols, cc + radius_cells + 1)
 
-            for r in range(r_lo, r_hi):
-                for c in range(c_lo, c_hi):
-                    dist_cells = math.sqrt((r - cr) ** 2 + (c - cc) ** 2)
-                    dist_m = dist_cells * cell_m
-                    if dist_m > radius_m:
-                        continue
-                    # Gaussian falloff: full reduction at centre, ~37 % at 1σ
-                    sigma = radius_m / 2.0
-                    falloff = math.exp(-(dist_m ** 2) / (2 * sigma ** 2))
-                    reduction = max_reduction * falloff * min(w, 1.0)
-                    cost[r, c] *= (1.0 - reduction)
+            # Vectorized Gaussian reduction over the bounding box slice
+            rr, cc_grid = np.ogrid[r_lo:r_hi, c_lo:c_hi]
+            dist_sq_cells = (rr - cr) ** 2 + (cc_grid - cc) ** 2
+            dist_sq_m = dist_sq_cells * (cell_m * cell_m)
+            within = dist_sq_m <= (radius_m * radius_m)
+            falloff = np.exp(-dist_sq_m / two_sigma_sq)
+            reduction = max_reduction * falloff * clamped_w  # shape (r_hi-r_lo, c_hi-c_lo)
 
-        # Floor at 1.0
-        cost = np.maximum(cost, 1.0)
+            slice_ = cost[r_lo:r_hi, c_lo:c_hi]
+            finite_mask = within & ~np.isinf(slice_)
+            slice_[finite_mask] *= (1.0 - reduction[finite_mask])
+
+        # Floor at 1.0; nan_to_num guards against any inf*0 that slipped through
+        cost = np.maximum(np.nan_to_num(cost, nan=1.0, posinf=np.inf), 1.0)
         return cost

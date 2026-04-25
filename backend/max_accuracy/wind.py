@@ -66,9 +66,10 @@ def build_wind_options(
     else:
         alternates = [180.0, 225.0, 270.0]
 
+    from backend.utils.geo import angular_diff as _angular_diff
     options = [primary]
     for wd in alternates:
-        if abs(wd - primary["wind_from_deg"]) < 5:
+        if _angular_diff(wd, primary["wind_from_deg"]) < 5:
             continue
         options.append(best_stand_for_winds(lat, lon, wd, distance_m))
 

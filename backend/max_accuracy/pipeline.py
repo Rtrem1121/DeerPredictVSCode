@@ -528,8 +528,11 @@ class MaxAccuracyPipeline:
                     continue
                 lr = lr_v[valid]
                 lc = lc_v[valid]
-                pt_lats = tile_lats_v[valid]
-                pt_lons = tile_lons_v[valid]
+                # Renamed tile_pt_* to avoid shadowing the outer pt_lats/pt_lons
+                # (the outer names are the full-property lists from rowcol();
+                #  these are the per-tile filtered subsets used in scoring below).
+                tile_pt_lats = tile_lats_v[valid]
+                tile_pt_lons = tile_lons_v[valid]
 
                 # Gather terrain values with fancy indexing (one C call per metric)
                 e_arr       = elev[lr, lc].astype(np.float64)
@@ -609,26 +612,47 @@ class MaxAccuracyPipeline:
                 )
 
                 n_valid = int(valid.sum())
+                # Convert each metric array to a Python list once so the dict
+                # comprehension below does cheap list indexing instead of calling
+                # float(numpy_scalar) ~17× per point × N points.
+                _lats    = tile_pt_lats.tolist()
+                _lons    = tile_pt_lons.tolist()
+                _score   = score_v.tolist()
+                _elev    = e_arr.tolist()
+                _slope   = s_arr.tolist()
+                _aspect  = aspect_arr.tolist()
+                _tpi_s   = tpi_s_arr.tolist()
+                _tpi_l   = tpi_l_arr.tolist()
+                _relief  = relief_arr.tolist()
+                _curv    = curv_arr.tolist()
+                _rough   = rough_arr.tolist()
+                _bench   = bench_v.tolist()
+                _saddle  = saddle_v.tolist()
+                _corr    = corridor_v.tolist()
+                _shelter = shelter_v.tolist()
+                _asp_sc  = aspect_v.tolist()
+                _ridge   = ridge_arr.tolist()
+                _drain   = drain_arr.tolist()
                 scored.extend(
                     {
-                        "lat":            float(pt_lats[i]),
-                        "lon":            float(pt_lons[i]),
-                        "score":          float(score_v[i]),
-                        "elevation_m":    float(e_arr[i]),
-                        "slope_deg":      float(s_arr[i]),
-                        "aspect_deg":     float(aspect_arr[i]),
-                        "tpi_small":      float(tpi_s_arr[i]),
-                        "tpi_large":      float(tpi_l_arr[i]),
-                        "relief_small":   float(relief_arr[i]),
-                        "curvature":      float(curv_arr[i]),
-                        "roughness":      float(rough_arr[i]),
-                        "bench_score":    float(bench_v[i]),
-                        "saddle_score":   float(saddle_v[i]),
-                        "corridor_score": float(corridor_v[i]),
-                        "shelter_score":  float(shelter_v[i]),
-                        "aspect_score":   float(aspect_v[i]),
-                        "ridgeline_score": float(ridge_arr[i]),
-                        "drainage_score":  float(drain_arr[i]),
+                        "lat":            _lats[i],
+                        "lon":            _lons[i],
+                        "score":          _score[i],
+                        "elevation_m":    _elev[i],
+                        "slope_deg":      _slope[i],
+                        "aspect_deg":     _aspect[i],
+                        "tpi_small":      _tpi_s[i],
+                        "tpi_large":      _tpi_l[i],
+                        "relief_small":   _relief[i],
+                        "curvature":      _curv[i],
+                        "roughness":      _rough[i],
+                        "bench_score":    _bench[i],
+                        "saddle_score":   _saddle[i],
+                        "corridor_score": _corr[i],
+                        "shelter_score":  _shelter[i],
+                        "aspect_score":   _asp_sc[i],
+                        "ridgeline_score": _ridge[i],
+                        "drainage_score":  _drain[i],
                     }
                     for i in range(n_valid)
                 )
@@ -642,6 +666,16 @@ class MaxAccuracyPipeline:
         scored.sort(key=lambda r: r["score"], reverse=True)
         return scored[: self.config.max_candidates]
 
+    @staticmethod
+    def _apply_gee_neutral_defaults(candidate: Dict[str, Any]) -> None:
+        """Set neutral GEE values on a candidate that was not enriched.
+
+        50% canopy and 0.5 NDVI are mid-range values that neither reward
+        nor penalise the candidate in behavior scoring.
+        """
+        candidate.setdefault("gee_canopy", 50.0)
+        candidate.setdefault("gee_ndvi", 0.5)
+
     def _enrich_with_gee(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not candidates:
             return []
@@ -649,8 +683,7 @@ class MaxAccuracyPipeline:
         if not self.config.enable_gee or self.config.gee_sample_k <= 0:
             # Set neutral defaults so behavior scoring doesn't penalize
             for c in candidates:
-                c.setdefault("gee_canopy", 50.0)  # neutral, not zero
-                c.setdefault("gee_ndvi", 0.5)
+                self._apply_gee_neutral_defaults(c)
             return candidates
 
         max_k = min(self.config.gee_sample_k, len(candidates))
@@ -692,13 +725,11 @@ class MaxAccuracyPipeline:
                 candidate["gee_canopy"] = canopy if canopy >= 0 else 50.0
                 candidate["gee_ndvi"] = ndvi if ndvi >= 0 else 0.5
             else:
-                candidate.setdefault("gee_canopy", 50.0)
-                candidate.setdefault("gee_ndvi", 0.5)
+                self._apply_gee_neutral_defaults(candidate)
 
         # Also set neutral defaults for candidates beyond max_k
         for candidate in candidates[max_k:]:
-            candidate.setdefault("gee_canopy", 50.0)
-            candidate.setdefault("gee_ndvi", 0.5)
+            self._apply_gee_neutral_defaults(candidate)
 
         if failed:
             logger.warning("MaxAccuracy: GEE enrichment had %s failures out of %s", failed, max_k)
@@ -805,6 +836,7 @@ class MaxAccuracyPipeline:
 
         wind_direction = None
         wind_speed_mph = 8.0
+        _wind_seed_failed = False
         if self.config.enable_wind and selected:
             try:
                 # NOTE: wind is sampled from selected[0] *before* the
@@ -815,9 +847,10 @@ class MaxAccuracyPipeline:
                 wind_direction = float(wind_data.get("wind_direction", 270.0))
                 wind_speed_mph = float(wind_data.get("wind_speed", 8.0))
             except Exception:
-                logger.exception("MaxAccuracy: wind option seed failed")
-                wind_direction = None
+                logger.exception("MaxAccuracy: wind option seed failed — defaulting to 270° to avoid per-stand fallback calls")
+                wind_direction = 270.0  # safe default; avoids N per-stand API retries
                 wind_speed_mph = 8.0
+                _wind_seed_failed = True
 
         for candidate in selected:
             if not self.config.enable_wind:

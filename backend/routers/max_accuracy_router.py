@@ -209,6 +209,7 @@ async def analyze_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyRespon
     except HTTPException as exc:
         return MaxAccuracyResponse(success=False, error=str(exc.detail))
     except Exception as exc:
+        logger.exception("MaxAccuracy /analyze unhandled error")
         return MaxAccuracyResponse(success=False, error=str(exc))
 
 
@@ -285,6 +286,7 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
     except HTTPException as exc:
         return MaxAccuracyResponse(success=False, error=str(exc.detail))
     except Exception as exc:
+        logger.exception("MaxAccuracy /run unhandled error")
         return MaxAccuracyResponse(success=False, error=str(exc))
 
 
@@ -318,4 +320,5 @@ async def get_max_accuracy_report(job_id: str) -> MaxAccuracyResponse:
     except HTTPException as exc:
         return MaxAccuracyResponse(success=False, error=str(exc.detail), job_id=job_id)
     except Exception as exc:
+        logger.exception("MaxAccuracy /report unhandled error for job %s", job_id)
         return MaxAccuracyResponse(success=False, error=str(exc), job_id=job_id)

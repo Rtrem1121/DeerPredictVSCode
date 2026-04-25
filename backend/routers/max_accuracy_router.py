@@ -18,15 +18,31 @@ from backend.max_accuracy import MaxAccuracyConfig, MaxAccuracyPipeline
 logger = logging.getLogger(__name__)
 
 JOB_RETENTION_DAYS = 7
-STALE_JOB_MINUTES = int(os.getenv("MAX_ACCURACY_STALE_MINUTES", "30"))
+
+
+def _parse_stale_minutes() -> int:
+    raw = os.getenv("MAX_ACCURACY_STALE_MINUTES", "30")
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError("must be positive")
+        return value
+    except ValueError:
+        logger.warning(
+            "Invalid MAX_ACCURACY_STALE_MINUTES=%r — defaulting to 30 minutes", raw
+        )
+        return 30
+
+
+STALE_JOB_MINUTES = _parse_stale_minutes()
 
 
 max_accuracy_router = APIRouter(tags=["property-hotspots", "max-accuracy"])
 
 
 class Corner(BaseModel):
-    lat: float
-    lon: float
+    lat: float = Field(..., ge=-90.0, le=90.0)
+    lon: float = Field(..., ge=-180.0, le=180.0)
 
 
 class MaxAccuracyConfigOverrides(BaseModel):

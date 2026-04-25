@@ -156,6 +156,16 @@ class PredictionService:
             Dict: Enhanced prediction results with comprehensive data integration
         """
         try:
+            # Pre-initialize all locals that may be referenced after their
+            # populating try-blocks. Without these, a failure inside a
+            # try-block before assignment raises UnboundLocalError later.
+            terrain_features: Dict[str, Any] = {}
+            thermal_analysis = None
+            wind_analyses: List[Any] = []
+            wind_summary: Dict[str, Any] = {}
+            stand_recommendations: List[Dict[str, Any]] = []
+            scouting_enhancement_result: Dict[str, Any] = {}
+
             # Use EnhancedBeddingZonePredictor exclusively
             result = self.predictor.run_enhanced_biological_analysis(
                 lat,
@@ -179,7 +189,6 @@ class PredictionService:
                     logger.warning(f"[WARN] Criteria analysis collection failed: {e}")
             
             # Perform advanced thermal analysis
-            thermal_analysis = None
             try:
                 terrain_features = {
                     'elevation': gee_data.get('elevation', 1000),
@@ -211,7 +220,6 @@ class PredictionService:
                 logger.warning(f"[WARN] Thermal analysis failed: {e}")
             
             # Perform comprehensive wind analysis for all location types
-            wind_analyses = []
             try:
                 # Analyze bedding locations
                 bedding_zones = result.get("bedding_zones", {})

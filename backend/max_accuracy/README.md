@@ -28,3 +28,7 @@ Key locations:
 ## Usage in max-accuracy
 The max-accuracy pipeline uses **LiDAR + behavior + optional GEE** (`backend/max_accuracy/gee.py`) and **optional wind offsets** (`backend/max_accuracy/wind.py`).
 - To use the shared hotspot-style GEE + wind path, run the standard hotspot analyzer, which already routes through `PredictionService`.
+
+## Corridor Visualization Note
+In the Streamlit max-accuracy map, corridor lines are rendered in relative order for readability (earlier/high-priority lines appear thicker/darker).
+This is a **within-run ranking cue**, not an absolute probability value.

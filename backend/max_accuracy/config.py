@@ -9,8 +9,8 @@ class MaxAccuracyConfig:
     """Configuration for the max-accuracy pipeline."""
 
     grid_spacing_m: int = 20  # dense coverage (~20m)
-    max_candidates: int = 20000  # keep a large candidate pool
-    top_k_stands: int = 20
+    max_candidates: int = 5000  # keep a large candidate pool
+    top_k_stands: int = 30
     gee_sample_k: int = 100
     wind_offset_m: float = 60.0
     behavior_weight: float = 0.50  # behavior IS terrain features (saddle/bench/corridor/ridgeline)

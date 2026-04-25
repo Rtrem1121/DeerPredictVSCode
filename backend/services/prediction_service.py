@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Prediction Service Module
 
@@ -87,14 +87,14 @@ class PredictionService:
             self.vegetation_analyzer = get_vegetation_analyzer()
             self.config = get_config()
             self.hunt_window_predictor = HuntWindowPredictor.from_config(self.config)
-            logger.info("Γ£à EnhancedBeddingZonePredictor initialized as exclusive prediction engine")
-            logger.info("Γ£à ScoutingPredictionEnhancer initialized for field data integration")
-            logger.info("Γ£à AdvancedThermalAnalyzer initialized for thermal wind analysis")
-            logger.info("Γ£à WindThermalAnalyzer initialized for comprehensive wind analysis")
-            logger.info("Γ£à VegetationAnalyzer initialized for Vermont food classification")
-            logger.info("Γ£à HuntWindowPredictor initialized for forecast-triggered stand prioritization")
+            logger.info("[INIT] EnhancedBeddingZonePredictor initialized as exclusive prediction engine")
+            logger.info("[INIT] ScoutingPredictionEnhancer initialized for field data integration")
+            logger.info("[INIT] AdvancedThermalAnalyzer initialized for thermal wind analysis")
+            logger.info("[INIT] WindThermalAnalyzer initialized for comprehensive wind analysis")
+            logger.info("[INIT] VegetationAnalyzer initialized for Vermont food classification")
+            logger.info("[INIT] HuntWindowPredictor initialized for forecast-triggered stand prioritization")
         except Exception as e:
-            logger.error(f"Γ¥î Failed to initialize prediction components: {e}")
+            logger.error(f"[ERROR] Failed to initialize prediction components: {e}")
             raise
 
     async def predict(
@@ -176,7 +176,7 @@ class PredictionService:
                 try:
                     self._collect_criteria_analysis(analyzer, result, gee_data, osm_data, weather_data)
                 except Exception as e:
-                    logger.warning(f"ΓÜá∩╕Å Criteria analysis collection failed: {e}")
+                    logger.warning(f"[WARN] Criteria analysis collection failed: {e}")
             
             # Perform advanced thermal analysis
             thermal_analysis = None
@@ -192,7 +192,7 @@ class PredictionService:
                     weather_data, terrain_features, lat, lon, time_of_day
                 )
                 
-                logger.info(f"≡ƒîí∩╕Å THERMAL ANALYSIS: {thermal_analysis.direction} thermal, "
+                logger.info(f"[THERMAL] THERMAL ANALYSIS: {thermal_analysis.direction} thermal, "
                            f"strength {thermal_analysis.strength_scale:.1f}/10, "
                            f"timing advantage: {thermal_analysis.timing_advantage}")
                 
@@ -205,10 +205,10 @@ class PredictionService:
                             thermal_analysis.optimal_stand_positions
                         )
                     except Exception as e:
-                        logger.warning(f"ΓÜá∩╕Å Thermal analysis collection failed: {e}")
+                        logger.warning(f"[WARN] Thermal analysis collection failed: {e}")
                 
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å Thermal analysis failed: {e}")
+                logger.warning(f"[WARN] Thermal analysis failed: {e}")
             
             # Perform comprehensive wind analysis for all location types
             wind_analyses = []
@@ -255,7 +255,7 @@ class PredictionService:
                 # Create comprehensive wind summary
                 wind_summary = self.wind_analyzer.create_wind_analysis_summary(wind_analyses)
                 
-                logger.info(f"≡ƒî¼∩╕Å WIND ANALYSIS: {len(wind_analyses)} locations analyzed, "
+                logger.info(f"[WIND] WIND ANALYSIS: {len(wind_analyses)} locations analyzed, "
                            f"overall rating {wind_summary['overall_wind_conditions'].get('hunting_rating', 'N/A')}")
                 
                 # Collect wind analysis if analyzer provided
@@ -277,10 +277,10 @@ class PredictionService:
                             wind_summary_clean
                         )
                     except Exception as e:
-                        logger.warning(f"ΓÜá∩╕Å Wind analysis collection failed: {e}", exc_info=True)
+                        logger.warning(f"[WARN] Wind analysis collection failed: {e}", exc_info=True)
                 
             except Exception as e:
-                logger.error(f"ΓÜá∩╕Å Wind analysis failed: {e}", exc_info=True)
+                logger.error(f"[WARN] Wind analysis failed: {e}", exc_info=True)
                 wind_analyses = []
                 wind_summary = {}
             
@@ -303,15 +303,15 @@ class PredictionService:
                     if hunt_window_eval.windows:
                         primary_window = hunt_window_eval.windows[0]
                         logger.info(
-                            "≡ƒ¬╡ HUNT WINDOW: %s aligned for %s (boost +%.1f)",
+                            "[HUNT_WINDOW] HUNT WINDOW: %s aligned for %s (boost +%.1f)",
                             primary_window.stand_name,
                             primary_window.window_start.strftime('%Y-%m-%d %H:%M'),
                             primary_window.priority_boost,
                         )
                 else:
-                    logger.info("≡ƒ¬╡ Hunt window predictor unavailable; skipping forecast-triggered prioritization")
+                    logger.info("[HUNT_WINDOW] Hunt window predictor unavailable; skipping forecast-triggered prioritization")
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å Hunt window predictor failed: {e}")
+                logger.warning(f"[WARN] Hunt window predictor failed: {e}")
 
             # Apply scouting data enhancements to boost predictions around real field observations
             scouting_enhancement_result = {}
@@ -338,7 +338,7 @@ class PredictionService:
                 mature_buck_indicators = scouting_enhancement_result.get('mature_buck_indicators', 0)
                 
                 if enhancements:
-                    logger.info(f"≡ƒÅ╣ SCOUTING ENHANCEMENT: {len(enhancements)} observations applied")
+                    logger.info(f"[SCOUTING] SCOUTING ENHANCEMENT: {len(enhancements)} observations applied")
                     logger.info(f"   Total boost: {total_boost:.1f} points")
                     logger.info(f"   Mature buck indicators: {mature_buck_indicators}")
                     
@@ -348,10 +348,10 @@ class PredictionService:
                         age_days = enhancement.get('age_days', 0)
                         logger.info(f"   {obs_type}: +{boost:.1f}% boost ({age_days}d old)")
                 else:
-                    logger.info("≡ƒÅ╣ SCOUTING ENHANCEMENT: No nearby observations found")
+                    logger.info("[SCOUTING] SCOUTING ENHANCEMENT: No nearby observations found")
                     
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å Scouting enhancement failed, using base predictions: {e}")
+                logger.warning(f"[WARN] Scouting enhancement failed, using base predictions: {e}")
             
             # Collect data source and algorithm analysis if analyzer provided
             if analyzer:
@@ -360,7 +360,7 @@ class PredictionService:
                     # NOTE: Algorithm analysis moved to after wind analyses are added
                     self._collect_scoring_analysis(analyzer, result)
                 except Exception as e:
-                    logger.warning(f"ΓÜá∩╕Å Additional analysis collection failed: {e}")
+                    logger.warning(f"[WARN] Additional analysis collection failed: {e}")
             
             # Extract bedding zones for logging
             bedding_zones = result["bedding_zones"]
@@ -379,15 +379,15 @@ class PredictionService:
             # Log data integration sources
             if gee_data:
                 canopy = gee_data.get('canopy_coverage', 0)
-                logger.info(f"≡ƒ¢░∩╕Å GEE Integration: Canopy={canopy:.1f}%")
+                logger.info(f"[GEE] GEE Integration: Canopy={canopy:.1f}%")
             
             if osm_data:
                 road_distance = osm_data.get('min_road_distance', 0)
-                logger.info(f"≡ƒù║∩╕Å OSM Integration: Road distance={road_distance:.0f}m")
+                logger.info(f"[OSM] OSM Integration: Road distance={road_distance:.0f}m")
             
             if weather_data:
                 temp = weather_data.get('temperature', 0)
-                logger.info(f"≡ƒîñ∩╕Å Weather Integration: Temperature={temp:.1f}┬░F")
+                logger.info(f"[WEATHER] Weather Integration: Temperature={temp:.1f}┬░F")
             
             # Log individual zone details for validation
             if bedding_zones and 'features' in bedding_zones:
@@ -396,7 +396,7 @@ class PredictionService:
                     zone_coords = zone.get('geometry', {}).get('coordinates', [0, 0])
                     zone_suitability = zone_props.get('suitability_score', 0)
                     zone_type = zone_props.get('bedding_type', 'unknown')
-                    logger.info(f"≡ƒ¢î Zone {i}: {zone_suitability:.1f}% {zone_type} at {zone_coords[1]:.4f}, {zone_coords[0]:.4f}")
+                    logger.info(f"[ZONE] Zone {i}: {zone_suitability:.1f}% {zone_type} at {zone_coords[1]:.4f}, {zone_coords[0]:.4f}")
             
             # Add wind and thermal analysis to result
             result['thermal_analysis'] = thermal_analysis.__dict__ if thermal_analysis else None
@@ -411,7 +411,7 @@ class PredictionService:
                     if hasattr(analyzer, 'criteria_analysis') and analyzer.criteria_analysis:
                         analyzer.criteria_analysis.stand_criteria['wind_analysis_available'] = bool(result.get('wind_analyses'))
                 except Exception as e:
-                    logger.warning(f"ΓÜá∩╕Å Algorithm analysis collection failed: {e}")
+                    logger.warning(f"[WARN] Algorithm analysis collection failed: {e}")
             
             # Apply real-time hunting context analysis
             try:
@@ -420,18 +420,18 @@ class PredictionService:
                 if effective_time.tzinfo is not None:
                     effective_time = effective_time.replace(tzinfo=None)
                 logger.info(
-                    "≡ƒòÉ Applying real-time context analysis for %s on %s",
+                    "[CONTEXT] Applying real-time context analysis for %s on %s",
                     effective_time.strftime('%H:%M'),
                     effective_time.strftime('%B %d'),
                 )
                 result = create_time_aware_prediction_context(result, effective_time)
-                logger.info(f"Γ£à Context applied: {result.get('context_summary', {}).get('situation', 'unknown')}")
+                logger.info(f"[INIT] Context applied: {result.get('context_summary', {}).get('situation', 'unknown')}")
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å Context analysis failed: {e}")
+                logger.warning(f"[WARN] Context analysis failed: {e}")
             
             # Generate optimized points for frontend map display
             try:
-                logger.info("≡ƒÄ» Generating optimized points for frontend map display")
+                logger.info("[POINTS] Generating optimized points for frontend map display")
                 from backend.mature_buck_points_generator import get_points_generator
                 
                 points_generator = get_points_generator()
@@ -469,15 +469,15 @@ class PredictionService:
                                 'real_data_sources': point.real_data_sources,
                                 'specific_attributes': point.specific_attributes
                             })
-                        logger.info(f"≡ƒôª Serialized {len(serialized_points[category])} {category} for frontend")
+                        logger.info(f"[SERIALIZE] Serialized {len(serialized_points[category])} {category} for frontend")
                     
                     result['optimized_points'] = serialized_points
-                    logger.info(f"Γ£à Generated {sum(len(points) for points in serialized_points.values())} optimized points for frontend")
+                    logger.info(f"[INIT] Generated {sum(len(points) for points in serialized_points.values())} optimized points for frontend")
                 else:
-                    logger.warning("ΓÜá∩╕Å No optimized points generated")
+                    logger.warning("[WARN] No optimized points generated")
                     
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å Optimized points generation failed: {e}")
+                logger.warning(f"[WARN] Optimized points generation failed: {e}")
             
             # Convert any numpy types to Python native types before returning
             result = convert_numpy_types(result)
@@ -485,7 +485,7 @@ class PredictionService:
             return result
             
         except Exception as e:
-            logger.error(f"Γ¥î Enhanced prediction failed: {e}")
+            logger.error(f"[ERROR] Enhanced prediction failed: {e}")
             raise
 
     def _generate_score_grid(self, center_lat: float, center_lon: float, grid_size: int = 10, span_deg: float = 0.04) -> Tuple[np.ndarray, np.ndarray]:
@@ -523,7 +523,7 @@ class PredictionService:
 
     def _extract_travel_scores(self, result: Dict, center_lat: float, center_lon: float) -> np.ndarray:
         """Extract travel corridor scores using real bedding/feed geometry when available."""
-        logger.info("≡ƒöì _extract_travel_scores CALLED")
+        logger.info("[DEBUG] _extract_travel_scores CALLED")
         try:
             grid_size = 10
             base_score = 3.0
@@ -543,7 +543,7 @@ class PredictionService:
                     best = food_patches[0]
                     feeding_pts = [(float(best['lat']), float(best['lon']), float(best.get('quality', 1.0)))][:1]
                 except Exception:
-                    pass
+                    logger.debug("Failed to use vermont_food_grid fallback patch", exc_info=True)
 
             # Fallback: keep previous synthetic pattern if we lack anchors
             if not bedding_pts or not feeding_pts:
@@ -697,14 +697,14 @@ class PredictionService:
                     grid_metadata = spatial_result.get('grid_metadata', {})
                     food_patches = spatial_result.get('food_patch_locations', [])
                     
-                    logger.info(f"≡ƒù║∩╕Å SPATIAL FOOD GRID: {len(food_patches)} high-quality patches identified")
+                    logger.info(f"[OSM] SPATIAL FOOD GRID: {len(food_patches)} high-quality patches identified")
                     logger.info(f"   Mean quality: {grid_metadata.get('mean_grid_quality', 0):.2f}, "
                                f"Range: {food_grid.min():.2f}-{food_grid.max():.2f}")
                     
                     # Log top food patch locations
                     if food_patches:
                         top_patch = food_patches[0]
-                        logger.info(f"   ≡ƒî╜ Best food: {top_patch['lat']:.4f}, {top_patch['lon']:.4f} "
+                        logger.info(f"   [FOOD] Best food: {top_patch['lat']:.4f}, {top_patch['lon']:.4f} "
                                    f"(quality: {top_patch['quality']:.2f})")
                     
                     # Store spatial data in result for stand placement
@@ -718,7 +718,7 @@ class PredictionService:
                     return scores
                     
                 except Exception as e:
-                    logger.warning(f"ΓÜá∩╕Å Spatial food grid creation failed, using fallback: {e}")
+                    logger.warning(f"[WARN] Spatial food grid creation failed, using fallback: {e}")
             
             # Fallback to generic feeding area scoring
             scores = np.ones((grid_size, grid_size)) * 4.0  # Base feeding score
@@ -741,7 +741,7 @@ class PredictionService:
 
             return scores
         except Exception as e:
-            logger.warning(f"ΓÜá∩╕Å Feeding score extraction failed: {e}")
+            logger.warning(f"[WARN] Feeding score extraction failed: {e}")
             return np.ones((10, 10)) * 4.0
     
     def _collect_criteria_analysis(self, analyzer: PredictionAnalyzer, result: Dict, 
@@ -789,7 +789,7 @@ class PredictionService:
             analyzer.collect_criteria_analysis(bedding_criteria, stand_criteria, feeding_criteria, thresholds)
             
         except Exception as e:
-            logger.warning(f"ΓÜá∩╕Å Criteria analysis collection failed: {e}")
+            logger.warning(f"[WARN] Criteria analysis collection failed: {e}")
     
     def _collect_data_source_analysis(self, analyzer: PredictionAnalyzer, gee_data: Dict, 
                                     osm_data: Dict, weather_data: Dict, scouting_data: Dict) -> None:
@@ -797,7 +797,7 @@ class PredictionService:
         try:
             analyzer.collect_data_source_analysis(gee_data, osm_data, weather_data, scouting_data)
         except Exception as e:
-            logger.warning(f"ΓÜá∩╕Å Data source analysis collection failed: {e}")
+            logger.warning(f"[WARN] Data source analysis collection failed: {e}")
     
     def _collect_algorithm_analysis(self, analyzer: PredictionAnalyzer, result: Dict) -> None:
         """Collect algorithm analysis"""
@@ -838,7 +838,7 @@ class PredictionService:
             )
             
         except Exception as e:
-            logger.warning(f"ΓÜá∩╕Å Algorithm analysis collection failed: {e}")
+            logger.warning(f"[WARN] Algorithm analysis collection failed: {e}")
     
     def _collect_scoring_analysis(self, analyzer: PredictionAnalyzer, result: Dict) -> None:
         """Collect scoring analysis"""
@@ -867,7 +867,7 @@ class PredictionService:
             analyzer.collect_scoring_analysis(bedding_scoring, stand_scoring, feeding_scoring, overall_confidence)
             
         except Exception as e:
-            logger.warning(f"ΓÜá∩╕Å Scoring analysis collection failed: {e}")
+            logger.warning(f"[WARN] Scoring analysis collection failed: {e}")
 
 
 # Global service instance
@@ -880,3 +880,4 @@ def get_prediction_service() -> PredictionService:
     if _prediction_service is None:
         _prediction_service = PredictionService()
     return _prediction_service
+

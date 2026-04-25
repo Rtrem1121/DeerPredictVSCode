@@ -110,7 +110,7 @@ class HotspotJobService:
                     map_path=map_path,
                 )
             except Exception:
-                pass
+                logger.debug("Failed to recover hotspot job state from %s", state_path, exc_info=True)
 
         report_path_f = job_dir / "hotspot_report.json"
         map_path_f = job_dir / "hotspot_map.html"

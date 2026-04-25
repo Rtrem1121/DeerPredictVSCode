@@ -15,13 +15,7 @@ services:
       - ./logs:/app/logs
       - ./credentials:/app/credentials:ro
       - scouting_data:/app/backend/scouting_data
-      # 🚀 DEVELOPMENT: Mount root Python files for instant updates (no rebuild needed!)
-      # Using :ro (read-only) to prevent accidental corruption from container
-      - ./enhanced_bedding_zone_predictor.py:/app/enhanced_bedding_zone_predictor.py:ro
-      - ./prediction_service_bedding_fix.py:/app/prediction_service_bedding_fix.py:ro
-      - ./production_bedding_fix.py:/app/production_bedding_fix.py:ro
-      - ./optimized_biological_integration.py:/app/optimized_biological_integration.py:ro
-      - ./enhanced_biological_integration.py:/app/enhanced_biological_integration.py:ro
+      # Root-level modules are sourced from image COPY for consistency across dev/prod.
     environment:
       - OPENWEATHERMAP_API_KEY=${OPENWEATHERMAP_API_KEY}
       - PYTHONPATH=/app:/app/backend
@@ -56,7 +50,7 @@ services:
         condition: service_healthy
     environment:
       - BACKEND_URL=http://backend:8000
-      - APP_PASSWORD=DeerHunter2025!
+      - APP_PASSWORD=${APP_PASSWORD}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]

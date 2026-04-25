@@ -23,6 +23,15 @@ Typical run: **~75–80 seconds** for a full property scan.
 
 ---
 
+## Latest Maintenance Notes (Apr 2026)
+
+- **Map interaction stability fix:** the max-accuracy Folium component now uses a stable Streamlit key and minimized return payload to prevent session race conditions during rapid pan/zoom.
+- **Corridor line meaning clarified:** red corridor lines are ranked relative to each other within a run (thicker/darker means higher-ranked corridor in that run), not an absolute probability percentage.
+- **Terrain scoring performance:** the max-accuracy terrain scoring hot loop was vectorized in NumPy for materially faster candidate scoring while preserving numeric equivalence.
+- **Repository cleanup:** legacy dead-weight content under `archive/`, `debug_archive/`, and `dead_code_backups/` was removed from active tracking.
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -124,6 +133,7 @@ deer_pred_app/
 - **Stand comparison table** — top 10 ranked with score bars and feature badges
 - **Stand detail inspector** — full terrain score breakdown with bars, metrics, and canopy/NDVI data
 - **Interactive map** — color-coded rank markers, stand-to-bedding dashed lines, bedding zone circles with hover coordinates, layer toggle, legend overlay
+- **Corridor rendering** — movement corridors are shown as ranked dashed red lines (relative order per run)
 - **Bedding zone summary** — sortable list with quality scores and coordinates
 - **Configurable settings** — grid spacing, max candidates, GEE sample K, behavior weight, TPI windows, top K stands, wind offset, min per quadrant
 

@@ -47,15 +47,17 @@ def degrees_to_compass(degrees):
 # --- Password Protection ---
 def check_password():
     """Returns True if the user entered the correct password."""
+    configured_password = os.getenv("APP_PASSWORD")
+
+    if not configured_password:
+        st.error("APP_PASSWORD is not configured. Set APP_PASSWORD in the environment to enable access.")
+        return False
     
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        # Get password from environment variable for security
-        correct_password = os.getenv("APP_PASSWORD", "DefaultPassword123!")
-        
         # Check if password key exists before accessing it
         if "password" in st.session_state:
-            if hashlib.sha256(st.session_state["password"].encode()).hexdigest() == hashlib.sha256(correct_password.encode()).hexdigest():
+            if hashlib.sha256(st.session_state["password"].encode()).hexdigest() == hashlib.sha256(configured_password.encode()).hexdigest():
                 st.session_state["password_correct"] = True
                 del st.session_state["password"]  # Don't store password
             else:
@@ -1173,7 +1175,13 @@ with tab_hotspots:
 
                 if bounds_lats and bounds_lons:
                     max_map.fit_bounds([[min(bounds_lats), min(bounds_lons)], [max(bounds_lats), max(bounds_lons)]])
-                st_folium(max_map, height=600, width=None)
+                st_folium(
+                    max_map,
+                    key="max_accuracy_map",
+                    height=600,
+                    width=None,
+                    returned_objects=[],
+                )
 
             except Exception as e:
                 st.warning(f"Could not render max-accuracy map: {e}")

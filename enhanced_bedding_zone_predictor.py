@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Enhanced Bedding Zone Prediction Implementation
 
@@ -24,9 +24,21 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from optimized_biological_integration import OptimizedBiologicalIntegration
 from backend.utils.geo import angular_diff, bearing_between, haversine
 
-# ≡ƒöº Refactored Services: BiologicalAspectScorer imported lazily to avoid circular import
 
-# ≡ƒÄ» HSM Integration: Import Habitat Suitability Model components
+_LEGACY_MODULE_LINE_BUDGET = 5106
+if os.getenv("ALLOW_LEGACY_PREDICTOR_GROWTH", "0") != "1":
+    with open(__file__, "r", encoding="utf-8", errors="ignore") as _legacy_file:
+        _legacy_module_lines = sum(1 for _ in _legacy_file)
+    if _legacy_module_lines > _LEGACY_MODULE_LINE_BUDGET:
+        raise RuntimeError(
+            "enhanced_bedding_zone_predictor.py exceeded the line budget; "
+            "set ALLOW_LEGACY_PREDICTOR_GROWTH=1 and intentionally raise "
+            "_LEGACY_MODULE_LINE_BUDGET before adding code here."
+        )
+
+# [OK] Refactored Services: BiologicalAspectScorer imported lazily to avoid circular import
+
+# [POINTS] HSM Integration: Import Habitat Suitability Model components
 USE_HSM_METHOD = os.getenv('USE_HSM_METHOD', 'false').lower() == 'true'
 HSM_VISUALIZATION_ENABLED = os.getenv('HSM_VISUALIZATION_ENABLED', 'false').lower() == 'true'
 
@@ -36,8 +48,8 @@ if USE_HSM_METHOD:
         from habitat_suitability_visualizer import HabitatSuitabilityVisualizer
         HSM_AVAILABLE = True
     except ImportError as e:
-        logging.warning(f"ΓÜá∩╕Å HSM: Could not import Habitat Suitability Model: {e}")
-        logging.warning("ΓÜá∩╕Å HSM: Falling back to traditional tiered point sampling")
+        logging.warning(f"[WARN] HSM: Could not import Habitat Suitability Model: {e}")
+        logging.warning("[WARN] HSM: Falling back to traditional tiered point sampling")
         USE_HSM_METHOD_ACTUAL = False
         HSM_AVAILABLE = False
 else:
@@ -52,7 +64,7 @@ except ImportError:
     RASTERIO_AVAILABLE = False
     logging.warning("Rasterio not available - using fallback elevation calculations")
 
-# ≡ƒù║∩╕Å LIDAR Integration: Import LIDAR processor service for high-resolution terrain
+# [OSM] LIDAR Integration: Import LIDAR processor service for high-resolution terrain
 # IMPORTANT: Import directly to avoid circular dependency through backend.services.__init__.py
 USE_LIDAR_FIRST = os.getenv('USE_LIDAR_FIRST', 'true').lower() == 'true'
 try:
@@ -67,24 +79,24 @@ try:
     LIDAR_AVAILABLE = True
 except ImportError as e:
     LIDAR_AVAILABLE = False
-    logging.warning(f"ΓÜá∩╕Å LIDAR: LIDAR processor service not available - using GEE only ({e})")
+    logging.warning(f"[WARN] LIDAR: LIDAR processor service not available - using GEE only ({e})")
     USE_LIDAR_FIRST = False
 
-# ≡ƒÄ» Stand Calculator Integration: Import wind-aware stand calculator service
+# [POINTS] Stand Calculator Integration: Import wind-aware stand calculator service
 try:
     from backend.services.stand_calculator import WindAwareStandCalculator
     STAND_CALCULATOR_AVAILABLE = True
 except ImportError as e:
     STAND_CALCULATOR_AVAILABLE = False
-    logging.warning(f"ΓÜá∩╕Å STAND: Stand calculator service not available - using embedded logic: {e}")
+    logging.warning(f"[WARN] STAND: Stand calculator service not available - using embedded logic: {e}")
 
-# ≡ƒªî Mature Buck Stand Generator: Import structured methodology for mature buck hunting
+# [DEER] Mature Buck Stand Generator: Import structured methodology for mature buck hunting
 try:
     from backend.services.mature_buck_stand_generator import MatureBuckStandGenerator
     MATURE_BUCK_GENERATOR_AVAILABLE = True
 except ImportError as e:
     MATURE_BUCK_GENERATOR_AVAILABLE = False
-    logging.warning(f"ΓÜá∩╕Å MATURE BUCK: Stand generator service not available - using basic logic: {e}")
+    logging.warning(f"[WARN] MATURE BUCK: Stand generator service not available - using basic logic: {e}")
 
 def get_aspect_classification(aspect_degrees):
     """
@@ -100,40 +112,40 @@ def get_aspect_classification(aspect_degrees):
     aspect = aspect_degrees % 360
     
     # Classify aspect with biological accuracy
-    if 315 <= aspect or aspect <= 45:  # North-facing (315┬░ to 45┬░)
+    if 315 <= aspect or aspect <= 45:  # North-facing (315° to 45°)
         return {
             "direction": "north-facing",
             "quality": "poor",
             "thermal": "cold",
-            "description": f"North-facing slope ({aspect:.0f}┬░)"
+            "description": f"North-facing slope ({aspect:.0f}°)"
         }
-    elif 45 < aspect <= 135:  # East-facing (45┬░ to 135┬░)
+    elif 45 < aspect <= 135:  # East-facing (45° to 135°)
         return {
             "direction": "east-facing", 
             "quality": "poor",
             "thermal": "cool",
-            "description": f"East-facing slope ({aspect:.0f}┬░)"
+            "description": f"East-facing slope ({aspect:.0f}°)"
         }
-    elif 135 < aspect <= 225:  # South-facing (135┬░ to 225┬░) - OPTIMAL
+    elif 135 < aspect <= 225:  # South-facing (135° to 225°) - OPTIMAL
         return {
             "direction": "south-facing",
             "quality": "excellent", 
             "thermal": "warm",
-            "description": f"South-facing slope ({aspect:.0f}┬░)"
+            "description": f"South-facing slope ({aspect:.0f}°)"
         }
-    elif 225 < aspect < 315:  # West-facing (225┬░ to 315┬░)
+    elif 225 < aspect < 315:  # West-facing (225° to 315°)
         return {
             "direction": "west-facing",
             "quality": "moderate",
             "thermal": "moderate", 
-            "description": f"West-facing slope ({aspect:.0f}┬░)"
+            "description": f"West-facing slope ({aspect:.0f}°)"
         }
     else:
         return {
             "direction": "unknown",
             "quality": "poor",
             "thermal": "unknown",
-            "description": f"Unknown aspect ({aspect:.0f}┬░)"
+            "description": f"Unknown aspect ({aspect:.0f}°)"
         }
 
 try:
@@ -203,24 +215,24 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         except Exception as e:
             logger.debug(f"Config manager not available in predictor: {e}")
         
-        # ∩┐╜ Refactored Services: Initialize biological aspect scorer
+        # • Refactored Services: Initialize biological aspect scorer
         from backend.services.aspect_scorer import BiologicalAspectScorer
         self.aspect_scorer = BiologicalAspectScorer()
         logger.info("Refactoring: BiologicalAspectScorer service initialized (Phase 4.7 logic)")
         
-        # ≡ƒÄ» Stand Calculator: Initialize wind-aware stand calculator service
+        # [POINTS] Stand Calculator: Initialize wind-aware stand calculator service
         self.stand_calculator = None
         if STAND_CALCULATOR_AVAILABLE:
             self.stand_calculator = WindAwareStandCalculator()
-            logger.info("≡ƒÄ» Refactoring: WindAwareStandCalculator service initialized (wind-thermal-scent integration)")
+            logger.info("[POINTS] Refactoring: WindAwareStandCalculator service initialized (wind-thermal-scent integration)")
         
-        # ≡ƒªî Mature Buck Stand Generator: Initialize structured methodology for mature buck hunting
+        # [DEER] Mature Buck Stand Generator: Initialize structured methodology for mature buck hunting
         self.mature_buck_generator = None
         if MATURE_BUCK_GENERATOR_AVAILABLE:
             self.mature_buck_generator = MatureBuckStandGenerator()
-            logger.info("≡ƒªî Refactoring: MatureBuckStandGenerator initialized (4-step structured methodology)")
+            logger.info("[DEER] Refactoring: MatureBuckStandGenerator initialized (4-step structured methodology)")
         
-        # ∩┐╜≡ƒù║∩╕Å LIDAR Integration: Initialize Vermont LIDAR reader for high-resolution terrain
+        # •[OSM] LIDAR Integration: Initialize Vermont LIDAR reader for high-resolution terrain
         self.lidar_dem_manager = None
         self.lidar_terrain_extractor = None
         self.lidar_batch_processor = None
@@ -235,16 +247,16 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         if LIDAR_AVAILABLE and USE_LIDAR_FIRST:
             try:
                 self.lidar_dem_manager, self.lidar_terrain_extractor, self.lidar_batch_processor = get_lidar_processor()
-                logger.info("≡ƒù║∩╕Å LIDAR: LIDAR processor service ENABLED (0.35m resolution, offline capable)")
-                logger.info("≡ƒù║∩╕Å LIDAR: Will prefer local LIDAR over GEE SRTM (30m) for terrain data")
+                logger.info("[OSM] LIDAR: LIDAR processor service ENABLED (0.35m resolution, offline capable)")
+                logger.info("[OSM] LIDAR: Will prefer local LIDAR over GEE SRTM (30m) for terrain data")
             except Exception as e:
-                logger.error(f"Γ¥î LIDAR: Failed to initialize: {e}")
+                logger.error(f"[ERROR] LIDAR: Failed to initialize: {e}")
                 self.lidar_dem_manager = None
                 self.lidar_terrain_extractor = None
                 self.lidar_batch_processor = None
                 self.use_lidar_first = False
         
-        # ≡ƒÄ» HSM Integration: Initialize Habitat Suitability Model if enabled
+        # [POINTS] HSM Integration: Initialize Habitat Suitability Model if enabled
         self.hsm_model = None
         self.hsm_viz = None
         if HSM_AVAILABLE and USE_HSM_METHOD:
@@ -255,13 +267,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     min_separation_m=300,
                     cache_ttl_hours=6
                 )
-                logger.info("≡ƒÄ» HSM: Habitat Suitability Model ENABLED")
+                logger.info("[POINTS] HSM: Habitat Suitability Model ENABLED")
                 
                 if HSM_VISUALIZATION_ENABLED:
                     self.hsm_viz = HabitatSuitabilityVisualizer(output_dir="suitability_maps")
-                    logger.info("≡ƒôè HSM: Visualization ENABLED (maps saved to suitability_maps/)")
+                    logger.info("[DATA] HSM: Visualization ENABLED (maps saved to suitability_maps/)")
             except Exception as e:
-                logger.error(f"Γ¥î HSM: Failed to initialize: {e}")
+                logger.error(f"[ERROR] HSM: Failed to initialize: {e}")
                 self.hsm_model = None
                 self.hsm_viz = None
 
@@ -488,12 +500,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             ).getInfo()
             
             # Extract values (GEE returns dictionaries)
-            slope_deg = slope_info.get('slope', 10.0)  # Default to 10┬░ if null
+            slope_deg = slope_info.get('slope', 10.0)  # Default to 10° if null
             aspect_deg = aspect_info.get('aspect', 180.0)  # Default to south-facing if null
             elevation_m = elevation_info.get('elevation', 300.0)  # Default elevation
             
-            logger.info(f"≡ƒîì GEE SRTM analysis: Slope={slope_deg:.1f}┬░, "
-                       f"Aspect={aspect_deg:.0f}┬░, Elevation={elevation_m:.0f}m")
+            logger.info(f"[GEE] GEE SRTM analysis: Slope={slope_deg:.1f}°, "
+                       f"Aspect={aspect_deg:.0f}°, Elevation={elevation_m:.0f}m")
             
             return {
                 "elevation": float(elevation_m),
@@ -569,8 +581,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     dy, dx = np.gradient(elevation_data)
                     
                     # Convert to geographic coordinates (approximate)
-                    # 1 degree latitude Γëê 111,320 meters
-                    # 1 degree longitude Γëê 111,320 * cos(latitude) meters
+                    # 1 degree latitude ≈ 111,320 meters
+                    # 1 degree longitude ≈ 111,320 * cos(latitude) meters
                     meter_per_deg_lat = 111320
                     meter_per_deg_lon = 111320 * np.cos(np.radians(lat))
                     
@@ -593,34 +605,34 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     point_aspect = aspect_deg[center_idx, center_idx]
                     point_elevation = elevation_data[center_idx, center_idx]
                     
-                    # ≡ƒÄ» CRITICAL VALIDATION: Slopes >45┬░ are extremely rare in Vermont
-                    # Most terrain slopes are 0┬░-35┬░, with 90┬░ being impossible for normal terrain
+                    # [POINTS] CRITICAL VALIDATION: Slopes >45° are extremely rare in Vermont
+                    # Most terrain slopes are 0°-35°, with 90° being impossible for normal terrain
                     if point_slope > 45 or np.isnan(point_slope) or np.isinf(point_slope):
-                        logger.warning(f"ΓÜá∩╕Å UNREALISTIC SLOPE DETECTED: {point_slope:.1f}┬░ - applying Vermont terrain correction")
+                        logger.warning(f"[WARN] UNREALISTIC SLOPE DETECTED: {point_slope:.1f}° - applying Vermont terrain correction")
                         # Apply realistic Vermont terrain characteristics
-                        # Vermont slopes typically range from 0┬░ (valleys) to 35┬░ (steep hills)
+                        # Vermont slopes typically range from 0° (valleys) to 35° (steep hills)
                         # Use elevation and coordinate variation to estimate realistic slope
                         elevation_range = np.max(elevation_data) - np.min(elevation_data)
                         if elevation_range > 100:  # Mountainous area
                             point_slope = np.random.uniform(15, 30)  # Moderate to steep hills
-                            logger.info(f"≡ƒÅö∩╕Å MOUNTAINOUS CORRECTION: Applied realistic slope {point_slope:.1f}┬░ for high elevation variation")
+                            logger.info(f"[MTN] MOUNTAINOUS CORRECTION: Applied realistic slope {point_slope:.1f}° for high elevation variation")
                         elif elevation_range > 50:  # Hilly area  
                             point_slope = np.random.uniform(8, 20)   # Gentle to moderate hills
-                            logger.info(f"≡ƒÅ₧∩╕Å HILLY CORRECTION: Applied realistic slope {point_slope:.1f}┬░ for moderate elevation variation")
+                            logger.info(f"[HILL] HILLY CORRECTION: Applied realistic slope {point_slope:.1f}° for moderate elevation variation")
                         else:  # Valley/flat area
                             point_slope = np.random.uniform(2, 12)   # Very gentle slopes
-                            logger.info(f"≡ƒî╛ VALLEY CORRECTION: Applied realistic slope {point_slope:.1f}┬░ for low elevation variation")
+                            logger.info(f"[VALLEY] VALLEY CORRECTION: Applied realistic slope {point_slope:.1f}° for low elevation variation")
                     
                     # Validate aspect (should be 0-360)
                     if np.isnan(point_aspect) or np.isinf(point_aspect):
                         point_aspect = np.random.uniform(0, 360)  # Random aspect if calculation failed
-                        logger.warning(f"ΓÜá∩╕Å ASPECT CORRECTION: Applied random aspect {point_aspect:.0f}┬░ due to calculation error")
+                        logger.warning(f"[WARN] ASPECT CORRECTION: Applied random aspect {point_aspect:.0f}° due to calculation error")
                 
                 # Clean up temporary file
                 os.unlink(tmp_path)
                 
-                logger.info(f"≡ƒÅö∩╕Å Rasterio DEM analysis: Slope={point_slope:.1f}┬░, "
-                           f"Aspect={point_aspect:.0f}┬░, Elevation={point_elevation:.0f}m")
+                logger.info(f"[MTN] Rasterio DEM analysis: Slope={point_slope:.1f}°, "
+                           f"Aspect={point_aspect:.0f}°, Elevation={point_elevation:.0f}m")
                 
                 return {
                     "elevation": float(point_elevation),
@@ -666,18 +678,18 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 distance_m = 111.32 * 1000 * 0.001  # ~111m per 0.001 degree
                 slope_degrees = abs(max_elevation_diff / distance_m) * (180 / 3.14159) if distance_m > 0 else 0
                 
-                # ≡ƒÄ» CRITICAL: Apply Vermont terrain realism
+                # [POINTS] CRITICAL: Apply Vermont terrain realism
                 if slope_degrees > 35 or slope_degrees == 0:
                     # Vermont elevation-based slope estimation
                     if center_elev > 800:  # Higher elevations - mountainous
                         slope_degrees = np.random.uniform(12, 28)  # Moderate to steep
-                        logger.info(f"≡ƒÅö∩╕Å HIGH ELEVATION: Applied realistic slope {slope_degrees:.1f}┬░ for {center_elev:.0f}m elevation")
+                        logger.info(f"[MTN] HIGH ELEVATION: Applied realistic slope {slope_degrees:.1f}° for {center_elev:.0f}m elevation")
                     elif center_elev > 400:  # Mid elevations - hilly
                         slope_degrees = np.random.uniform(6, 18)   # Gentle to moderate  
-                        logger.info(f"≡ƒÅ₧∩╕Å MID ELEVATION: Applied realistic slope {slope_degrees:.1f}┬░ for {center_elev:.0f}m elevation")
+                        logger.info(f"[HILL] MID ELEVATION: Applied realistic slope {slope_degrees:.1f}° for {center_elev:.0f}m elevation")
                     else:  # Lower elevations - valleys
                         slope_degrees = np.random.uniform(2, 10)   # Very gentle
-                        logger.info(f"≡ƒî╛ LOW ELEVATION: Applied realistic slope {slope_degrees:.1f}┬░ for {center_elev:.0f}m elevation")
+                        logger.info(f"[VALLEY] LOW ELEVATION: Applied realistic slope {slope_degrees:.1f}° for {center_elev:.0f}m elevation")
                 
                 # Simple aspect calculation (direction of steepest slope)
                 ns_gradient = north_elev - south_elev
@@ -723,7 +735,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
     def get_dynamic_gee_data_enhanced(self, lat: float, lon: float, vegetation_data: Optional[Dict] = None, max_retries: int = 5, prefer_lidar: bool = True) -> Dict:
         """Enhanced GEE data with REAL canopy coverage from vegetation analyzer
         
-        ≡ƒù║∩╕Å LIDAR-FIRST ARCHITECTURE (Phase 2):
+        [OSM] LIDAR-FIRST ARCHITECTURE (Phase 2):
         - TIER 1: Try LIDAR first (0.35m resolution, instant, offline)
         - TIER 2: Fall back to GEE (30m resolution, 2-3s, online)
         - TIER 3: Emergency rasterio fallback
@@ -741,7 +753,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         if hasattr(self, 'lidar_stats'):
             self.lidar_stats['coverage_checks'] += 1
         
-        # ≡ƒù║∩╕Å TIER 1: Try LIDAR first (0.35m resolution, instant)
+        # [OSM] TIER 1: Try LIDAR first (0.35m resolution, instant)
         if self.use_lidar_first and prefer_lidar and self.lidar_terrain_extractor:
             try:
                 import time
@@ -761,9 +773,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     if hasattr(self, 'lidar_stats'):
                         self.lidar_stats['lidar_calls'] += 1
                     
-                    logger.info(f"≡ƒù║∩╕Å LIDAR TERRAIN (0.35m): "
-                               f"Slope={lidar_terrain['slope']:.1f}┬░, "
-                               f"Aspect={lidar_terrain['aspect']:.0f}┬░, "
+                    logger.info(f"[OSM] LIDAR TERRAIN (0.35m): "
+                               f"Slope={lidar_terrain['slope']:.1f}°, "
+                               f"Aspect={lidar_terrain['aspect']:.0f}°, "
                                f"Elevation={lidar_terrain['elevation']:.1f}m "
                                f"({elapsed_ms:.1f}ms)")
                     
@@ -783,7 +795,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     
                 else:
                     # No LIDAR coverage at this location
-                    logger.info(f"≡ƒîì GEE FALLBACK: No LIDAR coverage at ({lat:.4f}, {lon:.4f})")
+                    logger.info(f"[GEE] GEE FALLBACK: No LIDAR coverage at ({lat:.4f}, {lon:.4f})")
                     if hasattr(self, 'lidar_stats'):
                         self.lidar_stats['gee_fallback_calls'] += 1
                     
@@ -796,7 +808,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     gee_data.update(elevation_data)
                     
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å LIDAR extraction failed: {e}, falling back to GEE")
+                logger.warning(f"[WARN] LIDAR extraction failed: {e}, falling back to GEE")
                 if hasattr(self, 'lidar_stats'):
                     self.lidar_stats['gee_fallback_calls'] += 1
                 
@@ -808,7 +820,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     self.lidar_stats['gee_time_ms'] += (time.time() - start_time) * 1000
                 gee_data.update(elevation_data)
         else:
-            # ≡ƒîì TIER 2: GEE (LIDAR disabled or prefer_lidar=False)
+            # [GEE] TIER 2: GEE (LIDAR disabled or prefer_lidar=False)
             if hasattr(self, 'lidar_stats'):
                 self.lidar_stats['gee_fallback_calls'] += 1
             
@@ -819,7 +831,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 self.lidar_stats['gee_time_ms'] += (time.time() - start_time) * 1000
             gee_data.update(elevation_data)
         
-        # ∩┐╜ REAL CANOPY INTEGRATION from VegetationAnalyzer
+        # • REAL CANOPY INTEGRATION from VegetationAnalyzer
         if vegetation_data and 'canopy_coverage_analysis' in vegetation_data:
             canopy_analysis = vegetation_data['canopy_coverage_analysis']
             
@@ -842,16 +854,16 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 gee_data['ndvi_trend'] = vegetation_data.get('ndvi_trend')
             
             # Log canopy upgrade
-            logger.info(f"≡ƒî▓ CANOPY UPGRADE: {old_canopy:.1%} (estimated) ΓåÆ "
+            logger.info(f"[TREE] CANOPY UPGRADE: {old_canopy:.1%} (estimated) -> "
                        f"{real_canopy:.1%} (satellite: {gee_data['canopy_data_source']})")
             
             # Flag if using fallback
             if canopy_analysis.get('fallback'):
-                logger.warning("ΓÜá∩╕Å Canopy using FALLBACK mode (no satellite data available)")
+                logger.warning("[WARN] Canopy using FALLBACK mode (no satellite data available)")
             else:
-                logger.info(f"Γ£à Using REAL satellite canopy data ({gee_data['canopy_resolution_m']}m resolution)")
+                logger.info(f"[INIT] Using REAL satellite canopy data ({gee_data['canopy_resolution_m']}m resolution)")
         else:
-            logger.warning("ΓÜá∩╕Å No vegetation analysis provided, using estimated canopy coverage")
+            logger.warning("[WARN] No vegetation analysis provided, using estimated canopy coverage")
             gee_data['canopy_data_source'] = 'estimated'
 
         # Validate for grass-field false positives (high legacy canopy + moderate NDVI)
@@ -884,9 +896,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             if not src.endswith('_validated'):
                 gee_data['data_source'] = f"{src}_validated"
         
-        # ∩┐╜≡ƒÄ» FINAL VALIDATION: Ensure slope is realistic for Vermont terrain
+        # •[POINTS] FINAL VALIDATION: Ensure slope is realistic for Vermont terrain
         if gee_data.get("slope", 0) > 45:
-            logger.warning(f"ΓÜá∩╕Å FINAL SLOPE VALIDATION: {gee_data['slope']:.1f}┬░ exceeds realistic limit")
+            logger.warning(f"[WARN] FINAL SLOPE VALIDATION: {gee_data['slope']:.1f}° exceeds realistic limit")
             # Apply Vermont terrain correction based on elevation
             elevation = gee_data.get("elevation", 300)
             if elevation > 800:
@@ -895,10 +907,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 gee_data["slope"] = np.random.uniform(8, 20)   # Hilly
             else:
                 gee_data["slope"] = np.random.uniform(3, 15)   # Gentle
-            logger.info(f"≡ƒöº SLOPE CORRECTED: Applied {gee_data['slope']:.1f}┬░ for {elevation:.0f}m elevation")
+            logger.info(f"[OK] SLOPE CORRECTED: Applied {gee_data['slope']:.1f}° for {elevation:.0f}m elevation")
         
-        logger.info(f"≡ƒÅö∩╕Å Enhanced GEE data: Canopy={gee_data['canopy_coverage']:.1%} ({gee_data.get('canopy_data_source', 'unknown')}), "
-                   f"Slope={gee_data['slope']:.1f}┬░, Aspect={gee_data['aspect']:.0f}┬░")
+        logger.info(f"[MTN] Enhanced GEE data: Canopy={gee_data['canopy_coverage']:.1%} ({gee_data.get('canopy_data_source', 'unknown')}), "
+                   f"Slope={gee_data['slope']:.1f}°, Aspect={gee_data['aspect']:.0f}°")
         
         return gee_data
 
@@ -906,7 +918,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         Log statistics about LIDAR vs GEE data source usage.
         
-        ≡ƒù║∩╕Å Phase 2: LIDAR-First Architecture Monitoring
+        [OSM] Phase 2: LIDAR-First Architecture Monitoring
         
         Tracks and reports:
         - Percentage of terrain data from LIDAR vs GEE
@@ -918,14 +930,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         Expected for non-Vermont: 0% LIDAR, 100% GEE fallback
         """
         if not hasattr(self, 'lidar_stats'):
-            logger.info("≡ƒôè DATA SOURCE STATS: No LIDAR statistics available")
+            logger.info("[DATA] DATA SOURCE STATS: No LIDAR statistics available")
             return
         
         stats = self.lidar_stats
         total_calls = stats['lidar_calls'] + stats['gee_fallback_calls']
         
         if total_calls == 0:
-            logger.info("≡ƒôè DATA SOURCE STATS: No terrain data fetched yet")
+            logger.info("[DATA] DATA SOURCE STATS: No terrain data fetched yet")
             return
         
         # Calculate percentages
@@ -938,25 +950,25 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Log summary
         logger.info("=" * 60)
-        logger.info("≡ƒôè LIDAR-FIRST ARCHITECTURE STATISTICS (Phase 2)")
+        logger.info("[DATA] LIDAR-FIRST ARCHITECTURE STATISTICS (Phase 2)")
         logger.info("=" * 60)
-        logger.info(f"≡ƒù║∩╕Å  DATA SOURCE BREAKDOWN:")
-        logger.info(f"   Γö£ΓöÇ LIDAR (0.35m):  {stats['lidar_calls']:3d} calls ({lidar_pct:5.1f}%) - {lidar_avg_ms:6.1f}ms avg")
-        logger.info(f"   ΓööΓöÇ GEE (30m):      {stats['gee_fallback_calls']:3d} calls ({gee_pct:5.1f}%) - {gee_avg_ms:6.1f}ms avg")
+        logger.info(f"[OSM]  DATA SOURCE BREAKDOWN:")
+        logger.info(f"   |-- LIDAR (0.35m):  {stats['lidar_calls']:3d} calls ({lidar_pct:5.1f}%) - {lidar_avg_ms:6.1f}ms avg")
+        logger.info(f"   +-- GEE (30m):      {stats['gee_fallback_calls']:3d} calls ({gee_pct:5.1f}%) - {gee_avg_ms:6.1f}ms avg")
         logger.info(f"")
-        logger.info(f"ΓÜí PERFORMANCE:")
-        logger.info(f"   Γö£ΓöÇ Coverage checks: {stats['coverage_checks']} locations")
-        logger.info(f"   Γö£ΓöÇ LIDAR speedup:   {gee_avg_ms/lidar_avg_ms:.1f}x faster than GEE" if lidar_avg_ms > 0 else "   Γö£ΓöÇ LIDAR speedup:   N/A")
-        logger.info(f"   ΓööΓöÇ Time saved:      {stats['gee_time_ms'] - stats['lidar_time_ms']:.0f}ms total")
+        logger.info(f"⚡ PERFORMANCE:")
+        logger.info(f"   |-- Coverage checks: {stats['coverage_checks']} locations")
+        logger.info(f"   |-- LIDAR speedup:   {gee_avg_ms/lidar_avg_ms:.1f}x faster than GEE" if lidar_avg_ms > 0 else "   |-- LIDAR speedup:   N/A")
+        logger.info(f"   +-- Time saved:      {stats['gee_time_ms'] - stats['lidar_time_ms']:.0f}ms total")
         logger.info(f"")
         
         # Validation against targets
         if lidar_pct >= 90:
-            logger.info(f"Γ£à TARGET MET: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
+            logger.info(f"[INIT] TARGET MET: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
         elif lidar_pct >= 50:
-            logger.warning(f"ΓÜá∩╕Å  PARTIAL: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
+            logger.warning(f"[WARN]  PARTIAL: {lidar_pct:.1f}% LIDAR usage (target: 90%+ for Vermont)")
         else:
-            logger.warning(f"Γ¥î LOW LIDAR: {lidar_pct:.1f}% usage (expected 90%+ for Vermont)")
+            logger.warning(f"[ERROR] LOW LIDAR: {lidar_pct:.1f}% usage (expected 90%+ for Vermont)")
         
         logger.info("=" * 60)
 
@@ -971,14 +983,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         Args:
             gee_data: Google Earth Engine terrain data containing:
                 - slope: Terrain slope in degrees
-                - aspect: Compass direction of slope face (0-360┬░)
+                - aspect: Compass direction of slope face (0-360°)
                 - canopy_coverage: Percentage of overhead cover (0-1)
                 - elevation: Height above sea level in meters
             osm_data: OpenStreetMap proximity data containing:
                 - nearest_road_distance_m: Distance to closest road in meters
                 - road_type: Classification of nearest road
             weather_data: Current weather conditions containing:
-                - wind_direction: Prevailing wind bearing (0-360┬░)
+                - wind_direction: Prevailing wind bearing (0-360°)
                 - wind_speed: Wind velocity in mph
                 - temperature: Current temp in Fahrenheit
         
@@ -991,7 +1003,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 - adjustments: Any threshold modifications applied
         
         Notes:
-            - Slope preference: 10-25┬░ optimal (balances drainage and comfort)
+            - Slope preference: 10-25° optimal (balances drainage and comfort)
             - Canopy minimum: 60% cover (adjusted for high pressure areas)
             - Road distance: >200m minimum for security
             - Aspect preference: South-facing slopes for thermal advantage
@@ -1006,9 +1018,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             ... )
             >>> print(f"Suitability score: {result['score']}/100")
         """
-        # ≡ƒÄ» SLOPE CONSISTENCY TRACKING: Log original slope value
+        # [POINTS] SLOPE CONSISTENCY TRACKING: Log original slope value
         original_slope = gee_data.get("slope", 0)
-        logger.info(f"≡ƒôÅ SLOPE TRACKING: Original GEE slope = {original_slope:.6f}┬░")
+        logger.info(f"[TRACK] SLOPE TRACKING: Original GEE slope = {original_slope:.6f}°")
         
         criteria = {
             "canopy_coverage": gee_data.get("canopy_coverage", 0),
@@ -1019,21 +1031,21 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             "temperature": weather_data.get("temperature", 50)
         }
         
-        # ≡ƒÄ» SLOPE CONSISTENCY VERIFICATION: Ensure no modification
+        # [POINTS] SLOPE CONSISTENCY VERIFICATION: Ensure no modification
         if criteria["slope"] != original_slope:
-            logger.error(f"≡ƒÜ¿ SLOPE CONSISTENCY ERROR: Original {original_slope:.6f}┬░ != Criteria {criteria['slope']:.6f}┬░")
+            logger.error(f"[ERR] SLOPE CONSISTENCY ERROR: Original {original_slope:.6f}° != Criteria {criteria['slope']:.6f}°")
         else:
-            logger.info(f"Γ£à SLOPE CONSISTENCY: Criteria slope matches original = {criteria['slope']:.6f}┬░")
+            logger.info(f"[INIT] SLOPE CONSISTENCY: Criteria slope matches original = {criteria['slope']:.6f}°")
         
         # Adaptive biological criteria thresholds for varying terrain conditions
         # Adjusted for Vermont mixed forest and mountainous terrain
         thresholds = {
             "min_canopy": 0.6,      # Lowered from 0.7 for high-pressure areas with marginal cover
             "min_road_distance": 200,  # >200m from roads (maintained)
-            "min_slope": 10,        # 10┬░ minimum for drainage and visibility
-            "optimal_slope_max": 25, # 25┬░ optimal maximum for comfort
-            "max_slope": 30,        # 30┬░ absolute maximum (biological limit - disqualify if exceeded)
-            "optimal_aspect_min": 135,  # South-facing slopes (135┬░-225┬░)
+            "min_slope": 10,        # 10° minimum for drainage and visibility
+            "optimal_slope_max": 25, # 25° optimal maximum for comfort
+            "max_slope": 30,        # 30° absolute maximum (biological limit - disqualify if exceeded)
+            "optimal_aspect_min": 135,  # South-facing slopes (135°-225°)
             "optimal_aspect_max": 225
         }
         
@@ -1049,44 +1061,44 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         else:
             scores["isolation"] = (criteria["road_distance"] / thresholds["min_road_distance"]) * 50
         
-        # ENHANCED SLOPE SCORING: Optimal range 10-25┬░ for mature buck bedding
+        # ENHANCED SLOPE SCORING: Optimal range 10-25° for mature buck bedding
         # This matches biological requirements for comfort, visibility, and drainage
         slope = criteria["slope"]
         
         if thresholds["min_slope"] <= slope <= thresholds["optimal_slope_max"]:
-            # OPTIMAL RANGE: 10-25┬░ perfect for bedding
+            # OPTIMAL RANGE: 10-25° perfect for bedding
             scores["slope"] = 100
-            logger.info(f"Γ£à OPTIMAL SLOPE: {slope:.1f}┬░ within ideal 10-25┬░ range")
+            logger.info(f"[INIT] OPTIMAL SLOPE: {slope:.1f}° within ideal 10-25° range")
             
         elif 5 <= slope < thresholds["min_slope"]:
-            # TOO FLAT: 5-10┬░ - insufficient cover, poor drainage
+            # TOO FLAT: 5-10° - insufficient cover, poor drainage
             penalty = (thresholds["min_slope"] - slope) * 8  # 8 points per degree below optimal
             scores["slope"] = max(20, 100 - penalty)
-            logger.info(f"ΓÜá∩╕Å SUBOPTIMAL SLOPE: {slope:.1f}┬░ is too flat (drainage concerns), score: {scores['slope']:.0f}")
+            logger.info(f"[WARN] SUBOPTIMAL SLOPE: {slope:.1f}° is too flat (drainage concerns), score: {scores['slope']:.0f}")
             
         elif thresholds["optimal_slope_max"] < slope <= thresholds["max_slope"]:
-            # TOO STEEP: 25-30┬░ - reduced comfort, instability risk
+            # TOO STEEP: 25-30° - reduced comfort, instability risk
             penalty = (slope - thresholds["optimal_slope_max"]) * 12  # 12 points per degree above optimal
             scores["slope"] = max(10, 100 - penalty)
-            logger.warning(f"ΓÜá∩╕Å STEEP SLOPE: {slope:.1f}┬░ exceeds optimal 25┬░ (comfort concerns), score: {scores['slope']:.0f}")
+            logger.warning(f"[WARN] STEEP SLOPE: {slope:.1f}° exceeds optimal 25° (comfort concerns), score: {scores['slope']:.0f}")
             
         elif slope > thresholds["max_slope"]:
-            # CRITICAL: >30┬░ - biologically unsuitable for mature buck bedding
+            # CRITICAL: >30° - biologically unsuitable for mature buck bedding
             scores["slope"] = 0  # Complete disqualification
-            logger.warning(f"≡ƒÜ½ SLOPE VIOLATION: {slope:.1f}┬░ exceeds {thresholds['max_slope']}┬░ biological limit - UNSUITABLE FOR BEDDING")
+            logger.warning(f"[WARN] SLOPE VIOLATION: {slope:.1f}° exceeds {thresholds['max_slope']}° biological limit - UNSUITABLE FOR BEDDING")
             
-        else:  # slope < 5┬░
-            # EXTREMELY FLAT: <5┬░ - swampy, no oversight, poor habitat
+        else:  # slope < 5°
+            # EXTREMELY FLAT: <5° - swampy, no oversight, poor habitat
             scores["slope"] = 10
-            logger.warning(f"ΓÜá∩╕Å EXTREMELY FLAT: {slope:.1f}┬░ likely swampy with poor visibility, score: {scores['slope']:.0f}")
+            logger.warning(f"[WARN] EXTREMELY FLAT: {slope:.1f}° likely swampy with poor visibility, score: {scores['slope']:.0f}")
         
         # ENHANCED: Disqualify areas with excessive slopes completely
         slope_disqualified = criteria["slope"] > thresholds["max_slope"]
         if slope_disqualified:
-            logger.warning(f"≡ƒÜ½ BEDDING ZONE DISQUALIFIED: Slope {criteria['slope']:.1f}┬░ > {thresholds['max_slope']}┬░ limit")
+            logger.warning(f"[WARN] BEDDING ZONE DISQUALIFIED: Slope {criteria['slope']:.1f}° > {thresholds['max_slope']}° limit")
         
         # PHASE 4.7: BIOLOGICAL ASPECT SCORING (Wind-Integrated)
-        # ≡ƒöº REFACTORED: Using BiologicalAspectScorer service
+        # [OK] REFACTORED: Using BiologicalAspectScorer service
         # Prioritizes leeward shelter when wind >10 mph, thermal aspects when wind <10 mph
         # Always considers uphill positioning for scent/visibility
         wind_direction = weather_data.get("wind_direction", 180)
@@ -1102,7 +1114,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             slope=slope
         )
         
-        logger.info(f"≡ƒº¡ ASPECT BIOLOGICAL: {aspect_reason}")
+        logger.info(f"[TARGET] ASPECT BIOLOGICAL: {aspect_reason}")
         scores["aspect"] = aspect_score
         
         # Wind protection score (leeward positioning)
@@ -1170,7 +1182,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             thresholds["min_slope"] <= criteria["slope"] <= thresholds["max_slope"]
         )
         
-        # BIOLOGICAL ACCURACY: Slopes >30┬░ are completely unsuitable for bedding
+        # BIOLOGICAL ACCURACY: Slopes >30° are completely unsuitable for bedding
         slope_disqualified = criteria["slope"] > thresholds["max_slope"]
         
         # BIOLOGICAL ACCURACY FIX: Aspect preference varies by temperature, not a hard requirement
@@ -1184,22 +1196,22 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         if aspect_value is not None and isinstance(aspect_value, (int, float)):
             if temperature < 40:  # Cold weather - south-facing preferred but not required
                 if 135 <= aspect_value <= 225:
-                    logger.info(f"Γ£à ASPECT OPTIMAL: South-facing {aspect_value:.1f}┬░ ideal for cold weather thermal advantage")
+                    logger.info(f"[INIT] ASPECT OPTIMAL: South-facing {aspect_value:.1f}° ideal for cold weather thermal advantage")
                 elif 315 <= aspect_value or aspect_value <= 45:
-                    logger.info(f"ΓÜá∩╕Å ASPECT SUBOPTIMAL: North-facing {aspect_value:.1f}┬░ less ideal in cold, but acceptable with good cover")
+                    logger.info(f"[WARN] ASPECT SUBOPTIMAL: North-facing {aspect_value:.1f}° less ideal in cold, but acceptable with good cover")
                 else:
-                    logger.info(f"Γä╣∩╕Å ASPECT NEUTRAL: {aspect_value:.1f}┬░ acceptable aspect for bedding")
+                    logger.info(f"[INFO] ASPECT NEUTRAL: {aspect_value:.1f}° acceptable aspect for bedding")
             elif temperature > 65:  # Warm weather - north/east-facing preferred
                 if 315 <= aspect_value or aspect_value <= 135:
-                    logger.info(f"Γ£à ASPECT OPTIMAL: North/East-facing {aspect_value:.1f}┬░ provides cooling in warm weather")
+                    logger.info(f"[INIT] ASPECT OPTIMAL: North/East-facing {aspect_value:.1f}° provides cooling in warm weather")
                 elif 135 < aspect_value <= 225:
-                    logger.info(f"ΓÜá∩╕Å ASPECT SUBOPTIMAL: South-facing {aspect_value:.1f}┬░ can be hot, but acceptable with canopy")
+                    logger.info(f"[WARN] ASPECT SUBOPTIMAL: South-facing {aspect_value:.1f}° can be hot, but acceptable with canopy")
                 else:
-                    logger.info(f"Γä╣∩╕Å ASPECT NEUTRAL: West-facing {aspect_value:.1f}┬░ acceptable with afternoon shade")
+                    logger.info(f"[INFO] ASPECT NEUTRAL: West-facing {aspect_value:.1f}° acceptable with afternoon shade")
             else:  # Moderate weather - all aspects equally acceptable
-                logger.info(f"Γ£à ASPECT ACCEPTABLE: {aspect_value:.1f}┬░ suitable for moderate temperatures")
+                logger.info(f"[INIT] ASPECT ACCEPTABLE: {aspect_value:.1f}° suitable for moderate temperatures")
         else:
-            logger.info(f"Γä╣∩╕Å ASPECT UNKNOWN: Missing aspect data, relying on other criteria")
+            logger.info(f"[INFO] ASPECT UNKNOWN: Missing aspect data, relying on other criteria")
         
         # Determine if location meets minimum criteria - NO ASPECT DISQUALIFICATION
         meets_criteria = (
@@ -1211,18 +1223,18 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Log disqualification reasons (slope only - aspect never disqualifies)
         if slope_disqualified:
-            logger.warning(f"≡ƒÜ½ LOCATION DISQUALIFIED: Slope {criteria['slope']:.1f}┬░ exceeds biological limit of {thresholds['max_slope']}┬░")
-            logger.warning(f"   ≡ƒªî Biological reasoning: Slopes over {thresholds['max_slope']}┬░ are too steep for comfortable bedding")
+            logger.warning(f"[WARN] LOCATION DISQUALIFIED: Slope {criteria['slope']:.1f}° exceeds biological limit of {thresholds['max_slope']}°")
+            logger.warning(f"   [DEER] Biological reasoning: Slopes over {thresholds['max_slope']}° are too steep for comfortable bedding")
             meets_criteria = False  # Force disqualification
         
         # Enhanced logging for debugging zone generation failures
-        logger.info(f"≡ƒ¢î Bedding Suitability Analysis:")
+        logger.info(f"[ZONE] Bedding Suitability Analysis:")
         logger.info(f"   Canopy: {criteria['canopy_coverage']:.1%} (need: {thresholds['min_canopy']:.1%}) = {scores['canopy']:.1f}/100")
         logger.info(f"   Road Distance: {criteria['road_distance']:.0f}m (need: {thresholds['min_road_distance']:.0f}m) = {scores['isolation']:.1f}/100")
-        logger.info(f"   Slope: {criteria['slope']:.1f}┬░ (range: {thresholds['min_slope']:.0f}┬░-{thresholds['max_slope']:.0f}┬░) = {scores['slope']:.1f}/100")
-        logger.info(f"   Aspect: {criteria['aspect']:.0f}┬░ (optimal: {thresholds['optimal_aspect_min']:.0f}┬░-{thresholds['optimal_aspect_max']:.0f}┬░) = {scores['aspect']:.1f}/100")
+        logger.info(f"   Slope: {criteria['slope']:.1f}° (range: {thresholds['min_slope']:.0f}°-{thresholds['max_slope']:.0f}°) = {scores['slope']:.1f}/100")
+        logger.info(f"   Aspect: {criteria['aspect']:.0f}° (optimal: {thresholds['optimal_aspect_min']:.0f}°-{thresholds['optimal_aspect_max']:.0f}°) = {scores['aspect']:.1f}/100")
         logger.info(f"   Corridor: {scores['corridor']:.1f}/100 (benches={benches_count}, saddles={saddles_count})")
-        logger.info(f"   Overall Score: {overall_score:.1f}% (need: ΓëÑ70%)")
+        logger.info(f"   Overall Score: {overall_score:.1f}% (need: ≥70%)")
         logger.info(f"   Meets Criteria: {meets_criteria} (Primary: {primary_criteria_met}, Terrain: {terrain_suitable})")
         
         return {
@@ -1362,7 +1374,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     candidate_bearing = (center + offset) % 360
                     if any(angular_diff(candidate_bearing, other) < 15 for other in avoid_bearings):
                         logger.debug(
-                            "≡ƒº¡ Discarded %s bearing %.0f┬░: overlaps previously selected bearing",
+                            "[TARGET] Discarded %s bearing %.0f°: overlaps previously selected bearing",
                             label,
                             candidate_bearing,
                         )
@@ -1389,7 +1401,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         sample_aspect = terrain_sample.get("aspect")
 
                         if sample_slope < min_slope_required:
-                            last_reason = f"slope {sample_slope:.1f}┬░ < {min_slope_required:.1f}┬░"
+                            last_reason = f"slope {sample_slope:.1f}° < {min_slope_required:.1f}°"
                             continue
 
                         if sample_aspect is None:
@@ -1398,7 +1410,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
                         if not within_leeward(sample_aspect):
                             diff_val = angular_diff(sample_aspect, leeward_direction)
-                            last_reason = f"aspect {sample_aspect:.0f}┬░ (╬ö{diff_val:.0f}┬░ windward)"
+                            last_reason = f"aspect {sample_aspect:.0f}° (Δ{diff_val:.0f}° windward)"
                             continue
 
                         candidate_info = {
@@ -1422,7 +1434,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
                     if not accepted:
                         logger.debug(
-                            "≡ƒº¡ Discarded %s bearing %.0f┬░: %s",
+                            "[TARGET] Discarded %s bearing %.0f°: %s",
                             label,
                             candidate_bearing,
                             last_reason,
@@ -1439,21 +1451,21 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 # Use pure leeward direction to get on the sheltered side of the ridge
                 primary_bearing = leeward_direction
                 logger.info(
-                    "≡ƒî¼∩╕Å BEDDING PRIMARY: Wind (%.1f mph) - using LEEWARD direction (%.0f┬░) "
-                    "over uphill (%.0f┬░) for wind shelter (angle diff=%.0f┬░)",
+                    "[WIND] BEDDING PRIMARY: Wind (%.1f mph) - using LEEWARD direction (%.0f°) "
+                    "over uphill (%.0f°) for wind shelter (angle diff=%.0f°)",
                     wind_speed,
                     leeward_direction,
                     uphill_direction,
                     angle_diff,
                 )
-                logger.info(f"≡ƒÄ» DEBUG: primary_bearing set to {primary_bearing:.0f}┬░")
+                logger.info(f"[POINTS] DEBUG: primary_bearing set to {primary_bearing:.0f}°")
             elif angle_diff >= 90:
                 # Moderate conflict - blend uphill and leeward but strongly favor leeward
                 # Increased leeward weight from 60% to 80% for better wind shelter
                 primary_bearing = self._combine_bearings(leeward_direction, uphill_direction, 0.8, 0.2)
                 logger.info(
-                    "ΓÜá∩╕Å BEDDING COMPROMISE: Uphill=%.0f┬░ vs Leeward=%.0f┬░ (angle diff=%.0f┬░) "
-                    "- blending with strong leeward priority 80/20 (%.0f┬░)",
+                    "[WARN] BEDDING COMPROMISE: Uphill=%.0f° vs Leeward=%.0f° (angle diff=%.0f°) "
+                    "- blending with strong leeward priority 80/20 (%.0f°)",
                     uphill_direction,
                     leeward_direction,
                     angle_diff,
@@ -1463,14 +1475,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 # Uphill and leeward align - use uphill for elevation advantage
                 primary_bearing = uphill_direction
                 logger.info(
-                    "Γ£à BEDDING: Uphill placement aligns with wind (uphill=%.0f┬░, leeward=%.0f┬░)",
+                    "[INIT] BEDDING: Uphill placement aligns with wind (uphill=%.0f°, leeward=%.0f°)",
                     uphill_direction,
                     leeward_direction,
                 )
         else:
             primary_bearing = leeward_direction
             logger.info(
-                "≡ƒº¡ BEDDING: Flat terrain (slope=%.1f┬░Γëñ5┬░), using leeward direction (%.0f┬░)",
+                "[TARGET] BEDDING: Flat terrain (slope=%.1f°<=5°), using leeward direction (%.0f°)",
                 slope,
                 leeward_direction,
             )
@@ -1490,7 +1502,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 # Strong wind - all beds need wind shelter, but spread them out
                 secondary_bearing = (primary_bearing + MIN_SEPARATION_DEGREES) % 360
                 logger.info(
-                    "≡ƒî¼∩╕Å SECONDARY BEDDING: Leeward variation (%.0f┬░) for wind shelter (wind %.1f mph)",
+                    "[WIND] SECONDARY BEDDING: Leeward variation (%.0f°) for wind shelter (wind %.1f mph)",
                     secondary_bearing,
                     wind_speed,
                 )
@@ -1499,14 +1511,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 uphill_direction = (aspect + 180) % 360
                 secondary_bearing = (uphill_direction + MIN_SEPARATION_DEGREES) % 360
                 logger.info(
-                    "≡ƒÅö∩╕Å SECONDARY BEDDING: Uphill variation (%.0f┬░) on %.1f┬░ slope",
+                    "[MTN] SECONDARY BEDDING: Uphill variation (%.0f°) on %.1f° slope",
                     secondary_bearing,
                     slope,
                 )
         else:
             secondary_bearing = (wind_direction + 90) % 360
             logger.info(
-                "≡ƒî▓ SECONDARY BEDDING: Crosswind canopy (%.0f┬░) on flat terrain",
+                "[TREE] SECONDARY BEDDING: Crosswind canopy (%.0f°) on flat terrain",
                 secondary_bearing,
             )
 
@@ -1518,7 +1530,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             if wind_speed >= 3 and angle_diff >= 60:
                 escape_bearing = (primary_bearing - MIN_SEPARATION_DEGREES) % 360
                 logger.info(
-                    "≡ƒî¼∩╕Å ESCAPE BEDDING: Leeward variation (%.0f┬░) for wind shelter (wind %.1f mph)",
+                    "[WIND] ESCAPE BEDDING: Leeward variation (%.0f°) for wind shelter (wind %.1f mph)",
                     escape_bearing,
                     wind_speed,
                 )
@@ -1526,13 +1538,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 # Moderate wind or uphill/leeward alignment
                 escape_bearing = (aspect + 180) % 360
                 logger.info(
-                    "≡ƒÅö∩╕Å ESCAPE BEDDING: Placing uphill (%.0f┬░) for elevation/visibility advantage",
+                    "[MTN] ESCAPE BEDDING: Placing uphill (%.0f°) for elevation/visibility advantage",
                     escape_bearing,
                 )
         else:
             escape_bearing = (leeward_direction + 45) % 360
             logger.info(
-                "≡ƒÅö∩╕Å ESCAPE BEDDING: Flat terrain - using leeward+45┬░ (%.0f┬░)",
+                "[MTN] ESCAPE BEDDING: Flat terrain - using leeward+45° (%.0f°)",
                 escape_bearing,
             )
 
@@ -1550,8 +1562,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         if skip_prefilter_for_wind:
             logger.info(
-                "≡ƒî¼∩╕Å STRONG WIND OVERRIDE: Skipping leeward prefilter to preserve wind shelter bearings "
-                "(wind=%.1f mph, angle_diff=%.0f┬░)",
+                "[WIND] STRONG WIND OVERRIDE: Skipping leeward prefilter to preserve wind shelter bearings "
+                "(wind=%.1f mph, angle_diff=%.0f°)",
                 wind_speed,
                 angle_diff,
             )
@@ -1566,11 +1578,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 selected_bearings.append(primary_bearing)
                 cache_sample(primary_prefilter["lat"], primary_prefilter["lon"])
                 primary_prefilter_note = (
-                    f"prefilter leeward sample aspect {primary_prefilter['aspect']:.0f}┬░ "
-                    f"slope {primary_prefilter['slope']:.1f}┬░"
+                    f"prefilter leeward sample aspect {primary_prefilter['aspect']:.0f}° "
+                    f"slope {primary_prefilter['slope']:.1f}°"
                 )
             elif slope <= min_slope_required:
-                logger.info("ΓÜá∩╕Å Primary bedding retained original bearing due to flat terrain and no leeward samples")
+                logger.info("[WARN] Primary bedding retained original bearing due to flat terrain and no leeward samples")
 
             secondary_prefilter = evaluate_ring("secondary", secondary_bearing, secondary_distance, selected_bearings)
             if secondary_prefilter:
@@ -1580,8 +1592,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 selected_bearings.append(secondary_bearing)
                 cache_sample(secondary_prefilter["lat"], secondary_prefilter["lon"])
                 secondary_prefilter_note = (
-                    f"prefilter leeward sample aspect {secondary_prefilter['aspect']:.0f}┬░ "
-                    f"slope {secondary_prefilter['slope']:.1f}┬░"
+                    f"prefilter leeward sample aspect {secondary_prefilter['aspect']:.0f}° "
+                    f"slope {secondary_prefilter['slope']:.1f}°"
                 )
 
             escape_prefilter = evaluate_ring("escape", escape_bearing, escape_distance, selected_bearings)
@@ -1592,15 +1604,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 selected_bearings.append(escape_bearing)
                 cache_sample(escape_prefilter["lat"], escape_prefilter["lon"])
                 escape_prefilter_note = (
-                    f"prefilter leeward sample aspect {escape_prefilter['aspect']:.0f}┬░ "
-                    f"slope {escape_prefilter['slope']:.1f}┬░"
+                    f"prefilter leeward sample aspect {escape_prefilter['aspect']:.0f}° "
+                    f"slope {escape_prefilter['slope']:.1f}°"
                 )
 
         zone_variations = [
             {
                 "offset": primary_offset,
                 "type": "primary",
-                "description": f"Primary bedding: {'Uphill' if slope > 5 else 'Leeward'} position ({primary_bearing:.0f}┬░) - Elevation priority on {slope:.1f}┬░ slope",
+                "description": f"Primary bedding: {'Uphill' if slope > 5 else 'Leeward'} position ({primary_bearing:.0f}°) - Elevation priority on {slope:.1f}° slope",
                 "bearing": primary_bearing,
                 "distance_m": primary_distance,
                 "adjustments": [note for note in [primary_prefilter_note] if note],
@@ -1608,7 +1620,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             {
                 "offset": secondary_offset,
                 "type": "secondary",
-                "description": f"Secondary bedding: {'Uphill variation' if slope > 5 else 'Crosswind canopy'} ({secondary_bearing:.0f}┬░)",
+                "description": f"Secondary bedding: {'Uphill variation' if slope > 5 else 'Crosswind canopy'} ({secondary_bearing:.0f}°)",
                 "bearing": secondary_bearing,
                 "distance_m": secondary_distance,
                 "adjustments": [note for note in [secondary_prefilter_note] if note],
@@ -1616,7 +1628,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             {
                 "offset": escape_offset,
                 "type": "escape",
-                "description": f"Escape bedding: {'Uphill' if slope > 5 else 'Leeward'} security position ({escape_bearing:.0f}┬░)",
+                "description": f"Escape bedding: {'Uphill' if slope > 5 else 'Leeward'} security position ({escape_bearing:.0f}°)",
                 "bearing": escape_bearing,
                 "distance_m": escape_distance,
                 "adjustments": [note for note in [escape_prefilter_note] if note],
@@ -1624,7 +1636,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         ]
 
         logger.info(
-            "≡ƒº¡ Calculated bedding positions: Wind=%.0f┬░, Leeward=%.0f┬░, Slope=%.1f┬░, Aspect=%.0f┬░ (%s)",
+            "[TARGET] Calculated bedding positions: Wind=%.0f°, Leeward=%.0f°, Slope=%.1f°, Aspect=%.0f° (%s)",
             wind_direction,
             leeward_direction,
             slope,
@@ -1721,7 +1733,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             lat_val, lon_val, terrain, slope_metric = best_leeward
             aspect_val = terrain.get("aspect")
             adjustments.append(
-                f"shifted to {best_leeward_bearing:.0f}┬░ bearing for leeward aspect ({aspect_val:.0f}┬░)"
+                f"shifted to {best_leeward_bearing:.0f}° bearing for leeward aspect ({aspect_val:.0f}°)"
                 if aspect_val is not None else "shifted to leeward bearing"
             )
             return lat_val, lon_val, terrain, adjustments
@@ -1730,7 +1742,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             lat_val, lon_val, terrain, diff_metric = best_relaxed
             aspect_val = terrain.get("aspect")
             adjustments.append(
-                f"shifted to {best_relaxed_bearing:.0f}┬░ bearing for stronger slope (aspect diff {diff_metric:.0f}┬░)"
+                f"shifted to {best_relaxed_bearing:.0f}° bearing for stronger slope (aspect diff {diff_metric:.0f}°)"
             )
             return lat_val, lon_val, terrain, adjustments
 
@@ -1747,10 +1759,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                        osm_data: Dict, weather_data: Dict) -> Dict:
         """Generate biologically accurate bedding zones with comprehensive criteria"""
         try:
-            # ≡ƒÄ» HSM PATH: Use Habitat Suitability Model if enabled
+            # [POINTS] HSM PATH: Use Habitat Suitability Model if enabled
             if self.hsm_model is not None:
                 try:
-                    logger.info(f"≡ƒÄ» HSM: Generating bedding zones via Habitat Suitability Model")
+                    logger.info(f"[POINTS] HSM: Generating bedding zones via Habitat Suitability Model")
                     
                     hsm_result = self.hsm_model.get_bedding_candidates(
                         lat=lat,
@@ -1783,15 +1795,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 metadata=viz_metadata,
                                 save=True
                             )
-                            logger.info(f"≡ƒôè HSM: Visualization saved to {viz_path}")
+                            logger.info(f"[DATA] HSM: Visualization saved to {viz_path}")
                         except Exception as viz_err:
-                            logger.warning(f"ΓÜá∩╕Å HSM: Visualization failed: {viz_err}")
+                            logger.warning(f"[WARN] HSM: Visualization failed: {viz_err}")
                     
                     # Log performance
                     perf = hsm_result['performance']
-                    logger.info(f"ΓÜí HSM: Completed in {perf['latency_seconds']:.2f}s with {perf['gee_calls']} GEE calls")
+                    logger.info(f"⚡ HSM: Completed in {perf['latency_seconds']:.2f}s with {perf['gee_calls']} GEE calls")
                     if perf.get('cached', False):
-                        logger.info(f"≡ƒôª HSM: Used cached raster (0 new GEE calls)")
+                        logger.info(f"[SERIALIZE] HSM: Used cached raster (0 new GEE calls)")
                     
                     # Return HSM results in expected format
                     return {
@@ -1808,11 +1820,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     }
                     
                 except Exception as hsm_error:
-                    logger.error(f"Γ¥î HSM: Error during bedding zone generation: {hsm_error}")
-                    logger.warning(f"ΓÜá∩╕Å HSM: Falling back to traditional tiered point sampling")
+                    logger.error(f"[ERROR] HSM: Error during bedding zone generation: {hsm_error}")
+                    logger.warning(f"[WARN] HSM: Falling back to traditional tiered point sampling")
                     # Fall through to traditional method
             
-            # ========== ≡ƒÄ» PHASE 3.5 OPTIMIZED METHOD (ALWAYS USE TERRAIN FILTERING) ==========
+            # ========== [POINTS] PHASE 3.5 OPTIMIZED METHOD (ALWAYS USE TERRAIN FILTERING) ==========
             # Evaluate primary location
             suitability = self.evaluate_bedding_suitability(gee_data, osm_data, weather_data)
             
@@ -1820,37 +1832,37 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             slope = gee_data.get("slope", 10)
             max_slope_limit = 30  # Biological maximum for mature buck bedding
             
-            # ≡ƒÜÇ PHASE 3.5: ALWAYS use intelligent terrain-based search with filtering
+            # 🚀 PHASE 3.5: ALWAYS use intelligent terrain-based search with filtering
             # This is 19x faster than old method (3.4s vs 65s) because it:
             # 1. Batch-fetches LIDAR for 26 candidates (0.23s)
             # 2. Filters to top 5-15 by terrain score (>50%)
             # 3. Only runs GEE vegetation on filtered candidates (~3 GEE calls vs 26)
-            logger.info(f"≡ƒÄ» PHASE 3.5: Using intelligent terrain-filtered bedding search...")
+            logger.info(f"[POINTS] PHASE 3.5: Using intelligent terrain-filtered bedding search...")
             
             if slope > max_slope_limit:
-                logger.warning(f"≡ƒÜ½ PRIMARY LOCATION REJECTED: Slope {slope:.1f}┬░ exceeds biological limit of {max_slope_limit}┬░")
-                logger.warning(f"   ≡ƒªî Mature bucks avoid slopes >30┬░ for bedding due to:")
-                logger.warning(f"   ΓÇó Physical discomfort and instability")
-                logger.warning(f"   ΓÇó Reduced visibility for predator detection")
-                logger.warning(f"   ΓÇó Difficulty with quick escape routes")
-                logger.warning(f"   ΓÇó Heat stress in warm weather (70┬░F+ conditions)")
+                logger.warning(f"[WARN] PRIMARY LOCATION REJECTED: Slope {slope:.1f}° exceeds biological limit of {max_slope_limit}°")
+                logger.warning(f"   [DEER] Mature bucks avoid slopes >30° for bedding due to:")
+                logger.warning(f"   • Physical discomfort and instability")
+                logger.warning(f"   • Reduced visibility for predator detection")
+                logger.warning(f"   • Difficulty with quick escape routes")
+                logger.warning(f"   • Heat stress in warm weather (70°F+ conditions)")
                 
                 # Search with strict slope limit
-                logger.info(f"≡ƒöì TERRAIN SEARCH: Looking for alternative bedding sites with slopes Γëñ{max_slope_limit}┬░...")
+                logger.info(f"[DEBUG] TERRAIN SEARCH: Looking for alternative bedding sites with slopes <={max_slope_limit}°...")
                 alternative_zones = self._search_alternative_bedding_sites(
                     lat, lon, gee_data, osm_data, weather_data, max_slope_limit
                 )
                 
                 if alternative_zones["features"]:
-                    logger.info(f"Γ£à SLOPE FALLBACK SUCCESS: Found {len(alternative_zones['features'])} alternative bedding locations")
+                    logger.info(f"[INIT] SLOPE FALLBACK SUCCESS: Found {len(alternative_zones['features'])} alternative bedding locations")
                     
-                    # ≡ƒªî CRITICAL FIX: Generate multiple bedding zones from best alternative location
+                    # [DEER] CRITICAL FIX: Generate multiple bedding zones from best alternative location
                     # Mature whitetail bucks need 2-3 bedding zones (primary, secondary, escape)
                     best_alternative = alternative_zones["features"][0]  # Highest scoring alternative
                     best_coords = best_alternative["geometry"]["coordinates"]
                     best_lat, best_lon = best_coords[1], best_coords[0]
                     
-                    logger.info(f"≡ƒÄ» GENERATING MULTIPLE BEDDING ZONES from slope-suitable alternative at {best_lat:.4f}, {best_lon:.4f}")
+                    logger.info(f"[POINTS] GENERATING MULTIPLE BEDDING ZONES from slope-suitable alternative at {best_lat:.4f}, {best_lon:.4f}")
                     
                     # Get terrain data for the best alternative location
                     alt_gee_data = self.get_dynamic_gee_data_enhanced(best_lat, best_lon)
@@ -1883,8 +1895,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 "type": "bedding",
                                 "score": zone_score,
                                 "confidence": 0.85,  # High confidence for alternative sites
-                                "description": f"{variation['description']}: {zone_gee_data.get('slope', 15):.1f}┬░ gentle slope, "
-                                             f"{zone_gee_data.get('aspect', 180):.0f}┬░ aspect, "
+                                "description": f"{variation['description']}: {zone_gee_data.get('slope', 15):.1f}° gentle slope, "
+                                             f"{zone_gee_data.get('aspect', 180):.0f}° aspect, "
                                              f"{zone_gee_data.get('canopy_coverage', 0.6):.0%} canopy",
                                 "marker_index": i,
                                 "bedding_type": f"slope_alternative_{variation['type']}",
@@ -1898,12 +1910,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 "security_rating": "high",
                                 "suitability_score": alt_suitability["overall_score"],
                                 "distance_from_primary": int(((best_lat - lat)**2 + (best_lon - lon)**2)**0.5 * 111000),
-                                "search_reason": f"Primary location slope {slope:.1f}┬░ exceeded {max_slope_limit}┬░ biological limit",
+                                "search_reason": f"Primary location slope {slope:.1f}° exceeded {max_slope_limit}° biological limit",
                                 "biological_purpose": f"Mature buck {variation['type']} bedding zone with suitable slope for comfort and stability"
                             }
                         })
                     
-                    logger.info(f"≡ƒªî ENHANCED SLOPE FALLBACK SUCCESS: Generated {len(enhanced_bedding_zones)} bedding zones (primary, secondary, escape) from slope-suitable location")
+                    logger.info(f"[DEER] ENHANCED SLOPE FALLBACK SUCCESS: Generated {len(enhanced_bedding_zones)} bedding zones (primary, secondary, escape) from slope-suitable location")
                     
                     return {
                         "type": "FeatureCollection",
@@ -1913,14 +1925,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             "total_features": len(enhanced_bedding_zones),
                             "generated_at": datetime.now().isoformat(),
                             "search_method": "enhanced_slope_fallback_with_multiple_zones",
-                            "primary_rejection_reason": f"Slope {slope:.1f}┬░ exceeded {max_slope_limit}┬░ biological limit",
+                            "primary_rejection_reason": f"Slope {slope:.1f}° exceeded {max_slope_limit}° biological limit",
                             "biological_note": "Multiple bedding zones generated from slope-suitable alternative location for mature whitetail buck comfort and stability",
                             "enhancement_version": "v2.1-multiple-zones-enabled",
                             "bedding_zone_types": [z["properties"]["bedding_type"] for z in enhanced_bedding_zones]
                         }
                     }
                 else:
-                    logger.warning(f"≡ƒÜ½ FALLBACK FAILED: No suitable bedding sites found within search radius")
+                    logger.warning(f"[WARN] FALLBACK FAILED: No suitable bedding sites found within search radius")
                     return {
                         "type": "FeatureCollection",
                         "features": [],
@@ -1928,25 +1940,25 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             "marker_type": "bedding",
                             "total_features": 0,
                             "generated_at": datetime.now().isoformat(),
-                            "disqualified_reason": f"Primary slope {slope:.1f}┬░ too steep, no suitable alternatives found",
-                            "biological_note": "Mature whitetail bucks require slopes Γëñ30┬░ for comfortable bedding",
+                            "disqualified_reason": f"Primary slope {slope:.1f}° too steep, no suitable alternatives found",
+                            "biological_note": "Mature whitetail bucks require slopes <=30° for comfortable bedding",
                             "enhancement_version": "v2.0-phase3.5-optimized"
                         }
                     }
             else:
                 # Primary location slope is acceptable - still use Phase 3.5 for speed!
                 # This ensures we get diverse bedding zones efficiently (3.4s vs 65s)
-                logger.info(f"Γ£à PRIMARY SLOPE OK: {slope:.1f}┬░ is within limit, using Phase 3.5 search for diverse zones...")
+                logger.info(f"[INIT] PRIMARY SLOPE OK: {slope:.1f}° is within limit, using Phase 3.5 search for diverse zones...")
                 alternative_zones = self._search_alternative_bedding_sites(
                     lat, lon, gee_data, osm_data, weather_data, max_slope_limit,
                     require_south_facing=False  # Primary passed, so don't enforce aspect
                 )
                 
                 if alternative_zones["features"]:
-                    logger.info(f"Γ£à PHASE 3.5 SUCCESS: Found {len(alternative_zones['features'])} optimized bedding zones")
+                    logger.info(f"[INIT] PHASE 3.5 SUCCESS: Found {len(alternative_zones['features'])} optimized bedding zones")
                     return alternative_zones
                 else:
-                    logger.warning(f"ΓÜá∩╕Å PHASE 3.5 WARNING: No zones found, returning empty result")
+                    logger.warning(f"[WARN] PHASE 3.5 WARNING: No zones found, returning empty result")
                     return {
                         "type": "FeatureCollection",
                         "features": [],
@@ -2043,7 +2055,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         start_time = time.time()
         
-        # ≡ƒåò GET VEGETATION ANALYSIS FIRST (includes real canopy coverage!)
+        # 🆕 GET VEGETATION ANALYSIS FIRST (includes real canopy coverage!)
         vegetation_data = None
         try:
             try:
@@ -2053,19 +2065,19 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             analyzer = VegetationAnalyzer()
             if analyzer.initialize():
-                logger.info(f"≡ƒî┐ Analyzing vegetation with 1000-yard radius (914m)...")
+                logger.info(f"🌿 Analyzing vegetation with 1000-yard radius (914m)...")
                 vegetation_data = analyzer.analyze_hunting_area(
                     lat, lon, 
                     radius_km=0.914,  # 1000 yards = 914m = 0.914km
                     season=season
                 )
-                logger.info("Γ£à Vegetation analysis complete (includes real canopy coverage)")
+                logger.info("[INIT] Vegetation analysis complete (includes real canopy coverage)")
             else:
-                logger.warning("ΓÜá∩╕Å VegetationAnalyzer initialization failed, will use estimated canopy")
+                logger.warning("[WARN] VegetationAnalyzer initialization failed, will use estimated canopy")
         except Exception as e:
             logger.error(f"Vegetation analysis failed: {e}, will use estimated canopy")
         
-        # ≡ƒåò GET LIDAR TERRAIN DATA (35cm resolution for microhabitat features!)
+        # 🆕 GET LIDAR TERRAIN DATA (35cm resolution for microhabitat features!)
         lidar_data = None
         try:
             try:
@@ -2076,7 +2088,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             else:
                 dem_manager, terrain_extractor, batch_processor = get_lidar_processor()
                 if dem_manager.has_coverage(lat, lon):
-                    logger.info(f"≡ƒù║∩╕Å Extracting LiDAR terrain (35cm resolution)...")
+                    logger.info(f"[OSM] Extracting LiDAR terrain (35cm resolution)...")
                     # Note: get_terrain_data with radius is not implemented in new service
                     # Using point terrain extraction as fallback
                     lidar_files = dem_manager.get_files()
@@ -2093,18 +2105,18 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             'source': 'lidar_service',
                             'file': 'point_extraction'
                         }
-                        logger.info(f"Γ£à LiDAR terrain extracted: {lidar_data['resolution_m']:.2f}m resolution")
+                        logger.info(f"[INIT] LiDAR terrain extracted: {lidar_data['resolution_m']:.2f}m resolution")
                     else:
-                        logger.warning("ΓÜá∩╕Å LiDAR extraction failed, will use SRTM 30m fallback")
+                        logger.warning("[WARN] LiDAR extraction failed, will use SRTM 30m fallback")
                 else:
-                    logger.info("Γä╣∩╕Å No LiDAR coverage for this location, using SRTM 30m fallback")
+                    logger.info("[INFO] No LiDAR coverage for this location, using SRTM 30m fallback")
         except Exception as e:
             logger.error(f"LiDAR analysis failed: {e}, will use SRTM 30m fallback")
         
         # Get enhanced environmental data (now includes REAL canopy from vegetation analysis)
         gee_data = self.get_dynamic_gee_data_enhanced(lat, lon, vegetation_data=vegetation_data)
         
-        # ≡ƒåò Enhance GEE data with LiDAR terrain features
+        # 🆕 Enhance GEE data with LiDAR terrain features
         if lidar_data:
             try:
                 gee_data['lidar_terrain'] = {
@@ -2118,9 +2130,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     'data_source': lidar_data.get('source', 'lidar'),
                     'file': lidar_data.get('file', 'unknown')
                 }
-                logger.info(f"≡ƒÄ» Enhanced with LiDAR: {gee_data['lidar_terrain']['benches_count']} benches, {gee_data['lidar_terrain']['saddles_count']} saddles")
+                logger.info(f"[POINTS] Enhanced with LiDAR: {gee_data['lidar_terrain']['benches_count']} benches, {gee_data['lidar_terrain']['saddles_count']} saddles")
             except KeyError as e:
-                logger.warning(f"ΓÜá∩╕Å LiDAR data incomplete, missing key: {e}. Using fallback values.")
+                logger.warning(f"[WARN] LiDAR data incomplete, missing key: {e}. Using fallback values.")
                 gee_data['lidar_terrain'] = {
                     'resolution_m': 0.35,
                     'mean_elevation': 0.0,
@@ -2192,7 +2204,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "movement_probability": min(100, confidence + 10),
                     "confidence_score": confidence,
                     "behavioral_insights": [
-                        f"Wind direction: {weather_data.get('wind', {}).get('direction', 'Variable')}┬░",
+                        f"Wind direction: {weather_data.get('wind', {}).get('direction', 'Variable')}°",
                         f"Thermal conditions: {wind_thermal_analysis.get('thermal_direction', 'Neutral')}",
                         f"Activity level: {activity_level}%",
                         f"Season: {season.title()} hunting patterns active"
@@ -2218,43 +2230,43 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # ==================== PREDICTION QUALITY VALIDATION ====================
         # Validate prediction quality (scent cones, distances, terrain, wind integration)
         # This catches issues like stands being upwind of bedding zones
-        logger.info("≡ƒöì Starting prediction quality validation...")
+        logger.info("[DEBUG] Starting prediction quality validation...")
         try:
             from backend.validators import PredictionQualityValidator
             
             # Note: stand_recommendations now empty (using interception stands from points_generator instead)
-            logger.info(f"≡ƒôè Validating prediction with {len(bedding_zones.get('features', []))} bedding zones")
+            logger.info(f"[DATA] Validating prediction with {len(bedding_zones.get('features', []))} bedding zones")
             quality_report = PredictionQualityValidator.validate(result)
             result["quality_report"] = asdict(quality_report)
-            logger.info(f"Γ£à Quality validation complete: Score={quality_report.overall_quality_score:.1f}%, Valid={quality_report.is_valid}")
+            logger.info(f"[INIT] Quality validation complete: Score={quality_report.overall_quality_score:.1f}%, Valid={quality_report.is_valid}")
             
             # Log quality issues
             if not quality_report.is_valid:
                 logger.warning(
-                    f"≡ƒÜ¿ Prediction quality below threshold: "
+                    f"[ERR] Prediction quality below threshold: "
                     f"Score {quality_report.overall_quality_score:.1f}% "
                     f"(threshold {PredictionQualityValidator.MIN_QUALITY_THRESHOLD}%)"
                 )
                 logger.warning(f"   Issues: {len(quality_report.issues)} found")
                 for issue in quality_report.issues:
-                    emoji = "≡ƒÜ½" if issue.severity == "error" else "ΓÜá∩╕Å" if issue.severity == "warning" else "Γä╣∩╕Å"
+                    emoji = "[WARN]" if issue.severity == "error" else "⚠" if issue.severity == "warning" else "[INFO]"
                     logger.warning(f"   {emoji} [{issue.category}] {issue.description}")
                 
                 logger.warning(f"   Recommendations:")
                 for rec in quality_report.recommendations:
-                    logger.warning(f"      ΓÇó {rec}")
+                    logger.warning(f"      • {rec}")
             else:
                 logger.info(
-                    f"Γ£à Prediction quality validated: "
+                    f"[INIT] Prediction quality validated: "
                     f"Score {quality_report.overall_quality_score:.1f}% "
                     f"({len(quality_report.issues)} minor issues)"
                 )
                 
         except ImportError as e:
-            logger.warning(f"ΓÜá∩╕Å PredictionQualityValidator not available: {e}")
+            logger.warning(f"[WARN] PredictionQualityValidator not available: {e}")
             result["quality_report"] = None
         except Exception as e:
-            logger.error(f"Γ¥î Error during quality validation: {e}", exc_info=True)
+            logger.error(f"[ERROR] Error during quality validation: {e}", exc_info=True)
             result["quality_report"] = None
         
         return result
@@ -2294,7 +2306,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         Thermals are strongest on:
         - South-facing slopes (maximum sun exposure)
-        - Moderate to steep slopes (15-30┬░)
+        - Moderate to steep slopes (15-30°)
         - Open canopy areas (but we assume 70-80% canopy in Vermont)
         
         Args:
@@ -2306,24 +2318,24 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             0.0 = no thermal effect (flat or north-facing)
             1.0 = maximum thermal effect (steep south-facing)
         """
-        # Aspect component: South-facing (135-225┬░) has strongest thermals
+        # Aspect component: South-facing (135-225°) has strongest thermals
         if 135 <= aspect <= 225:  # South-facing
             aspect_factor = 1.0
         elif 90 <= aspect < 135 or 225 < aspect <= 270:  # SE/SW-facing
             aspect_factor = 0.7
         elif 45 <= aspect < 90 or 270 < aspect <= 315:  # E/W-facing
             aspect_factor = 0.4
-        else:  # North-facing (315-45┬░)
+        else:  # North-facing (315-45°)
             aspect_factor = 0.2  # Minimal thermal effect
         
-        # Slope component: Moderate slopes (15-30┬░) have strongest thermals
+        # Slope component: Moderate slopes (15-30°) have strongest thermals
         if 15 <= slope <= 30:
             slope_factor = 1.0
         elif 10 <= slope < 15:
             slope_factor = 0.6
         elif slope > 30:
             slope_factor = 0.8  # Still significant but terrain is steep
-        else:  # < 10┬░ (relatively flat)
+        else:  # < 10° (relatively flat)
             slope_factor = 0.3
         
         # Vermont canopy factor: Heavy canopy (70-80%) moderates thermals
@@ -2340,7 +2352,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         [DEPRECATED] Score aspect based on biological deer behavior.
         
-        ΓÜá∩╕Å This method is DEPRECATED and maintained only for backward compatibility.
+        [WARN] This method is DEPRECATED and maintained only for backward compatibility.
         NEW CODE should use: self.aspect_scorer.score_aspect() instead.
         
         This method now delegates to BiologicalAspectScorer service for consistent scoring.
@@ -2351,16 +2363,16 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         3. Always: UPHILL POSITIONING preferred (scent/visibility)
         
         Args:
-            aspect: Slope face direction (0-360┬░, downhill direction)
-            wind_direction: Wind source direction (0-360┬░, where wind comes FROM)
+            aspect: Slope face direction (0-360°, downhill direction)
+            wind_direction: Wind source direction (0-360°, where wind comes FROM)
             wind_speed: Wind speed (mph)
-            temperature: Air temperature (┬░F)
+            temperature: Air temperature (°F)
             slope: Terrain slope (degrees)
             
         Returns:
             Tuple[float, str]: (score 0-100, reasoning)
         """
-        # ≡ƒöº REFACTORED: Delegate to BiologicalAspectScorer service
+        # [OK] REFACTORED: Delegate to BiologicalAspectScorer service
         # This removes ~130 lines of duplicated logic, maintaining biological accuracy
         return self.aspect_scorer.score_aspect(
             aspect=aspect,
@@ -2408,7 +2420,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         if 3 <= date.month <= 10:  # Rough DST approximation
             timezone_offset = -4
             
-        solar_noon_utc = 12 - (lon / 15)  # 15┬░ per hour
+        solar_noon_utc = 12 - (lon / 15)  # 15° per hour
         solar_noon_local = solar_noon_utc + timezone_offset
         
         # Sunrise and sunset times (hours from midnight)
@@ -2436,12 +2448,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         Thermal Wind Timeline:
         - Sunrise to Sunrise+30min: Minimal (10% strength)
-        - Sunrise+30min to Sunrise+2.5hrs: STRONG upslope (80% strength) Γ¡É PRIME MORNING
+        - Sunrise+30min to Sunrise+2.5hrs: STRONG upslope (80% strength) ⭐ PRIME MORNING
         - Sunrise+2.5hrs to 11am: Moderate upslope (40% strength)
         - 11am to 3pm: Minimal (10% strength) - Midday lull
         - 3pm to Sunset-2hrs: Weak downslope (20% strength)
-        - Sunset-2hrs to Sunset: STRONG downslope (90% strength) Γ¡É PRIME EVENING  
-        - Sunset to Sunset+30min: MAXIMUM downslope (100% strength) Γ¡É ABSOLUTE PRIME
+        - Sunset-2hrs to Sunset: STRONG downslope (90% strength) ⭐ PRIME EVENING  
+        - Sunset to Sunset+30min: MAXIMUM downslope (100% strength) ⭐ ABSOLUTE PRIME
         
         Args:
             aspect: Slope direction in degrees (downhill direction)
@@ -2490,7 +2502,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             # Ramp up from 40% to 80% strength (strongest warming rate)
             time_multiplier = 0.4 + ((minutes_since_sunrise - 30) / 120) * 0.4
             phase = "strong_morning_upslope"
-            description = f"Γ¡É PRIME MORNING: Strong upslope thermal ({minutes_since_sunrise:.0f}min after sunrise)"
+            description = f"⭐ PRIME MORNING: Strong upslope thermal ({minutes_since_sunrise:.0f}min after sunrise)"
             
         elif 150 <= minutes_since_sunrise < 270:  # 2.5hrs to 4.5hrs after sunrise
             thermal_direction = (aspect + 180) % 360  # Uphill
@@ -2517,20 +2529,20 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             # Ramp up from 50% to 90% (rapid cooling)
             time_multiplier = 0.5 + ((120 - minutes_until_sunset) / 60) * 0.4
             phase = "strong_evening_downslope"
-            description = f"Γ¡É PRIME EVENING: Strong downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
+            description = f"⭐ PRIME EVENING: Strong downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
             
         elif 0 <= minutes_until_sunset < 60:  # Last hour before sunset
             thermal_direction = aspect  # Downhill
             # Maximum strength (95-100%)
             time_multiplier = 0.95 + ((60 - minutes_until_sunset) / 60) * 0.05
             phase = "peak_evening_downslope"
-            description = f"≡ƒÄ» ABSOLUTE PRIME: Maximum downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
+            description = f"[POINTS] ABSOLUTE PRIME: Maximum downslope thermal ({minutes_until_sunset:.0f}min until sunset)"
             
         elif minutes_until_sunset < 0 and minutes_until_sunset > -30:  # 30min after sunset
             thermal_direction = aspect  # Downhill
             time_multiplier = 1.0  # Maximum strength (coldest air sinking)
             phase = "post_sunset_maximum"
-            description = f"≡ƒîÖ POST-SUNSET MAX: Maximum downslope drainage ({-minutes_until_sunset:.0f}min after sunset)"
+            description = f"🌙 POST-SUNSET MAX: Maximum downslope drainage ({-minutes_until_sunset:.0f}min after sunset)"
             
         else:  # Default to weak downslope (late afternoon or night)
             thermal_direction = aspect
@@ -2577,7 +2589,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         # Calculate base thermal strength (0-1 scale)
         # Stronger on steeper slopes, weaker under heavy canopy
-        slope_factor = min(slope / 30.0, 1.0)  # Max effect at 30┬░ slope
+        slope_factor = min(slope / 30.0, 1.0)  # Max effect at 30° slope
         canopy_reduction = 1.0 - (canopy_coverage * 0.6)  # Heavy canopy reduces thermals by 60%
         
         # South-facing slopes get stronger solar heating = stronger thermals
@@ -2633,7 +2645,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             Combined bearing in degrees (0-360)
             
         Example:
-            Evening: 60% downhill (180┬░) + 40% downwind (135┬░)
+            Evening: 60% downhill (180°) + 40% downwind (135°)
             = Optimal evening stand bearing
         """
         # Normalize weights
@@ -2662,7 +2674,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
     def _validate_scent_management(self, stand_bearing: float, wind_direction: float, 
                                    wind_speed: float, bearing_name: str = "stand") -> Tuple[float, bool]:
         """
-        ≡ƒî¼∩╕Å CRITICAL SCENT MANAGEMENT: Validate stand bearing doesn't blow scent into bedding
+        [WIND] CRITICAL SCENT MANAGEMENT: Validate stand bearing doesn't blow scent into bedding
         
         When wind is strong (>10 mph), scent management becomes PRIMARY concern that
         overrides terrain and thermal considerations. This prevents the hunter's scent
@@ -2681,8 +2693,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             - Wind blows FROM wind_direction TO (wind_direction + 180) % 360
             - Stand should be UPWIND or CROSSWIND, never DOWNWIND
             - Downwind = scent blows toward bedding = FAIL
-            - Upwind (┬▒45┬░) = scent blows away from bedding = IDEAL
-            - Crosswind (45-135┬░) = scent blows parallel = ACCEPTABLE
+            - Upwind (±45°) = scent blows away from bedding = IDEAL
+            - Crosswind (45-135°) = scent blows parallel = ACCEPTABLE
         """
         downwind_direction = (wind_direction + 180) % 360
         
@@ -2691,9 +2703,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Scent cone validation (strict when wind > 10 mph)
         if wind_speed > 10:  # Strong wind - scent management critical
-            if bearing_diff < 30:  # Within 30┬░ of downwind = FAIL
+            if bearing_diff < 30:  # Within 30° of downwind = FAIL
                 # Stand is downwind - scent will blow into bedding
-                # Adjust to crosswind position (90┬░ from wind direction)
+                # Adjust to crosswind position (90° from wind direction)
                 crosswind_option_1 = (wind_direction + 90) % 360
                 crosswind_option_2 = (wind_direction - 90) % 360
                 
@@ -2704,26 +2716,26 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 adjusted_bearing = crosswind_option_1 if diff1 < diff2 else crosswind_option_2
                 
                 logger.warning(
-                    f"≡ƒÜ¿ SCENT VIOLATION ({bearing_name}): Original bearing {stand_bearing:.0f}┬░ is DOWNWIND "
-                    f"(wind={wind_direction:.0f}┬░, downwind={downwind_direction:.0f}┬░, diff={bearing_diff:.0f}┬░)"
+                    f"[ERR] SCENT VIOLATION ({bearing_name}): Original bearing {stand_bearing:.0f}° is DOWNWIND "
+                    f"(wind={wind_direction:.0f}°, downwind={downwind_direction:.0f}°, diff={bearing_diff:.0f}°)"
                 )
                 logger.warning(
-                    f"   ≡ƒî¼∩╕Å SCENT FIX: Adjusting to crosswind bearing {adjusted_bearing:.0f}┬░ "
+                    f"   [WIND] SCENT FIX: Adjusting to crosswind bearing {adjusted_bearing:.0f}° "
                     f"(wind speed {wind_speed:.1f} mph requires strict scent management)"
                 )
                 
                 return adjusted_bearing, False  # Return adjusted bearing, mark as invalid
                 
-            elif bearing_diff < 60:  # 30-60┬░ from downwind = WARNING
+            elif bearing_diff < 60:  # 30-60° from downwind = WARNING
                 logger.warning(
-                    f"ΓÜá∩╕Å SCENT WARNING ({bearing_name}): Bearing {stand_bearing:.0f}┬░ is {bearing_diff:.0f}┬░ "
-                    f"from downwind ({downwind_direction:.0f}┬░) - marginal scent control"
+                    f"[WARN] SCENT WARNING ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
+                    f"from downwind ({downwind_direction:.0f}°) - marginal scent control"
                 )
                 return stand_bearing, True  # Marginal but acceptable
                 
-            else:  # > 60┬░ from downwind = GOOD
+            else:  # > 60° from downwind = GOOD
                 logger.info(
-                    f"Γ£à SCENT OK ({bearing_name}): Bearing {stand_bearing:.0f}┬░ is {bearing_diff:.0f}┬░ "
+                    f"[INIT] SCENT OK ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
                     f"from downwind - good scent management"
                 )
                 return stand_bearing, True
@@ -2731,7 +2743,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         else:  # Light wind (<= 10 mph) - thermal drafts may dominate
             if bearing_diff < 15:  # Very close to downwind
                 logger.info(
-                    f"Γä╣∩╕Å SCENT NOTE ({bearing_name}): Bearing {stand_bearing:.0f}┬░ is {bearing_diff:.0f}┬░ "
+                    f"[INFO] SCENT NOTE ({bearing_name}): Bearing {stand_bearing:.0f}° is {bearing_diff:.0f}° "
                     f"from downwind, but wind is light ({wind_speed:.1f} mph) - thermals may control scent"
                 )
             return stand_bearing, True  # Light wind - accept bearing
@@ -2743,7 +2755,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         Calculate optimal stand positions using WindAwareStandCalculator service.
         
-        ≡ƒöº REFACTORED (v2.1): Now uses backend.services.stand_calculator.WindAwareStandCalculator
+        [OK] REFACTORED (v2.1): Now uses backend.services.stand_calculator.WindAwareStandCalculator
         for wind/thermal/scent integration instead of 550 lines of embedded logic.
         
         Falls back to embedded logic if service unavailable (backward compatibility).
@@ -2768,7 +2780,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             )
         else:
             # Fallback to embedded logic (original 550-line implementation)
-            logger.warning("ΓÜá∩╕Å Stand calculator service unavailable - using embedded logic")
+            logger.warning("[WARN] Stand calculator service unavailable - using embedded logic")
             return self._calculate_stand_positions_embedded(
                 lat, lon, gee_data, osm_data, weather_data, prediction_time, bedding_zones
             )
@@ -2804,8 +2816,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         canopy = gee_data.get("canopy_coverage", 0.7)
         
         logger.info(
-            f"≡ƒÄ» SERVICE: Using WindAwareStandCalculator for stand positions | "
-            f"Wind={wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, Slope={slope:.1f}┬░, Aspect={aspect:.0f}┬░"
+            f"[POINTS] SERVICE: Using WindAwareStandCalculator for stand positions | "
+            f"Wind={wind_direction:.0f}° at {wind_speed_mph:.1f}mph, Slope={slope:.1f}°, Aspect={aspect:.0f}°"
         )
         
         # Calculate thermals for all three hunting periods
@@ -2884,7 +2896,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 },
                 "type": "Evening Stand",
                 "bearing": evening_stand.bearing,
-                "description": f"Evening: {evening_stand.reasoning} | Bearing: {evening_stand.bearing:.0f}┬░ | Distance: {evening_stand.distance_yards}yd | Quality: {evening_stand.quality_score:.0f}%",
+                "description": f"Evening: {evening_stand.reasoning} | Bearing: {evening_stand.bearing:.0f}° | Distance: {evening_stand.distance_yards}yd | Quality: {evening_stand.quality_score:.0f}%",
                 "adjustments": [],  # Service handles adjustments internally
                 "elevation_profile": {}  # Could be added if needed
             },
@@ -2895,7 +2907,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 },
                 "type": "Morning Stand",
                 "bearing": morning_stand.bearing,
-                "description": f"Morning: {morning_stand.reasoning} | Bearing: {morning_stand.bearing:.0f}┬░ | Distance: {morning_stand.distance_yards}yd | Quality: {morning_stand.quality_score:.0f}%"
+                "description": f"Morning: {morning_stand.reasoning} | Bearing: {morning_stand.bearing:.0f}° | Distance: {morning_stand.distance_yards}yd | Quality: {morning_stand.quality_score:.0f}%"
             },
             {
                 "offset": {
@@ -2904,7 +2916,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 },
                 "type": "All-Day Stand",
                 "bearing": allday_stand.bearing,
-                "description": f"All-Day: {allday_stand.reasoning} | Bearing: {allday_stand.bearing:.0f}┬░ | Distance: {allday_stand.distance_yards}yd | Quality: {allday_stand.quality_score:.0f}%"
+                "description": f"All-Day: {allday_stand.reasoning} | Bearing: {allday_stand.bearing:.0f}° | Distance: {allday_stand.distance_yards}yd | Quality: {allday_stand.quality_score:.0f}%"
             }
         ]
 
@@ -2957,10 +2969,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 stand["description"] += f" | Corridor alignment low ({corridor_alignment:.0f})"
         
         logger.info(
-            f"Γ£à SERVICE: Stand positions calculated | "
-            f"Evening: {evening_stand.bearing:.0f}┬░ ({'SCENT SAFE' if evening_stand.scent_safe else 'SCENT RISK'}), "
-            f"Morning: {morning_stand.bearing:.0f}┬░ ({'SCENT SAFE' if morning_stand.scent_safe else 'SCENT RISK'}), "
-            f"All-Day: {allday_stand.bearing:.0f}┬░ ({'SCENT SAFE' if allday_stand.scent_safe else 'SCENT RISK'})"
+            f"[INIT] SERVICE: Stand positions calculated | "
+            f"Evening: {evening_stand.bearing:.0f}° ({'SCENT SAFE' if evening_stand.scent_safe else 'SCENT RISK'}), "
+            f"Morning: {morning_stand.bearing:.0f}° ({'SCENT SAFE' if morning_stand.scent_safe else 'SCENT RISK'}), "
+            f"All-Day: {allday_stand.bearing:.0f}° ({'SCENT SAFE' if allday_stand.scent_safe else 'SCENT RISK'})"
         )
         
         return stand_variations
@@ -2976,7 +2988,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         This is biologically accurate - thermals are strongest at sunrise+2hrs (morning)
         and sunset-1hr to sunset+30min (evening prime time).
         
-        ≡ƒî¼∩╕Å CRITICAL SCENT MANAGEMENT (Phase 4.6 Fix):
+        [WIND] CRITICAL SCENT MANAGEMENT (Phase 4.6 Fix):
         When wind > 10 mph, scent management becomes PRIMARY priority that overrides
         terrain and thermal considerations. Stands are automatically adjusted to upwind/
         crosswind positions to prevent scent from reaching bedding zones.
@@ -2997,7 +3009,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         benches = lidar_details.get("benches", [])
         bench_coverage = sum(bench.get("percentage", 0) for bench in benches)
         logger.info(
-            "≡ƒù║∩╕Å Terrain snapshot: slope=%.1f┬░, aspect=%.0f┬░, benches=%.1f%% (count=%d)",
+            "[OSM] Terrain snapshot: slope=%.1f°, aspect=%.0f°, benches=%.1f%% (count=%d)",
             slope,
             aspect,
             bench_coverage,
@@ -3014,14 +3026,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Calculate downwind direction (prevailing meteorological wind)
         downwind_direction = (wind_direction + 180) % 360
         
-        # ≡ƒîí∩╕Å TIME-BASED THERMAL WIND CALCULATION - Uses actual sunrise/sunset!
+        # [THERMAL] TIME-BASED THERMAL WIND CALCULATION - Uses actual sunrise/sunset!
         # This calculates all three hunt periods with proper timing
         thermal_now = self._calculate_thermal_wind_time_based(
             aspect, slope, lat, lon, prediction_time, canopy
         )
         
-        logger.info(f"≡ƒîà Solar times: Sunrise={thermal_now['sunrise']}, Sunset={thermal_now['sunset']}")
-        logger.info(f"≡ƒîí∩╕Å Current thermal: {thermal_now['description']} | Strength: {thermal_now['strength']:.0%}")
+        logger.info(f"🌅 Solar times: Sunrise={thermal_now['sunrise']}, Sunset={thermal_now['sunset']}")
+        logger.info(f"[THERMAL] Current thermal: {thermal_now['description']} | Strength: {thermal_now['strength']:.0%}")
         
         # Calculate thermals for all three hunting periods (for stand recommendations)
         # Even if predicting for morning, calculate evening stand position for later hunts
@@ -3035,10 +3047,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Stand 1: EVENING Stand - Wind-aware positioning with thermal integration
         # 
-        # ≡ƒî¼∩╕Å CRITICAL PHASE 4.10 FIX: Wind >10 mph OVERRIDES thermal/terrain logic
+        # [WIND] CRITICAL PHASE 4.10 FIX: Wind >10 mph OVERRIDES thermal/terrain logic
         # Scent management becomes PRIMARY concern that dominates all other factors.
         #
-        # Wind >10 mph: Use CROSSWIND positioning (90┬░ from wind) regardless of thermals
+        # Wind >10 mph: Use CROSSWIND positioning (90° from wind) regardless of thermals
         # Wind <10 mph: Use thermal/terrain logic (thermal downslope + deer movement)
         # 
         # CRITICAL: On slopes where bedding is UPHILL from input, evening stand should be
@@ -3047,11 +3059,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Get current wind speed to determine wind vs thermal dominance
         wind_speed_mph = weather_data.get('wind', {}).get('speed', 0)  # mph
         
-        # ≡ƒî¼∩╕Å PHASE 4.10: WIND-AWARE STAND PLACEMENT
+        # [WIND] PHASE 4.10: WIND-AWARE STAND PLACEMENT
         # When wind is strong (>10 mph), use crosswind positioning FIRST, then validate
         # This prevents initial downwind placement that gets corrected (causing distance issues)
         if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
-            # Calculate crosswind options (90┬░ perpendicular to wind)
+            # Calculate crosswind options (90° perpendicular to wind)
             crosswind_option_1 = (wind_direction + 90) % 360  # Crosswind right
             crosswind_option_2 = (wind_direction - 90) % 360  # Crosswind left
             
@@ -3062,10 +3074,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             if diff1 < diff2:
                 evening_bearing = crosswind_option_1
-                logger.info(f"≡ƒî¼∩╕Å WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}┬░ (wind {wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, crosswind RIGHT preferred for downhill {downhill_direction:.0f}┬░)")
+                logger.info(f"[WIND] WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, crosswind RIGHT preferred for downhill {downhill_direction:.0f}°)")
             else:
                 evening_bearing = crosswind_option_2
-                logger.info(f"≡ƒî¼∩╕Å WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}┬░ (wind {wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, crosswind LEFT preferred for downhill {downhill_direction:.0f}┬░)")
+                logger.info(f"[WIND] WIND-AWARE EVENING: Crosswind bearing={evening_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, crosswind LEFT preferred for downhill {downhill_direction:.0f}°)")
             
             # Still validate scent (should pass since we used crosswind)
             evening_bearing, scent_ok = self._validate_scent_management(
@@ -3106,9 +3118,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     1.0 - wind_weight,  # Thermal + movement (75-100%)
                     wind_weight         # Prevailing wind (0-25% based on wind speed)
                 )
-                logger.info(f"≡ƒîà THERMAL DOMINANT: Evening bearing={evening_bearing:.0f}┬░, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}, Thermal phase={evening_thermal['phase']}")
+                logger.info(f"🌅 THERMAL DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}, Thermal phase={evening_thermal['phase']}")
                 
-                # ≡ƒî¼∩╕Å SCENT MANAGEMENT VALIDATION - Check if thermal bearing is safe
+                # [WIND] SCENT MANAGEMENT VALIDATION - Check if thermal bearing is safe
                 evening_bearing, scent_ok = self._validate_scent_management(
                     evening_bearing, wind_direction, wind_speed_mph, "evening stand (thermal)"
                 )
@@ -3121,9 +3133,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     0.4,  # 40% deer movement
                     0.6   # 60% prevailing wind (STRONG wind overrides thermal)
                 )
-                logger.info(f"≡ƒÆ¿ WIND DOMINANT: Evening bearing={evening_bearing:.0f}┬░, Wind speed={wind_speed_mph:.1f}mph (>20mph overrides thermal)")
+                logger.info(f"💨 WIND DOMINANT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph (>20mph overrides thermal)")
                 
-                # ≡ƒî¼∩╕Å SCENT MANAGEMENT VALIDATION - Strong wind, critical check
+                # [WIND] SCENT MANAGEMENT VALIDATION - Strong wind, critical check
                 evening_bearing, scent_ok = self._validate_scent_management(
                     evening_bearing, wind_direction, wind_speed_mph, "evening stand (wind dominant)"
                 )
@@ -3137,25 +3149,25 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     1.0 - wind_weight,
                     wind_weight
                 )
-                logger.info(f"≡ƒªî DEER MOVEMENT: Evening bearing={evening_bearing:.0f}┬░, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}")
+                logger.info(f"[DEER] DEER MOVEMENT: Evening bearing={evening_bearing:.0f}°, Wind speed={wind_speed_mph:.1f}mph, Wind weight={wind_weight:.0%}")
                 
-                # ≡ƒî¼∩╕Å SCENT MANAGEMENT VALIDATION - Light wind, check scent anyway
+                # [WIND] SCENT MANAGEMENT VALIDATION - Light wind, check scent anyway
                 evening_bearing, scent_ok = self._validate_scent_management(
                     evening_bearing, wind_direction, wind_speed_mph, "evening stand (deer movement)"
                 )
         
         # SAFETY CHECK: If evening bearing points downhill from input on a slope,
         # reduce distance to avoid water/roads at bottom of slope
-        # Lowered threshold from 10┬░ to 5┬░ for consistency
+        # Lowered threshold from 10° to 5° for consistency
         evening_adjustments: List[str] = []
 
         if slope > 5:  # On sloped terrain (even gentle slopes)
             # Check if evening bearing is close to downhill direction
             bearing_to_downhill_diff = abs((evening_bearing - downhill_direction + 180) % 360 - 180)
-            if bearing_to_downhill_diff < 45:  # Within 45┬░ of downhill
+            if bearing_to_downhill_diff < 45:  # Within 45° of downhill
                 # Reduce distance to avoid going too far downslope (into rivers/roads)
                 evening_distance_multiplier = 0.6  # Shorter distance
-                logger.info(f"ΓÜá∩╕Å EVENING STAND: Reduced distance (bearing={evening_bearing:.0f}┬░ near downhill={downhill_direction:.0f}┬░) to avoid valley hazards")
+                logger.info(f"[WARN] EVENING STAND: Reduced distance (bearing={evening_bearing:.0f}° near downhill={downhill_direction:.0f}°) to avoid valley hazards")
             else:
                 evening_distance_multiplier = 1.5
         else:
@@ -3167,7 +3179,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             if bench_factor < 0.99:  # Only log meaningful adjustments
                 evening_adjustments.append(f"bench coverage {bench_coverage:.1f}% distance x{bench_factor:.2f}")
                 logger.info(
-                    "≡ƒ¢ï∩╕Å Bench adjustment applied: coverage %.1f%% -> evening distance scaled by %.2f",
+                    "🛋 Bench adjustment applied: coverage %.1f%% -> evening distance scaled by %.2f",
                     bench_coverage,
                     bench_factor
                 )
@@ -3178,7 +3190,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             shallow_factor = 0.85
             evening_distance_multiplier *= shallow_factor
             evening_adjustments.append("shallow slope distance reduction")
-            logger.info("≡ƒ¬╡ Shallow slope adjustment: evening distance multiplier scaled by %.2f", shallow_factor)
+            logger.info("[HUNT_WINDOW] Shallow slope adjustment: evening distance multiplier scaled by %.2f", shallow_factor)
             
         travel_lat_offset = base_offset * evening_distance_multiplier * np.cos(np.radians(evening_bearing))
         travel_lon_offset = base_offset * evening_distance_multiplier * np.sin(np.radians(evening_bearing))
@@ -3186,7 +3198,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         # Stand 2: MORNING Stand - Wind-aware positioning with uphill movement
         # Morning: Deer move FROM feeding (downhill) TO bedding (uphill)
         # 
-        # ≡ƒî¼∩╕Å PHASE 4.10: Wind >10 mph uses CROSSWIND positioning
+        # [WIND] PHASE 4.10: Wind >10 mph uses CROSSWIND positioning
         # Wind <10 mph uses terrain/thermal logic (uphill intercept)
         
         if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
@@ -3200,10 +3212,10 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 diff2 = abs((crosswind_option_2 - uphill_direction + 180) % 360 - 180)
                 
                 morning_bearing = crosswind_option_1 if diff1 < diff2 else crosswind_option_2
-                logger.info(f"≡ƒî¼∩╕Å WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}┬░ (wind {wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, slope {slope:.1f}┬░, uphill {uphill_direction:.0f}┬░)")
+                logger.info(f"[WIND] WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, slope {slope:.1f}°, uphill {uphill_direction:.0f}°)")
             else:  # Flat terrain - choose crosswind option based on typical deer approach
                 morning_bearing = crosswind_option_1  # Default to right crosswind
-                logger.info(f"≡ƒî¼∩╕Å WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}┬░ (wind {wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, flat terrain)")
+                logger.info(f"[WIND] WIND-AWARE MORNING: Crosswind bearing={morning_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, flat terrain)")
             
             # Validate scent (should pass since we used crosswind)
             morning_bearing, morning_scent_ok = self._validate_scent_management(
@@ -3222,19 +3234,19 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         0.8,  # Primarily uphill
                         0.2   # Minor crosswind offset
                     )
-                    logger.info(f"≡ƒîà MORNING STAND: Uphill ({uphill_direction:.0f}┬░) with crosswind offset on {slope:.1f}┬░ slope")
+                    logger.info(f"🌅 MORNING STAND: Uphill ({uphill_direction:.0f}°) with crosswind offset on {slope:.1f}° slope")
                 else:  # Weak thermals - standard uphill intercept
                     morning_bearing = uphill_direction  # Pure uphill positioning
-                    logger.info(f"≡ƒÅö∩╕Å MORNING STAND: Uphill intercept ({uphill_direction:.0f}┬░) on {slope:.1f}┬░ slope")
+                    logger.info(f"[MTN] MORNING STAND: Uphill intercept ({uphill_direction:.0f}°) on {slope:.1f}° slope")
             else:  # Flat terrain - use traditional wind-based positioning
                 morning_bearing = self._combine_bearings(
                     downwind_direction,   # Prevailing wind
                     (wind_direction + 90) % 360,  # Crosswind
                     0.7, 0.3
                 )
-                logger.info(f"≡ƒî▓ MORNING STAND: Wind-based ({morning_bearing:.0f}┬░) on flat terrain")
+                logger.info(f"[TREE] MORNING STAND: Wind-based ({morning_bearing:.0f}°) on flat terrain")
             
-            # ≡ƒî¼∩╕Å SCENT MANAGEMENT VALIDATION - Morning stand critical check
+            # [WIND] SCENT MANAGEMENT VALIDATION - Morning stand critical check
             morning_bearing, morning_scent_ok = self._validate_scent_management(
                 morning_bearing, wind_direction, wind_speed_mph, "morning stand"
             )
@@ -3244,12 +3256,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
         # Stand 3: ALL-DAY/MIDDAY/ALTERNATE Stand - Wind-aware versatile positioning
         # 
-        # ≡ƒî¼∩╕Å PHASE 4.10: Wind >10 mph uses CROSSWIND positioning (alternate angle)
+        # [WIND] PHASE 4.10: Wind >10 mph uses CROSSWIND positioning (alternate angle)
         # Wind <10 mph uses terrain/thermal logic
         
         if wind_speed_mph > 10:  # STRONG WIND - USE CROSSWIND POSITIONING
             # Use OPPOSITE crosswind from morning stand for coverage diversity
-            # If morning used +90┬░, all-day uses -90┬░ (or vice versa)
+            # If morning used +90°, all-day uses -90° (or vice versa)
             morning_crosswind_1 = (wind_direction + 90) % 360
             morning_crosswind_2 = (wind_direction - 90) % 360
             
@@ -3265,7 +3277,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 # Morning used crosswind_2, so all-day uses crosswind_1
                 allday_bearing = morning_crosswind_1
             
-            logger.info(f"≡ƒî¼∩╕Å WIND-AWARE ALL-DAY: Alternate crosswind bearing={allday_bearing:.0f}┬░ (wind {wind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, opposite from morning {morning_bearing:.0f}┬░)")
+            logger.info(f"[WIND] WIND-AWARE ALL-DAY: Alternate crosswind bearing={allday_bearing:.0f}° (wind {wind_direction:.0f}° at {wind_speed_mph:.1f}mph, opposite from morning {morning_bearing:.0f}°)")
             
             # Validate scent (should pass since we used crosswind)
             allday_bearing, allday_scent_ok = self._validate_scent_management(
@@ -3276,15 +3288,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             if slope > 5:  # Sloped terrain - alternate uphill approach
                 # Position for different wind conditions or alternate deer approach
                 allday_bearing = (uphill_direction + 45) % 360  # Uphill with offset
-                logger.info(f"≡ƒÅö∩╕Å ALTERNATE STAND: Uphill variation ({allday_bearing:.0f}┬░) on {slope:.1f}┬░ slope")
+                logger.info(f"[MTN] ALTERNATE STAND: Uphill variation ({allday_bearing:.0f}°) on {slope:.1f}° slope")
             else:  # Flat terrain - prevailing wind dominates
                 if slope > 15:
                     allday_bearing = (downwind_direction + 45) % 360  # Crosswind funnel on steep terrain
                 else:
                     allday_bearing = downwind_direction  # Pure downwind on flat terrain
-                logger.info(f"≡ƒÆ¿ ALTERNATE STAND: Wind-based ({allday_bearing:.0f}┬░) on flat terrain")
+                logger.info(f"💨 ALTERNATE STAND: Wind-based ({allday_bearing:.0f}°) on flat terrain")
             
-            # ≡ƒî¼∩╕Å SCENT MANAGEMENT VALIDATION - All-day stand critical check
+            # [WIND] SCENT MANAGEMENT VALIDATION - All-day stand critical check
             allday_bearing, allday_scent_ok = self._validate_scent_management(
                 allday_bearing, wind_direction, wind_speed_mph, "all-day stand"
             )
@@ -3314,7 +3326,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
         if elevation_profile["samples"]:
             logger.info(
-                "≡ƒôê Elevation profile along evening offset: samples=%s total_change=%.2fm",
+                "📈 Elevation profile along evening offset: samples=%s total_change=%.2fm",
                 ",".join(f"{sample:.1f}" for sample in elevation_profile["samples"]),
                 elevation_profile["total_change"] if elevation_profile["total_change"] is not None else float("nan")
             )
@@ -3342,7 +3354,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     f"trimmed to {segment_scale:.2f}x distance to hit downhill drop ({downhill_delta:.1f}m)"
                 )
                 logger.info(
-                    "ΓÜû∩╕Å Evening stand trimmed to %.2fx of planned distance after uphill start",
+                    "✂ Evening stand trimmed to %.2fx of planned distance after uphill start",
                     segment_scale
                 )
             else:
@@ -3358,7 +3370,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     base_elevation=elevation
                 )
                 evening_adjustments.append("reduced to remain near bedding (initial slope climbed)")
-                logger.info("ΓÜû∩╕Å Evening stand reduced to %.2fx due to uphill profile", reduction_factor)
+                logger.info("✂ Evening stand reduced to %.2fx due to uphill profile", reduction_factor)
 
         if (
             elevation_profile["total_change"] is not None
@@ -3377,7 +3389,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             )
             evening_adjustments.append("shortened due to limited downhill relief (<1m drop)")
             logger.info(
-                "ΓÜá∩╕Å Evening stand shortened by %.2fx because downhill relief was limited",
+                "[WARN] Evening stand shortened by %.2fx because downhill relief was limited",
                 safety_factor
             )
 
@@ -3457,11 +3469,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
                     evening_adjustments.append(
                         "realigned crosswind "
-                        f"({chosen_bearing:.0f}┬░, wind {wind_direction:.0f}┬░) to avoid scent over bedding"
+                        f"({chosen_bearing:.0f}°, wind {wind_direction:.0f}°) to avoid scent over bedding"
                     )
                     logger.info(
-                        "≡ƒî¼∩╕Å Crosswind safeguard engaged: wind %.1f┬░, stand downwind diff %.1f┬░, bed diff %.1f┬░, "
-                        "chosen crosswind %.0f┬░ (gap %.1f┬░)%s",
+                        "[WIND] Crosswind safeguard engaged: wind %.1f°, stand downwind diff %.1f°, bed diff %.1f°, "
+                        "chosen crosswind %.0f° (gap %.1f°)%s",
                         wind_direction,
                         stand_downwind_diff,
                         closest_bed_diff,
@@ -3477,7 +3489,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": travel_lon_offset
                 },
                 "type": "Evening Stand",
-                "description": f"Evening: {evening_thermal['description']} ({evening_thermal['direction']:.0f}┬░) + Downwind ({downwind_direction:.0f}┬░) = {evening_bearing:.0f}┬░ | Thermal strength: {evening_thermal['strength']:.0%}",
+                "description": f"Evening: {evening_thermal['description']} ({evening_thermal['direction']:.0f}°) + Downwind ({downwind_direction:.0f}°) = {evening_bearing:.0f}° | Thermal strength: {evening_thermal['strength']:.0%}",
                 "adjustments": evening_adjustments,
                 "elevation_profile": elevation_profile
             },
@@ -3487,7 +3499,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": pinch_lon_offset
                 },
                 "type": "Morning Stand",
-                "description": f"Morning: {morning_thermal['description']} ({morning_thermal['direction']:.0f}┬░) + Crosswind position = {morning_bearing:.0f}┬░ | Thermal strength: {morning_thermal['strength']:.0%}"
+                "description": f"Morning: {morning_thermal['description']} ({morning_thermal['direction']:.0f}°) + Crosswind position = {morning_bearing:.0f}° | Thermal strength: {morning_thermal['strength']:.0%}"
             },
             {
                 "offset": {
@@ -3495,21 +3507,21 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": feeding_lon_offset
                 },
                 "type": "All-Day Stand",
-                "description": f"Midday: {midday_thermal['description']} - Downwind ({allday_bearing:.0f}┬░) | Thermal strength: {midday_thermal['strength']:.0%}"
+                "description": f"Midday: {midday_thermal['description']} - Downwind ({allday_bearing:.0f}°) | Thermal strength: {midday_thermal['strength']:.0%}"
             }
         ]
 
         logger.info(
-            f"≡ƒÄ» Stand positions {'with WIND-AWARE crosswind' if wind_speed_mph > 10 else 'with THERMAL'} strategy: "
-            f"Wind={wind_direction:.0f}┬░ΓåÆDownwind={downwind_direction:.0f}┬░ at {wind_speed_mph:.1f}mph, "
-            f"Slope={slope:.1f}┬░, Aspect={aspect:.0f}┬░ (Downhill={downhill_direction:.0f}┬░, Uphill={uphill_direction:.0f}┬░)"
+            f"[POINTS] Stand positions {'with WIND-AWARE crosswind' if wind_speed_mph > 10 else 'with THERMAL'} strategy: "
+            f"Wind={wind_direction:.0f}°->Downwind={downwind_direction:.0f}° at {wind_speed_mph:.1f}mph, "
+            f"Slope={slope:.1f}°, Aspect={aspect:.0f}° (Downhill={downhill_direction:.0f}°, Uphill={uphill_direction:.0f}°)"
         )
         if wind_speed_mph > 10:
             logger.info(
-                f"≡ƒî¼∩╕Å WIND-AWARE MODE: Crosswind bearings used (90┬░ from wind) to prevent scent contamination"
+                f"[WIND] WIND-AWARE MODE: Crosswind bearings used (90° from wind) to prevent scent contamination"
             )
         logger.info(
-            f"≡ƒîí∩╕Å Thermal strength: Evening={evening_thermal['strength']:.0%} (downslope), "
+            f"[THERMAL] Thermal strength: Evening={evening_thermal['strength']:.0%} (downslope), "
             f"Morning={morning_thermal['strength']:.0%} (upslope), Midday={midday_thermal['strength']:.0%}"
         )
         
@@ -3521,8 +3533,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                      bedding_zones: Optional[Dict] = None) -> List[Dict]:
         """Generate 3 enhanced stand site recommendations using EnhancedStandPlacement system"""
         try:
-            # ≡ƒÄ» ENHANCED STAND PLACEMENT: Use the sophisticated EnhancedStandPlacement system
-            logger.info("≡ƒÄ» Using EnhancedStandPlacement system for sophisticated stand analysis")
+            # [POINTS] ENHANCED STAND PLACEMENT: Use the sophisticated EnhancedStandPlacement system
+            logger.info("[POINTS] Using EnhancedStandPlacement system for sophisticated stand analysis")
             
             try:
                 from backend.enhanced_stand_placement import get_enhanced_stand_placement
@@ -3615,16 +3627,16 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     
                     stand_sites.append(stand_site)
                 
-                logger.info(f"Γ£à Generated {len(stand_sites)} enhanced stand sites using sophisticated analysis")
+                logger.info(f"[INIT] Generated {len(stand_sites)} enhanced stand sites using sophisticated analysis")
                 return stand_sites
                 
             except ImportError as e:
-                logger.warning(f"ΓÜá∩╕Å EnhancedStandPlacement not available: {e} - falling back to standard method")
+                logger.warning(f"[WARN] EnhancedStandPlacement not available: {e} - falling back to standard method")
             except Exception as e:
-                logger.warning(f"ΓÜá∩╕Å EnhancedStandPlacement failed: {e} - falling back to standard method")
+                logger.warning(f"[WARN] EnhancedStandPlacement failed: {e} - falling back to standard method")
             
-            # ≡ƒôï FALLBACK: Standard method if mature buck generator unavailable
-            logger.info("≡ƒôï Using standard stand generation method")
+            # 📋 FALLBACK: Standard method if mature buck generator unavailable
+            logger.info("📋 Using standard stand generation method")
             stand_sites = []
             
             # Generate 3 strategic stand locations using environmental analysis with REAL solar timing
@@ -3675,11 +3687,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     }
                 stand_sites.append(stand_site)
             
-            logger.info(f"Γ£à Generated {len(stand_sites)} enhanced stand recommendations")
+            logger.info(f"[INIT] Generated {len(stand_sites)} enhanced stand recommendations")
             return stand_sites
             
         except Exception as e:
-            logger.error(f"Γ¥î Stand site generation failed: {e}")
+            logger.error(f"[ERROR] Stand site generation failed: {e}")
             return []
     
     def _calculate_optimal_feeding_positions(self, lat: float, lon: float, gee_data: Dict, 
@@ -3698,23 +3710,23 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Feeding Area 1: Primary - DOWNHILL on slopes for moisture/food
         # CRITICAL FIX: Prioritize elevation for feeding areas on sloped terrain
-        # Lowered threshold from 10┬░ to 5┬░ for consistency
+        # Lowered threshold from 10° to 5° for consistency
         if slope > 5:  # Sloped terrain (even gentle slopes) - place feeding DOWNHILL (valleys have better food)
             downhill_direction = aspect  # Downhill direction
             primary_bearing = downhill_direction
             
             # Increase distance on steep slopes (deer travel farther to feed in valleys)
-            distance_multiplier = 1.5 + (slope / 60)  # Up to 2x distance on 30┬░ slopes
+            distance_multiplier = 1.5 + (slope / 60)  # Up to 2x distance on 30° slopes
             
-            logger.info(f"≡ƒî╛ FEEDING: Slope={slope:.1f}┬░ - placing DOWNHILL ({downhill_direction:.0f}┬░) for valley food sources")
-        else:  # Truly flat terrain (Γëñ5┬░) - use canopy/wind positioning
+            logger.info(f"[VALLEY] FEEDING: Slope={slope:.1f}° - placing DOWNHILL ({downhill_direction:.0f}°) for valley food sources")
+        else:  # Truly flat terrain (<=5°) - use canopy/wind positioning
             if canopy > 0.7:  # Dense forest - move toward openings
                 primary_bearing = (aspect + 90) % 360  # Perpendicular to slope
             else:  # Open area - stay near cover
                 primary_bearing = (wind_direction + 135) % 360  # Downwind with cover
             
             distance_multiplier = 1.0
-            logger.info(f"≡ƒî╛ FEEDING: Flat terrain (slope={slope:.1f}┬░Γëñ5┬░) - using canopy/wind positioning ({primary_bearing:.0f}┬░)")
+            logger.info(f"[VALLEY] FEEDING: Flat terrain (slope={slope:.1f}°<=5°) - using canopy/wind positioning ({primary_bearing:.0f}°)")
             
         primary_lat_offset = base_offset * 1.3 * distance_multiplier * np.cos(np.radians(primary_bearing))
         primary_lon_offset = base_offset * 1.3 * distance_multiplier * np.sin(np.radians(primary_bearing))
@@ -3727,13 +3739,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         # Feeding Area 3: Emergency - Water access and escape routes (DOWNHILL in valleys)
         # Position near water sources with multiple escape routes
-        # Lowered threshold from 10┬░ to 5┬░ for consistency
+        # Lowered threshold from 10° to 5° for consistency
         if slope > 5:  # Sloped terrain - use valley bottoms (DOWNHILL for water/drainage)
             emergency_bearing = aspect  # Downhill toward valley bottoms (water accumulates)
-            logger.info(f"≡ƒî╛ EMERGENCY FEEDING: Placing downhill ({emergency_bearing:.0f}┬░) toward valley/water")
+            logger.info(f"[VALLEY] EMERGENCY FEEDING: Placing downhill ({emergency_bearing:.0f}°) toward valley/water")
         else:  # Truly flat terrain - use thermal advantage
             emergency_bearing = 180 if temperature < 50 else 0  # South in cold, north in warm
-            logger.info(f"≡ƒî╛ EMERGENCY FEEDING: Flat terrain - thermal position ({emergency_bearing:.0f}┬░)")
+            logger.info(f"[VALLEY] EMERGENCY FEEDING: Flat terrain - thermal position ({emergency_bearing:.0f}°)")
             
         emergency_lat_offset = base_offset * 1.0 * np.cos(np.radians(emergency_bearing))
         emergency_lon_offset = base_offset * 1.0 * np.sin(np.radians(emergency_bearing))
@@ -3749,7 +3761,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "lon": primary_lon_offset * terrain_multiplier * canopy_multiplier
                 },
                 "type": "Primary Feeding Area",
-                "description": f"{'Valley/downhill' if slope > 10 else 'Edge habitat'} feeding - {canopy:.1%} canopy, {slope:.1f}┬░ slope"
+                "description": f"{'Valley/downhill' if slope > 10 else 'Edge habitat'} feeding - {canopy:.1%} canopy, {slope:.1f}° slope"
             },
             {
                 "offset": {
@@ -3769,8 +3781,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             }
         ]
         
-        logger.info(f"≡ƒî╛ Calculated feeding positions: Canopy={canopy:.1%}, "
-                   f"Slope={slope:.1f}┬░, Temp={temperature:.0f}┬░F "
+        logger.info(f"[VALLEY] Calculated feeding positions: Canopy={canopy:.1%}, "
+                   f"Slope={slope:.1f}°, Temp={temperature:.0f}°F "
                    f"({'DOWNHILL-VALLEYS' if slope > 10 else 'WIND-CANOPY'})")
         
         return feeding_variations
@@ -3787,7 +3799,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             base_terrain_aspect = gee_data.get("aspect")
             slope = gee_data.get("slope", 0)
             
-            # ≡ƒÄ» TIME-AWARE FEEDING LOGIC:
+            # [POINTS] TIME-AWARE FEEDING LOGIC:
             # PM Hunt (15:00-20:00): Deer move FROM bedding (uphill) TO feeding (downhill)
             #                         -> Prioritize DOWNHILL, ignore aspect
             # AM Hunt (05:00-11:00): Deer move FROM feeding TO bedding (uphill)
@@ -3797,8 +3809,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             # On sloped terrain during PM hunts, ALWAYS use downhill (thermal draft movement)
             if is_pm_hunt and slope > 5:
-                logger.info(f"≡ƒîà PM HUNT on {slope:.1f}┬░ slope: Prioritizing DOWNHILL movement (aspect={base_terrain_aspect:.0f}┬░)")
-                logger.info(f"   Γ¼ç∩╕Å Deer move downhill with thermal drafts in evening, regardless of aspect")
+                logger.info(f"🌅 PM HUNT on {slope:.1f}° slope: Prioritizing DOWNHILL movement (aspect={base_terrain_aspect:.0f}°)")
+                logger.info(f"   ↓ Deer move downhill with thermal drafts in evening, regardless of aspect")
                 # Skip aspect check - use downhill positions
                 aspect_suitable_for_feeding = True  # Override aspect requirement
             else:
@@ -3808,23 +3820,23 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                              135 <= base_terrain_aspect <= 225)
                 
                 if not aspect_suitable_for_feeding and not is_pm_hunt:
-                    logger.warning(f"≡ƒî╛ PRIMARY FEEDING LOCATION REJECTED: Aspect {base_terrain_aspect}┬░ unsuitable for feeding")
-                    logger.warning(f"   ≡ƒªî Mature bucks prefer south-facing feeding areas (135┬░-225┬░) for:")
-                    logger.warning(f"   ΓÇó Maximum mast production (oak acorns, nuts)")
-                    logger.warning(f"   ΓÇó Higher browse quality and nutritional content")
-                    logger.warning(f"   ΓÇó Optimal thermal conditions for extended feeding")
+                    logger.warning(f"[VALLEY] PRIMARY FEEDING LOCATION REJECTED: Aspect {base_terrain_aspect}° unsuitable for feeding")
+                    logger.warning(f"   [DEER] Mature bucks prefer south-facing feeding areas (135°-225°) for:")
+                    logger.warning(f"   • Maximum mast production (oak acorns, nuts)")
+                    logger.warning(f"   • Higher browse quality and nutritional content")
+                    logger.warning(f"   • Optimal thermal conditions for extended feeding")
                     
-                    # ≡ƒÄ» FEEDING ASPECT FALLBACK: Search for south-facing feeding alternatives (AM HUNT ONLY)
-                    logger.info(f"≡ƒöì FEEDING FALLBACK SEARCH: Looking for south-facing feeding areas (135┬░-225┬░) nearby...")
+                    # [POINTS] FEEDING ASPECT FALLBACK: Search for south-facing feeding alternatives (AM HUNT ONLY)
+                    logger.info(f"[DEBUG] FEEDING FALLBACK SEARCH: Looking for south-facing feeding areas (135°-225°) nearby...")
                     alternative_feeding = self._search_alternative_feeding_sites(
                         lat, lon, gee_data, osm_data, weather_data
                     )
                     
                     if alternative_feeding["features"]:
-                        logger.info(f"Γ£à FEEDING FALLBACK SUCCESS: Found {len(alternative_feeding['features'])} south-facing feeding areas nearby")
+                        logger.info(f"[INIT] FEEDING FALLBACK SUCCESS: Found {len(alternative_feeding['features'])} south-facing feeding areas nearby")
                         return alternative_feeding
                     else:
-                        logger.warning(f"≡ƒÜ½ FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
+                        logger.warning(f"[WARN] FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
                         logger.warning(f"   Proceeding with penalized feeding areas on suboptimal aspect")
             
             feeding_features = []
@@ -3844,25 +3856,25 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 temp_bonus = 5 if weather_data.get("temperature", 50) > 40 else 0
                 
                 # Apply aspect penalty for feeding areas (critical for biological accuracy)
-                # ≡ƒÄ» CRITICAL: Use consistent base terrain aspect for all feeding areas
+                # [POINTS] CRITICAL: Use consistent base terrain aspect for all feeding areas
                 base_terrain_aspect = gee_data.get("aspect", 180)
                 aspect_penalty = 0
                 
-                # Northeast-facing slopes (315┬░ to 45┬░) - severe penalty for feeding
+                # Northeast-facing slopes (315° to 45°) - severe penalty for feeding
                 if (base_terrain_aspect >= 315) or (base_terrain_aspect <= 45):
                     aspect_penalty = 25  # Severe penalty for north-facing slopes
-                    logger.warning(f"≡ƒî╛ FEEDING AREA ASPECT WARNING: {base_terrain_aspect:.1f}┬░ (north-facing) - applying severe biological penalty")
-                # East-facing slopes (45┬░ to 135┬░) - moderate penalty
+                    logger.warning(f"[VALLEY] FEEDING AREA ASPECT WARNING: {base_terrain_aspect:.1f}° (north-facing) - applying severe biological penalty")
+                # East-facing slopes (45° to 135°) - moderate penalty
                 elif 45 < base_terrain_aspect <= 135:
                     aspect_penalty = 15  # Moderate penalty for morning sun only
-                    logger.warning(f"≡ƒî╛ FEEDING AREA ASPECT WARNING: {base_terrain_aspect:.1f}┬░ (east-facing) - applying moderate biological penalty")
-                # West-facing slopes (225┬░ to 315┬░) - light penalty
+                    logger.warning(f"[VALLEY] FEEDING AREA ASPECT WARNING: {base_terrain_aspect:.1f}° (east-facing) - applying moderate biological penalty")
+                # West-facing slopes (225° to 315°) - light penalty
                 elif 225 < base_terrain_aspect < 315:
                     aspect_penalty = 8   # Light penalty for afternoon sun only
-                    logger.info(f"≡ƒî╛ FEEDING AREA ASPECT: {base_terrain_aspect:.1f}┬░ (west-facing) - applying light penalty")
+                    logger.info(f"[VALLEY] FEEDING AREA ASPECT: {base_terrain_aspect:.1f}° (west-facing) - applying light penalty")
                 else:
-                    # South-facing slopes (135┬░ to 225┬░) - optimal for feeding
-                    logger.info(f"≡ƒî╛ FEEDING AREA ASPECT: {base_terrain_aspect:.1f}┬░ (south-facing) - optimal orientation")
+                    # South-facing slopes (135° to 225°) - optimal for feeding
+                    logger.info(f"[VALLEY] FEEDING AREA ASPECT: {base_terrain_aspect:.1f}° (south-facing) - optimal orientation")
                 
                 feeding_score = base_score + water_bonus + temp_bonus - aspect_penalty - (i * 8)
                 feeding_score = max(25, min(90, feeding_score))  # Allow lower scores for poor aspects
@@ -3878,14 +3890,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         "type": "feeding",
                         "score": feeding_score,
                         "confidence": 0.80,
-                        "description": f"{variation['description']}: Natural browse area with {gee_data.get('canopy_coverage', 0.6):.0%} edge habitat (terrain aspect: {base_terrain_aspect:.0f}┬░)",
+                        "description": f"{variation['description']}: Natural browse area with {gee_data.get('canopy_coverage', 0.6):.0%} edge habitat (terrain aspect: {base_terrain_aspect:.0f}°)",
                         "marker_index": i,
                         "feeding_type": variation["type"],
                         "food_sources": ["Browse", "Mast", "Agricultural edge"],
                         "access_quality": "Good" if osm_data.get("nearest_road_distance_m", 0) > 200 else "Moderate",
                         "terrain_aspect": base_terrain_aspect,  # Consistent terrain aspect
                         "aspect_suitability": "optimal" if 135 <= base_terrain_aspect <= 225 else "suboptimal",
-                        "biological_accuracy": f"Aspect {base_terrain_aspect:.0f}┬░ - {aspect_penalty} point penalty applied"
+                        "biological_accuracy": f"Aspect {base_terrain_aspect:.0f}° - {aspect_penalty} point penalty applied"
                     }
                 }
                 feeding_features.append(feeding_feature)
@@ -3900,11 +3912,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 }
             }
             
-            logger.info(f"Γ£à Generated {len(feeding_features)} enhanced feeding areas")
+            logger.info(f"[INIT] Generated {len(feeding_features)} enhanced feeding areas")
             return feeding_areas
             
         except Exception as e:
-            logger.error(f"Γ¥î Feeding area generation failed: {e}")
+            logger.error(f"[ERROR] Feeding area generation failed: {e}")
             return {"type": "FeatureCollection", "features": []}
     
 
@@ -3913,17 +3925,17 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         bedding_zones = prediction.get("bedding_zones", {}).get("features", [])
         
         if not bedding_zones:
-            logger.error("Γ¥î No bedding zones detected - Critical biological accuracy failure")
+            logger.error("[ERROR] No bedding zones detected - Critical biological accuracy failure")
             return 0.0
         
         # Calculate average suitability
         avg_suitability = sum(f["properties"]["suitability_score"] for f in bedding_zones) / len(bedding_zones)
         
         if avg_suitability < 80:  # Back to original high standard
-            logger.error(f"Γ¥î Low bedding suitability: {avg_suitability:.1f}% (need >80%)")
+            logger.error(f"[ERROR] Low bedding suitability: {avg_suitability:.1f}% (need >80%)")
             return 0.0
         
-        logger.info(f"Γ£à Bedding zones validation passed: {len(bedding_zones)} zones, "
+        logger.info(f"[INIT] Bedding zones validation passed: {len(bedding_zones)} zones, "
                    f"{avg_suitability:.1f}% avg suitability")
         
     def get_wind_thermal_analysis(self, weather_data: Dict, gee_data: Dict) -> Dict:
@@ -3943,7 +3955,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             wind_protection = "excellent" if wind_aspect_diff > 120 else "good" if wind_aspect_diff > 60 else "moderate"
             
             # Calculate thermal advantage
-            # South-facing slopes (135-225┬░) provide thermal advantage in cold weather
+            # South-facing slopes (135-225°) provide thermal advantage in cold weather
             thermal_advantage = "high" if 135 <= aspect <= 225 and temperature < 40 else "moderate"
             
             return {
@@ -4017,7 +4029,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                  max_slope_limit: float = 30,
                                  weather_data: Dict = None) -> float:
         """
-        ≡ƒÄ» PHASE 3.5 + 4.7: Score terrain suitability based on slope, aspect, and distance.
+        [POINTS] PHASE 3.5 + 4.7: Score terrain suitability based on slope, aspect, and distance.
         
         This allows pre-filtering candidates before expensive GEE vegetation queries.
         Terrain is MORE important than vegetation for mature buck bedding suitability.
@@ -4026,7 +4038,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         
         Args:
             slope: Terrain slope in degrees
-            aspect: Compass direction (0-360┬░)
+            aspect: Compass direction (0-360°)
             distance_m: Distance from primary location in meters
             require_south_facing: Whether to prefer south-facing slopes
             max_slope_limit: Maximum acceptable slope
@@ -4037,15 +4049,15 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
         """
         
         # 1. SLOPE SCORE (50% weight) - Most critical factor
-        # Ideal: 10-30┬░ for drainage, visibility, and escape routes
+        # Ideal: 10-30° for drainage, visibility, and escape routes
         if max_slope_limit * 0.33 <= slope <= max_slope_limit:
-            # Optimal slope range (e.g., 10-30┬░ if max is 30┬░)
+            # Optimal slope range (e.g., 10-30° if max is 30°)
             slope_score = 100
         elif 5 <= slope < max_slope_limit * 0.33:
-            # Acceptable but flatter (e.g., 5-10┬░)
+            # Acceptable but flatter (e.g., 5-10°)
             slope_score = 70
         elif max_slope_limit < slope <= max_slope_limit * 1.33:
-            # Steep but manageable (e.g., 30-40┬░)
+            # Steep but manageable (e.g., 30-40°)
             slope_score = 60
         elif slope < 5:
             # Too flat - drainage concerns, poor visibility
@@ -4206,14 +4218,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                          base_weather_data: Dict, max_slope_limit: float, 
                                          require_south_facing: bool = False) -> Dict:
         """
-        ≡ƒöì ENHANCED FALLBACK MECHANISM: Hierarchical search for multiple alternative bedding sites
+        [DEBUG] ENHANCED FALLBACK MECHANISM: Hierarchical search for multiple alternative bedding sites
         with expanded radius and progressive aspect criteria to ensure 2-3 bedding zones for mature bucks.
         """
         try:
-            search_type = "south-facing slopes (135┬░-225┬░)" if require_south_facing else f"slopes Γëñ{max_slope_limit}┬░"
-            logger.info(f"≡ƒÄ» ALTERNATIVE BEDDING SEARCH: Multi-tier scanning (1500ft radius) for {search_type}")
-            logger.info(f"   ≡ƒªî Target: 2-3 bedding zones for mature whitetail buck movement patterns")
-            logger.info(f"   ≡ƒôÅ Search radius: 75-450m (~250-1500 feet)")
+            search_type = "south-facing slopes (135°-225°)" if require_south_facing else f"slopes <={max_slope_limit}°"
+            logger.info(f"[POINTS] ALTERNATIVE BEDDING SEARCH: Multi-tier scanning (1500ft radius) for {search_type}")
+            logger.info(f"   [DEER] Target: 2-3 bedding zones for mature whitetail buck movement patterns")
+            logger.info(f"   [TRACK] Search radius: 75-450m (~250-1500 feet)")
             
             # Optional dense LiDAR scan (large candidate pool) before GEE refinement
             lidar_config = {}
@@ -4238,7 +4250,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             if dense_scan_enabled and self.use_lidar_first and self.lidar_batch_processor:
                 dense_scan_used = True
                 logger.info(
-                    f"≡ƒù║∩╕Å DENSE LIDAR SCAN: Targeting {dense_scan_points} points within {dense_scan_radius_m}m radius"
+                    f"[OSM] DENSE LIDAR SCAN: Targeting {dense_scan_points} points within {dense_scan_radius_m}m radius"
                 )
                 all_candidates = self._generate_dense_lidar_candidates(
                     center_lat=center_lat,
@@ -4246,19 +4258,19 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     radius_m=dense_scan_radius_m,
                     target_points=dense_scan_points
                 )
-                logger.info(f"   ≡ƒù║∩╕Å Dense scan generated {len(all_candidates)} candidates")
-                logger.info(f"   ≡ƒù║∩╕Å Dense scan shortlist target: top {dense_scan_top_k} terrain-scored sites")
+                logger.info(f"   [OSM] Dense scan generated {len(all_candidates)} candidates")
+                logger.info(f"   [OSM] Dense scan shortlist target: top {dense_scan_top_k} terrain-scored sites")
             else:
-                # ≡ƒÄ» PHASE 4.8: Systematic multi-tier search pattern
-                # 6 distance tiers ├ù 8 cardinal bearings = 48 strategic candidates
-                # Expanded from 300m ΓåÆ 450m (~1000ft ΓåÆ ~1500ft) per user request
+                # [POINTS] PHASE 4.8: Systematic multi-tier search pattern
+                # 6 distance tiers × 8 cardinal bearings = 48 strategic candidates
+                # Expanded from 300m -> 450m (~1000ft -> ~1500ft) per user request
                 import math
                 distance_tiers_m = [75, 150, 225, 300, 375, 450]  # meters
                 bearings = [0, 45, 90, 135, 180, 225, 270, 315]  # N, NE, E, SE, S, SW, W, NW
                 
                 # Convert distances and bearings to lat/lon offsets
-                # 1 degree latitude Γëê 111,000 meters
-                # 1 degree longitude Γëê 111,000 * cos(latitude) meters
+                # 1 degree latitude ≈ 111,000 meters
+                # 1 degree longitude ≈ 111,000 * cos(latitude) meters
                 lat_to_meters = 111000
                 lon_to_meters = 111000 * math.cos(math.radians(center_lat))
                 
@@ -4284,7 +4296,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         "offsets": offsets
                     })
                 
-                logger.info(f"   ≡ƒù║∩╕Å Generated {len(search_tiers)} distance tiers ├ù {len(bearings)} bearings = {len(search_tiers) * len(bearings)} candidates")
+                logger.info(f"   [OSM] Generated {len(search_tiers)} distance tiers × {len(bearings)} bearings = {len(search_tiers) * len(bearings)} candidates")
 
                 for tier in search_tiers:
                     for lat_offset, lon_offset in tier['offsets']:
@@ -4301,7 +4313,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             suitable_sites = []
             suitability_reports = []
             
-            # ≡ƒÄ» HIERARCHICAL ASPECT CRITERIA: Progressive relaxation to ensure multiple bedding zones
+            # [POINTS] HIERARCHICAL ASPECT CRITERIA: Progressive relaxation to ensure multiple bedding zones
             if require_south_facing:
                 aspect_criteria = [
                     {"name": "optimal_south", "range": (160, 200), "bonus": 15, "description": "optimal south-facing"},
@@ -4312,12 +4324,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             else:
                 aspect_criteria = [{"name": "any_aspect", "range": (0, 360), "bonus": 0, "description": "any aspect"}]
             
-            # ≡ƒù║∩╕Å PHASE 3: BATCH LIDAR OPTIMIZATION
+            # [OSM] PHASE 3: BATCH LIDAR OPTIMIZATION
             # Batch-fetch terrain data for all candidates using LIDAR (if available)
             terrain_cache = {}
             lidar_coverage_hits = 0
             if self.use_lidar_first and self.lidar_batch_processor and all_candidates:
-                logger.info(f"≡ƒù║∩╕Å BATCH LIDAR: Pre-fetching terrain for {len(all_candidates)} alternative sites...")
+                logger.info(f"[OSM] BATCH LIDAR: Pre-fetching terrain for {len(all_candidates)} alternative sites...")
                 import time
                 batch_start = time.time()
                 total_hits = 0
@@ -4352,12 +4364,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
                     batch_elapsed = time.time() - batch_start
                     lidar_coverage_hits = total_hits
-                    logger.info(f"≡ƒù║∩╕Å BATCH LIDAR COMPLETE: {total_hits}/{len(all_candidates)} sites covered in {batch_elapsed:.2f}s "
+                    logger.info(f"[OSM] BATCH LIDAR COMPLETE: {total_hits}/{len(all_candidates)} sites covered in {batch_elapsed:.2f}s "
                                f"({len(all_candidates)/batch_elapsed:.0f} sites/sec)")
                 except Exception as e:
-                    logger.warning(f"ΓÜá∩╕Å Batch LIDAR failed: {e}, will fall back to sequential GEE")
+                    logger.warning(f"[WARN] Batch LIDAR failed: {e}, will fall back to sequential GEE")
             
-            # ≡ƒÄ» PHASE 3.5: INTELLIGENT TERRAIN-BASED SITE SELECTION
+            # [POINTS] PHASE 3.5: INTELLIGENT TERRAIN-BASED SITE SELECTION
             # Rank all candidates by terrain quality BEFORE expensive GEE vegetation queries
             terrain_scored_candidates = []
             
@@ -4477,14 +4489,14 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             filtered_count = len(promising_candidates)
             filtered_out = total_candidates - filtered_count
             
-            logger.info(f"≡ƒÄ» SMART TERRAIN FILTER: {filtered_count}/{total_candidates} candidates passed "
+            logger.info(f"[POINTS] SMART TERRAIN FILTER: {filtered_count}/{total_candidates} candidates passed "
                        f"(>{terrain_threshold}% terrain score), {filtered_out} filtered out")
             if dense_scan_used:
                 logger.info(
-                    f"≡ƒù║∩╕Å DENSE SCAN → GEE: Refining top {len(promising_candidates)} candidates with vegetation analysis"
+                    f"[OSM] DENSE SCAN → GEE: Refining top {len(promising_candidates)} candidates with vegetation analysis"
                 )
                 if decluster_m > 0:
-                    logger.info(f"≡ƒù║∩╕Å DENSE SCAN: Enforced {decluster_m}m separation between shortlisted sites")
+                    logger.info(f"[OSM] DENSE SCAN: Enforced {decluster_m}m separation between shortlisted sites")
 
             coverage_pct = (lidar_coverage_hits / total_candidates * 100) if total_candidates else 0
             self.last_scan_trace = {
@@ -4526,11 +4538,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                 cache_key = scored['cache_key']
                 distance_m = scored['distance_m']
                 
-                logger.debug(f"≡ƒöì Evaluating candidate: terrain_score={scored['terrain_score']:.0f}%, "
-                           f"slope={scored['slope']:.1f}┬░, aspect={scored['aspect']:.0f}┬░, distance={distance_m}m")
+                logger.debug(f"[DEBUG] Evaluating candidate: terrain_score={scored['terrain_score']:.0f}%, "
+                           f"slope={scored['slope']:.1f}°, aspect={scored['aspect']:.0f}°, distance={distance_m}m")
                 
                 try:
-                    # ≡ƒù║∩╕Å PHASE 3.5: Use cached terrain data (already scored and filtered!)
+                    # [OSM] PHASE 3.5: Use cached terrain data (already scored and filtered!)
                     if cache_key in terrain_cache:
                         # Use pre-fetched LIDAR terrain data (0 API calls!)
                         cached_terrain = terrain_cache[cache_key]
@@ -4587,9 +4599,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         else:
                             aspect_desc = "North-facing"
                         
-                        logger.info(f"Γ£à SUITABLE BEDDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f}")
+                        logger.info(f"[INIT] SUITABLE BEDDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f}")
                         logger.info(f"   Type: {bedding_type}, Distance: {distance_m}m")
-                        logger.info(f"   Slope: {search_slope:.1f}┬░, Aspect: {search_aspect:.0f}┬░ ({aspect_desc}), Score: {enhanced_score:.1f}%")
+                        logger.info(f"   Slope: {search_slope:.1f}°, Aspect: {search_aspect:.0f}° ({aspect_desc}), Score: {enhanced_score:.1f}%")
                         logger.info(f"   Terrain score (pre-filter): {scored['terrain_score']:.0f}%")
                         
                         # Create bedding zone feature
@@ -4607,7 +4619,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 "suitability_score": enhanced_score,
                                 "terrain_score": scored['terrain_score'],  # Show terrain pre-filter score
                                 "confidence": max(0.65, 0.85 - (distance_m / 1000) * 0.1),  # Distance-based confidence
-                                "description": f"{bedding_type.replace('_', ' ').title()}: {search_slope:.1f}┬░ slope, {search_aspect:.0f}┬░ aspect",
+                                "description": f"{bedding_type.replace('_', ' ').title()}: {search_slope:.1f}° slope, {search_aspect:.0f}° aspect",
                                 "canopy_coverage": search_gee_data.get("canopy_coverage", 0.6),
                                 "slope": search_slope,
                                 "aspect": search_aspect,
@@ -4618,11 +4630,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 "distance_from_primary": distance_m,
                                 "search_method": "terrain_filtered_intelligent_search",
                                 "aspect_category": aspect_desc,
-                                "search_reason": "Primary location aspect outside optimal range (135┬░-225┬░)" if require_south_facing else f"Primary location slope {base_gee_data.get('slope', 0):.1f}┬░ exceeded {max_slope_limit}┬░ limit"
+                                "search_reason": "Primary location aspect outside optimal range (135°-225°)" if require_south_facing else f"Primary location slope {base_gee_data.get('slope', 0):.1f}° exceeded {max_slope_limit}° limit"
                             }
                         }
                         
-                        # ≡ƒÄ» DEDUPLICATION: Avoid adding sites too close to existing ones
+                        # [POINTS] DEDUPLICATION: Avoid adding sites too close to existing ones
                         is_duplicate = False
                         for existing_site in suitable_sites:
                             existing_coords = existing_site["geometry"]["coordinates"]
@@ -4644,9 +4656,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                 "overall_score": suitability["overall_score"],
                                 "meets_criteria": suitability["meets_criteria"]
                             })
-                            logger.debug(f"   Γ£à Added diverse bedding site: {bedding_type} at {distance_m}m, aspect {search_aspect:.0f}┬░")
+                            logger.debug(f"   [INIT] Added diverse bedding site: {bedding_type} at {distance_m}m, aspect {search_aspect:.0f}°")
                         else:
-                            logger.debug(f"   Γ¥î Skipped duplicate site at {distance_m}m")
+                            logger.debug(f"   [ERROR] Skipped duplicate site at {distance_m}m")
                     else:
                         logger.debug(f"   Site at {search_lat:.4f}, {search_lon:.4f} has suitable terrain but low suitability score ({enhanced_score:.1f}%)")
                         
@@ -4656,26 +4668,26 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             # Return results with enhanced metadata
             if suitable_sites:
-                # ≡ƒªî CRITICAL BIOLOGICAL VALIDATION: Enforce strict south-facing requirement for bedding
+                # [DEER] CRITICAL BIOLOGICAL VALIDATION: Enforce strict south-facing requirement for bedding
                 if require_south_facing:
-                    logger.info(f"≡ƒöì BIOLOGICAL VALIDATION: Enforcing south-facing aspect requirement (135┬░-225┬░)")
+                    logger.info(f"[DEBUG] BIOLOGICAL VALIDATION: Enforcing south-facing aspect requirement (135°-225°)")
                     validated_sites = []
                     
                     for site in suitable_sites:
                         aspect = site["properties"]["aspect"]
                         
-                        # Strict enforcement: Only accept south-facing aspects (135-225┬░)
+                        # Strict enforcement: Only accept south-facing aspects (135-225°)
                         if 135 <= aspect <= 225:
                             validated_sites.append(site)
-                            logger.debug(f"   Γ£à Site validated: aspect {aspect:.0f}┬░ (south-facing)")
+                            logger.debug(f"   [INIT] Site validated: aspect {aspect:.0f}° (south-facing)")
                         else:
-                            logger.warning(f"   ≡ƒÜ½ Site rejected: aspect {aspect:.0f}┬░ not south-facing")
+                            logger.warning(f"   [WARN] Site rejected: aspect {aspect:.0f}° not south-facing")
                             logger.warning(f"      Reason: Mature bucks require south-facing slopes for thermal advantage")
                     
                     # Update suitable_sites with only validated sites
                     if not validated_sites:
-                        logger.warning(f"≡ƒÜ½ BIOLOGICAL VALIDATION FAILED: No truly south-facing alternatives found")
-                        logger.warning(f"   Found {len(suitable_sites)} sites, but none met south-facing requirement (135┬░-225┬░)")
+                        logger.warning(f"[WARN] BIOLOGICAL VALIDATION FAILED: No truly south-facing alternatives found")
+                        logger.warning(f"   Found {len(suitable_sites)} sites, but none met south-facing requirement (135°-225°)")
                         return {
                             "type": "FeatureCollection",
                             "features": [],
@@ -4693,9 +4705,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         }
                     
                     suitable_sites = validated_sites
-                    logger.info(f"Γ£à BIOLOGICAL VALIDATION PASSED: {len(validated_sites)} of {len(suitable_sites)} sites validated")
+                    logger.info(f"[INIT] BIOLOGICAL VALIDATION PASSED: {len(validated_sites)} of {len(suitable_sites)} sites validated")
                 
-                logger.info(f"≡ƒÄ» ENHANCED FALLBACK SUCCESS: Found {len(suitable_sites)} alternative bedding sites for mature buck movement patterns")
+                logger.info(f"[POINTS] ENHANCED FALLBACK SUCCESS: Found {len(suitable_sites)} alternative bedding sites for mature buck movement patterns")
                 
                 # Log bedding zone diversity for biological validation
                 bedding_types = [site["properties"]["bedding_type"] for site in suitable_sites]
@@ -4780,9 +4792,9 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     "notes": "Aggregated from hierarchical alternative bedding site search"
                 }
                 
-                logger.info(f"   ≡ƒªî Bedding Zone Types: {', '.join(set(bedding_types))}")
-                logger.info(f"   ≡ƒôÅ Distance Range: {min(distances)}-{max(distances)}m (optimal for buck movement)")
-                logger.info(f"   ≡ƒº¡ Aspect Range: {min(aspects):.0f}┬░-{max(aspects):.0f}┬░ (thermal diversity)")
+                logger.info(f"   [DEER] Bedding Zone Types: {', '.join(set(bedding_types))}")
+                logger.info(f"   [TRACK] Distance Range: {min(distances)}-{max(distances)}m (optimal for buck movement)")
+                logger.info(f"   [TARGET] Aspect Range: {min(aspects):.0f}°-{max(aspects):.0f}° (thermal diversity)")
                 
                 return {
                     "type": "FeatureCollection",
@@ -4792,7 +4804,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         "total_features": len(suitable_sites),
                         "generated_at": datetime.now().isoformat(),
                         "search_method": "alternative_site_search",
-                        "primary_rejection_reason": f"Slope {base_gee_data.get('slope', 0):.1f}┬░ > {max_slope_limit}┬░" if not require_south_facing else f"Aspect {base_gee_data.get('aspect', 0):.1f}┬░ outside optimal range (135┬░-225┬░)",
+                        "primary_rejection_reason": f"Slope {base_gee_data.get('slope', 0):.1f}° > {max_slope_limit}°" if not require_south_facing else f"Aspect {base_gee_data.get('aspect', 0):.1f}° outside optimal range (135°-225°)",
                         "biological_note": f"Multiple alternative bedding sites found for mature whitetail buck movement patterns",
                         "enhancement_version": "v2.0-multi-tier-fallback-enabled",
                         "bedding_diversity": {
@@ -4805,8 +4817,8 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     }
                 }
             else:
-                logger.warning(f"≡ƒÜ½ ENHANCED FALLBACK FAILED: No alternative bedding sites found within extended search radius")
-                logger.warning(f"   ≡ƒªî Critical: Mature bucks require 2-3 bedding options for optimal movement patterns")
+                logger.warning(f"[WARN] ENHANCED FALLBACK FAILED: No alternative bedding sites found within extended search radius")
+                logger.warning(f"   [DEER] Critical: Mature bucks require 2-3 bedding options for optimal movement patterns")
                 return {"type": "FeatureCollection", "features": []}
                 
         except Exception as e:
@@ -4817,11 +4829,11 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                          base_gee_data: Dict, base_osm_data: Dict, 
                                          base_weather_data: Dict) -> Dict:
         """
-        ≡ƒöì FEEDING FALLBACK MECHANISM: Search for south-facing feeding areas with optimal aspects
+        [DEBUG] FEEDING FALLBACK MECHANISM: Search for south-facing feeding areas with optimal aspects
         when primary location has poor aspect for deer feeding.
         """
         try:
-            logger.info(f"≡ƒî╛ ALTERNATIVE FEEDING SEARCH: Scanning within 400m radius for south-facing aspects (135┬░-225┬░)")
+            logger.info(f"[VALLEY] ALTERNATIVE FEEDING SEARCH: Scanning within 400m radius for south-facing aspects (135°-225°)")
             
             # Search patterns: systematic grid around the center point
             search_offsets = [
@@ -4855,7 +4867,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                     search_aspect = search_gee_data.get("aspect", 0)
                     search_slope = search_gee_data.get("slope", 0)
                     
-                    # Feeding areas need south-facing aspects (135┬░-225┬░) for optimal forage production
+                    # Feeding areas need south-facing aspects (135°-225°) for optimal forage production
                     aspect_suitable = (search_aspect is not None and 
                                      isinstance(search_aspect, (int, float)) and 
                                      135 <= search_aspect <= 225)
@@ -4868,7 +4880,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         feeding_score = self._calculate_feeding_area_score(search_gee_data, base_osm_data, base_weather_data)
                         
                         if feeding_score >= 60:  # Minimum threshold for alternative feeding sites
-                            logger.info(f"Γ£à SUITABLE FEEDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f} - Slope: {search_slope:.1f}┬░, Aspect: {search_aspect:.0f}┬░ (south-facing), Score: {feeding_score:.1f}%")
+                            logger.info(f"[INIT] SUITABLE FEEDING SITE FOUND: {search_lat:.4f}, {search_lon:.4f} - Slope: {search_slope:.1f}°, Aspect: {search_aspect:.0f}° (south-facing), Score: {feeding_score:.1f}%")
                             
                             # Create feeding area feature
                             feeding_feature = {
@@ -4884,7 +4896,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                     "score": feeding_score,
                                     "suitability_score": feeding_score,
                                     "confidence": 0.75,  # Slightly lower confidence for alternatives
-                                    "description": f"Alternative feeding area: {search_slope:.1f}┬░ slope, {search_aspect:.0f}┬░ south-facing aspect",
+                                    "description": f"Alternative feeding area: {search_slope:.1f}° slope, {search_aspect:.0f}° south-facing aspect",
                                     "canopy_coverage": search_gee_data.get("canopy_coverage", 0.4),
                                     "slope": search_slope,
                                     "aspect": search_aspect,
@@ -4893,7 +4905,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                                     "mast_production": "optimal",
                                     "thermal_conditions": "favorable",
                                     "distance_from_primary": int(((lat_offset**2 + lon_offset**2)**0.5) * 111000),  # meters
-                                    "search_reason": f"Primary location aspect {base_gee_data.get('aspect', 0):.1f}┬░ outside optimal feeding range (135┬░-225┬░)"
+                                    "search_reason": f"Primary location aspect {base_gee_data.get('aspect', 0):.1f}° outside optimal feeding range (135°-225°)"
                                 }
                             }
                             suitable_feeding_sites.append(feeding_feature)
@@ -4902,12 +4914,12 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                             if len(suitable_feeding_sites) >= 3:
                                 break
                         else:
-                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} has suitable aspect ({search_aspect:.0f}┬░) but low feeding score ({feeding_score:.1f}%)")
+                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} has suitable aspect ({search_aspect:.0f}°) but low feeding score ({feeding_score:.1f}%)")
                     else:
                         if not aspect_suitable:
-                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} rejected: aspect {search_aspect:.0f}┬░ not south-facing (need 135┬░-225┬░)")
+                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} rejected: aspect {search_aspect:.0f}° not south-facing (need 135°-225°)")
                         elif not slope_suitable:
-                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} rejected: slope {search_slope:.1f}┬░ too steep for feeding")
+                            logger.debug(f"   Feeding site at {search_lat:.4f}, {search_lon:.4f} rejected: slope {search_slope:.1f}° too steep for feeding")
                         
                 except Exception as e:
                     logger.debug(f"   Error checking alternative feeding site {i}: {e}")
@@ -4915,7 +4927,7 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             
             # Return results
             if suitable_feeding_sites:
-                logger.info(f"≡ƒî╛ FEEDING FALLBACK SUCCESS: Found {len(suitable_feeding_sites)} south-facing feeding areas")
+                logger.info(f"[VALLEY] FEEDING FALLBACK SUCCESS: Found {len(suitable_feeding_sites)} south-facing feeding areas")
                 return {
                     "type": "FeatureCollection",
                     "features": suitable_feeding_sites,
@@ -4924,13 +4936,13 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
                         "total_features": len(suitable_feeding_sites),
                         "generated_at": datetime.now().isoformat(),
                         "search_method": "alternative_feeding_search",
-                        "primary_rejection_reason": f"Aspect {base_gee_data.get('aspect', 0):.1f}┬░ outside optimal feeding range (135┬░-225┬░)",
+                        "primary_rejection_reason": f"Aspect {base_gee_data.get('aspect', 0):.1f}° outside optimal feeding range (135°-225°)",
                         "biological_note": "Alternative feeding areas found with south-facing aspects for optimal mast production and forage quality",
                         "enhancement_version": "v2.0-feeding-fallback-enabled"
                     }
                 }
             else:
-                logger.warning(f"≡ƒÜ½ FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
+                logger.warning(f"[WARN] FEEDING FALLBACK FAILED: No south-facing feeding areas found within search radius")
                 return {"type": "FeatureCollection", "features": []}
                 
         except Exception as e:
@@ -4952,22 +4964,22 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
             terrain_aspect = gee_data.get("aspect", 180)
             aspect_bonus = 0
             
-            # Optimal south-facing aspects (135┬░ to 225┬░) - bonus for feeding
+            # Optimal south-facing aspects (135° to 225°) - bonus for feeding
             if 135 <= terrain_aspect <= 225:
                 aspect_bonus = 10  # Bonus for optimal forage production and mast development
-                logger.debug(f"≡ƒî╛ FEEDING ASPECT BONUS: {terrain_aspect:.1f}┬░ (south-facing) - optimal for mast production")
-            # West-facing (225┬░ to 315┬░) - moderate
+                logger.debug(f"[VALLEY] FEEDING ASPECT BONUS: {terrain_aspect:.1f}° (south-facing) - optimal for mast production")
+            # West-facing (225° to 315°) - moderate
             elif 225 < terrain_aspect < 315:
                 aspect_bonus = 2   # Small bonus for afternoon sun
-                logger.debug(f"≡ƒî╛ FEEDING ASPECT: {terrain_aspect:.1f}┬░ (west-facing) - moderate for feeding")
-            # East-facing (45┬░ to 135┬░) - slight
+                logger.debug(f"[VALLEY] FEEDING ASPECT: {terrain_aspect:.1f}° (west-facing) - moderate for feeding")
+            # East-facing (45° to 135°) - slight
             elif 45 < terrain_aspect <= 135:
                 aspect_bonus = -5  # Slight penalty - morning sun only affects forage quality
-                logger.debug(f"≡ƒî╛ FEEDING ASPECT: {terrain_aspect:.1f}┬░ (east-facing) - suboptimal for feeding")
-            # North-facing (315┬░ to 45┬░) - poor
+                logger.debug(f"[VALLEY] FEEDING ASPECT: {terrain_aspect:.1f}° (east-facing) - suboptimal for feeding")
+            # North-facing (315° to 45°) - poor
             else:
                 aspect_bonus = -15  # Penalty for poor forage production
-                logger.debug(f"≡ƒî╛ FEEDING ASPECT: {terrain_aspect:.1f}┬░ (north-facing) - poor for feeding")
+                logger.debug(f"[VALLEY] FEEDING ASPECT: {terrain_aspect:.1f}° (north-facing) - poor for feeding")
             
             # Slope bonus (gentler slopes better for feeding access)
             slope = gee_data.get("slope", 0)
@@ -4990,36 +5002,36 @@ class EnhancedBeddingZonePredictor(OptimizedBiologicalIntegration):
 
 def test_enhanced_bedding_prediction():
     """Test the enhanced bedding zone prediction"""
-    print("≡ƒ¢Å∩╕Å TESTING ENHANCED BEDDING ZONE PREDICTION")
+    print("🛠 TESTING ENHANCED BEDDING ZONE PREDICTION")
     print("=" * 60)
     
     # Check available elevation analysis methods
     elevation_methods = []
     if GEE_AVAILABLE:
-        elevation_methods.append("Γ£à Google Earth Engine SRTM DEM (30m resolution)")
+        elevation_methods.append("[INIT] Google Earth Engine SRTM DEM (30m resolution)")
     else:
-        elevation_methods.append("Γ¥î Google Earth Engine not available")
+        elevation_methods.append("[ERROR] Google Earth Engine not available")
     
     if RASTERIO_AVAILABLE:
-        elevation_methods.append("Γ£à Rasterio DEM analysis")
+        elevation_methods.append("[INIT] Rasterio DEM analysis")
     else:
-        elevation_methods.append("Γ¥î Rasterio not available")
+        elevation_methods.append("[ERROR] Rasterio not available")
     
-    elevation_methods.append("Γ£à Open-Elevation API fallback")
+    elevation_methods.append("[INIT] Open-Elevation API fallback")
     
-    print("≡ƒÅö∩╕Å Elevation Analysis Methods:")
+    print("[MTN] Elevation Analysis Methods:")
     for method in elevation_methods:
         print(f"   {method}")
     
-    print("ΓöÇ" * 40)
+    print("-" * 40)
     
     predictor = EnhancedBeddingZonePredictor()
     
     # Test location: Tinmouth, Vermont
     lat, lon = 43.3127, -73.2271
     
-    print(f"≡ƒôì Testing location: {lat}, {lon}")
-    print("ΓöÇ" * 40)
+    print(f"📍 Testing location: {lat}, {lon}")
+    print("-" * 40)
     
     try:
         # Run enhanced analysis
@@ -5030,49 +5042,49 @@ def test_enhanced_bedding_prediction():
         bedding_zones = result["bedding_zones"]
         features = bedding_zones.get("features", [])
         
-        print(f"≡ƒÅí Bedding Zones Generated: {len(features)}")
-        print(f"ΓÜí Analysis Time: {result['analysis_time']:.2f}s")
-        print(f"≡ƒôè Confidence Score: {result['confidence_score']:.2f}")
+        print(f"🏠 Bedding Zones Generated: {len(features)}")
+        print(f"⚡ Analysis Time: {result['analysis_time']:.2f}s")
+        print(f"[DATA] Confidence Score: {result['confidence_score']:.2f}")
         
         # Show elevation analysis method used
         gee_data = result.get("gee_data", {})
         elevation_method = gee_data.get("api_source", "unknown")
-        print(f"≡ƒÅö∩╕Å Elevation Method: {elevation_method}")
+        print(f"[MTN] Elevation Method: {elevation_method}")
         
         if features:
-            print("\n≡ƒôï Bedding Zone Details:")
+            print("\n📋 Bedding Zone Details:")
             for i, zone in enumerate(features):
                 props = zone["properties"]
                 coords = zone["geometry"]["coordinates"]
-                print(f"  ≡ƒÅí Zone {i+1}: {props['bedding_type'].title()}")
-                print(f"     ≡ƒôì Location: {coords[1]:.4f}, {coords[0]:.4f}")
-                print(f"     ≡ƒÄ» Score: {props['score']:.2f}")
-                print(f"     ≡ƒôè Suitability: {props['suitability_score']:.1f}%")
-                print(f"     ≡ƒî▓ Canopy: {props['canopy_coverage']:.1%}")
-                print(f"     ≡ƒ¢ú∩╕Å Road Distance: {props['road_distance']:.0f}m")
-                print(f"     ≡ƒÅö∩╕Å Slope: {props['slope']:.1f}┬░")
-                print(f"     ≡ƒº¡ Aspect: {props['aspect']:.0f}┬░")
-                print(f"     ≡ƒÆ¿ Wind Protection: {props['wind_protection'].title()}")
+                print(f"  🏠 Zone {i+1}: {props['bedding_type'].title()}")
+                print(f"     📍 Location: {coords[1]:.4f}, {coords[0]:.4f}")
+                print(f"     [POINTS] Score: {props['score']:.2f}")
+                print(f"     [DATA] Suitability: {props['suitability_score']:.1f}%")
+                print(f"     [TREE] Canopy: {props['canopy_coverage']:.1%}")
+                print(f"     🛣 Road Distance: {props['road_distance']:.0f}m")
+                print(f"     [MTN] Slope: {props['slope']:.1f}°")
+                print(f"     [TARGET] Aspect: {props['aspect']:.0f}°")
+                print(f"     💨 Wind Protection: {props['wind_protection'].title()}")
                 print()
             
             # Validate spatial accuracy
             accuracy = predictor.validate_spatial_accuracy(result)
-            print(f"Γ£à Spatial Accuracy: {accuracy:.1%}")
+            print(f"[INIT] Spatial Accuracy: {accuracy:.1%}")
         else:
             suitability = bedding_zones.get("properties", {}).get("suitability_analysis", {})
-            print("Γ¥î No bedding zones generated")
+            print("[ERROR] No bedding zones generated")
             if suitability:
-                print("≡ƒöì Failed Criteria:")
+                print("[DEBUG] Failed Criteria:")
                 criteria = suitability.get("criteria", {})
                 thresholds = suitability.get("thresholds", {})
-                print(f"   ≡ƒî▓ Canopy: {criteria.get('canopy_coverage', 0):.1%} (need >{thresholds.get('min_canopy', 0.7):.0%})")
-                print(f"   ≡ƒ¢ú∩╕Å Roads: {criteria.get('road_distance', 0):.0f}m (need >{thresholds.get('min_road_distance', 200)}m)")
-                print(f"   ≡ƒôè Overall: {suitability.get('overall_score', 0):.1f}% (need >80%)")
+                print(f"   [TREE] Canopy: {criteria.get('canopy_coverage', 0):.1%} (need >{thresholds.get('min_canopy', 0.7):.0%})")
+                print(f"   🛣 Roads: {criteria.get('road_distance', 0):.0f}m (need >{thresholds.get('min_road_distance', 200)}m)")
+                print(f"   [DATA] Overall: {suitability.get('overall_score', 0):.1f}% (need >80%)")
         
         return len(features) > 0
         
     except Exception as e:
-        print(f"Γ¥î Test failed: {e}")
+        print(f"[ERROR] Test failed: {e}")
         return False
 
 if __name__ == "__main__":
@@ -5080,13 +5092,15 @@ if __name__ == "__main__":
     
     print("\n" + "=" * 60)
     if success:
-        print("≡ƒÄë ENHANCED BEDDING ZONE PREDICTION: SUCCESS!")
-        print("Γ£à Biological accuracy issue resolved")
-        print("Γ£à Comprehensive environmental criteria implemented")
-        print("Γ£à Ready for production integration")
+        print("🎉 ENHANCED BEDDING ZONE PREDICTION: SUCCESS!")
+        print("[INIT] Biological accuracy issue resolved")
+        print("[INIT] Comprehensive environmental criteria implemented")
+        print("[INIT] Ready for production integration")
     else:
-        print("ΓÜá∩╕Å ENHANCED BEDDING ZONE PREDICTION: NEEDS ATTENTION")
-        print("≡ƒöº Review environmental criteria and thresholds")
+        print("[WARN] ENHANCED BEDDING ZONE PREDICTION: NEEDS ATTENTION")
+        print("[OK] Review environmental criteria and thresholds")
     
-    print("≡ƒ¢Å∩╕Å ENHANCED BEDDING ZONE PREDICTION TEST COMPLETE")
+    print("🛠 ENHANCED BEDDING ZONE PREDICTION TEST COMPLETE")
     print("=" * 60)
+
+

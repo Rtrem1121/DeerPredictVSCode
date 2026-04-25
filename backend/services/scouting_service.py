@@ -129,7 +129,7 @@ class ScoutingService:
             return {
                 "observations": obs_data,
                 "total_count": len(obs_data),
-                "query_parameters": query.dict()
+                "query_parameters": query.model_dump()
             }
             
         except HTTPException:
@@ -206,7 +206,7 @@ class ScoutingService:
             result = {
                 "area_center": {"lat": lat, "lon": lon},
                 "search_radius_miles": radius_miles,
-                "basic_analytics": analytics.dict(),
+                "basic_analytics": analytics.model_dump(),
                 "enhancement_summary": enhancement_summary,
                 "generated_at": datetime.now().isoformat()
             }

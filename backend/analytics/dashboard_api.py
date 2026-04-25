@@ -23,6 +23,7 @@ from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime, timedelta
 import json
+import os
 
 from .data_collector import get_analytics_collector
 from .performance_monitor import get_performance_monitor
@@ -34,6 +35,16 @@ sys.path.insert(0, str(backend_path))
 from config_manager import get_config
 
 logger = logging.getLogger(__name__)
+
+
+def _get_allowed_origins() -> List[str]:
+    """Resolve CORS origins from env, defaulting to local Streamlit hosts."""
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    if raw.strip():
+        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if origins:
+            return origins
+    return ["http://localhost:8501", "http://127.0.0.1:8501"]
 
 # Pydantic models for API responses
 class AnalyticsSummary(BaseModel):
@@ -86,8 +97,8 @@ app = FastAPI(
 # Add CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=_get_allowed_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

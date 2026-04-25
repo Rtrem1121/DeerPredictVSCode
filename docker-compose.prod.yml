@@ -7,8 +7,10 @@ services:
   backend:
     restart: always
     volumes:
-      # Remove development volume mounts for production
+      # Keep only runtime data/config mounts in production.
       - ./data:/app/data:ro  # Read-only data
+      - ./config:/app/config:ro
+      - ./credentials:/app/credentials:ro
       - ./logs:/app/logs
     environment:
       - PYTHONPATH=/app
@@ -26,9 +28,6 @@ services:
 
   frontend:
     restart: always
-    volumes:
-      # Remove development volume mounts
-      []
     deploy:
       resources:
         limits:

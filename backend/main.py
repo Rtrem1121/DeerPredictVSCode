@@ -14,15 +14,14 @@ Author: GitHub Copilot (Refactoring Assistant)
 Date: August 24, 2025
 """
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
-import numpy as np
 import logging
-from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
-import time
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import List, Dict, Any
 
 # Set up logging first with custom filter to suppress health checks
 class HealthCheckFilter(logging.Filter):
@@ -30,18 +29,6 @@ class HealthCheckFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         # Suppress health check logs (both Docker healthchecks and Streamlit pings)
         return "/health" not in record.getMessage()
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Add filter to uvicorn access logger to suppress health check spam
-logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-
-# Import the new routers
-from backend.routers.config_router import config_router
-from backend.routers.camera_router import camera_router
-from backend.routers.scouting_router import scouting_router
-from backend.routers.max_accuracy_router import max_accuracy_router
 
 # Configure logging for containers
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
@@ -52,35 +39,70 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file, mode='a'),
+        logging.FileHandler(log_file, mode='a', delay=True),
         logging.StreamHandler()
     ]
 )
+logger = logging.getLogger(__name__)
+
+# Add filter to uvicorn access logger to suppress health check spam
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+# Import the new routers
+from backend.routers.config_router import config_router
+from backend.routers.camera_router import camera_router
+from backend.routers.scouting_router import scouting_router
+from backend.routers.max_accuracy_router import max_accuracy_router, run_startup_cleanup_jobs
+
+
+def _get_allowed_origins() -> list[str]:
+    """Resolve CORS origins from env, defaulting to local Streamlit hosts."""
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    if raw.strip():
+        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+        if origins:
+            return origins
+    return ["http://localhost:8501", "http://127.0.0.1:8501"]
+
+
+LEGACY_PREDICTION_ENABLED = os.getenv("LEGACY_PREDICTION", "0") == "1"
 
 # Check for enhanced predictions availability
 ENHANCED_PREDICTIONS_AVAILABLE = False
-try:
-    from backend.enhanced_endpoints import enhanced_router
-    ENHANCED_PREDICTIONS_AVAILABLE = True
-    logger.info("≡ƒ¢░∩╕Å Enhanced prediction system with satellite data loaded successfully")
-except ImportError as e:
-    logger.warning(f"Enhanced prediction system not available: {e}")
-    logger.warning("Falling back to standard prediction functionality")
+if LEGACY_PREDICTION_ENABLED:
+    try:
+        from backend.enhanced_endpoints import enhanced_router
+        ENHANCED_PREDICTIONS_AVAILABLE = True
+        logger.info("Enhanced prediction system with satellite data loaded successfully")
+    except ImportError as e:
+        logger.warning(f"Enhanced prediction system not available: {e}")
+        logger.warning("Falling back to standard prediction functionality")
+else:
+    logger.info("Legacy prediction endpoints disabled (set LEGACY_PREDICTION=1 to enable)")
 
 # Create FastAPI application
+
+
+@asynccontextmanager
+async def app_lifespan(_: FastAPI):
+    run_startup_cleanup_jobs()
+    yield
+
+
 app = FastAPI(
     title="Vermont Deer Prediction API - Refactored",
     description="Advanced deer movement prediction system for Vermont hunters - Now with improved architecture!",
     version="2.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=app_lifespan,
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_get_allowed_origins(),
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -92,16 +114,8 @@ app.include_router(scouting_router)
 app.include_router(max_accuracy_router)
 
 # Enhanced prediction system inclusion (preserving existing logic)
-try:
-    from backend.enhanced_endpoints import enhanced_router
-    ENHANCED_PREDICTIONS_AVAILABLE = True
-    logger.info("≡ƒ¢░∩╕Å Enhanced prediction system with satellite data loaded successfully")
-    if ENHANCED_PREDICTIONS_AVAILABLE:
-        app.include_router(enhanced_router)
-except ImportError as e:
-    ENHANCED_PREDICTIONS_AVAILABLE = False
-    logger.warning(f"Enhanced prediction system not available: {e}")
-    logger.warning("Falling back to standard prediction functionality")
+if ENHANCED_PREDICTIONS_AVAILABLE:
+    app.include_router(enhanced_router)
 
 
 # Keep essential health and root endpoints in main
@@ -110,21 +124,41 @@ def health_check():
     """Health check endpoint for monitoring and load balancers."""
     try:
         from backend.config_manager import get_config
+        from backend.services.lidar_processor import DEMFileManager
+
         config = get_config()
         metadata = config.get_metadata()
+
+        gee_creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+        gee_project_id = os.getenv("GEE_PROJECT_ID", "")
+        weather_api_key = os.getenv("OPENWEATHERMAP_API_KEY", "")
+
+        dem_ok = bool(DEMFileManager().get_files())
+        gee_creds_ok = bool(gee_creds_path and os.path.exists(gee_creds_path))
+        gee_project_ok = bool(gee_project_id)
+        weather_ok = bool(weather_api_key)
+
+        services = {
+            "configuration_service": "operational" if metadata else "degraded",
+            "dem_lidar_service": "operational" if dem_ok else "degraded",
+            "gee_credentials": "operational" if gee_creds_ok else "degraded",
+            "gee_project": "operational" if gee_project_ok else "degraded",
+            "weather_api": "operational" if weather_ok else "degraded",
+            "enhanced_prediction_router": (
+                "operational"
+                if ENHANCED_PREDICTIONS_AVAILABLE
+                else ("disabled" if not LEGACY_PREDICTION_ENABLED else "degraded")
+            ),
+        }
+        overall_status = "healthy" if all(v == "operational" for v in services.values()) else "degraded"
         
         return {
-            "status": "healthy",
+            "status": overall_status,
             "timestamp": datetime.now().isoformat(),
             "version": "2.0.0",
             "architecture": "refactored",
             "config_status": "loaded" if metadata else "error",
-            "services": {
-                "configuration_service": "operational",
-                "camera_service": "operational", 
-                "scouting_service": "operational",
-                "prediction_service": "operational"
-            },
+            "services": services,
             "enhanced_predictions": ENHANCED_PREDICTIONS_AVAILABLE
         }
     except Exception as e:

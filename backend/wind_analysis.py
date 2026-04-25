@@ -112,7 +112,7 @@ class WindAnalyzer:
 
             load_dotenv()
         except Exception:
-            pass
+            logger.debug("dotenv load failed while resolving weather API key", exc_info=True)
         env_key = os.getenv('OPENWEATHERMAP_API_KEY', '')
         if isinstance(env_key, str) and env_key.strip() and "YOUR_API_KEY_HERE" not in env_key:
             return env_key
@@ -123,7 +123,7 @@ class WindAnalyzer:
             if isinstance(key, str) and key.strip() and "YOUR_API_KEY_HERE" not in key:
                 return key
         except Exception:
-            pass
+            logger.debug("Config lookup failed while resolving weather API key", exc_info=True)
 
         return env_key
     

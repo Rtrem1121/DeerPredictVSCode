@@ -271,7 +271,7 @@ class TestPipelineIntegration:
         candidates = [
             {  # Good bedding: meets all criteria
                 "lat": 44.0, "lon": -73.0,
-                "shelter_score": 0.7, "slope_deg": 12.0, "bench_score": 0.6,
+                "shelter_score": 0.7, "slope_deg": 12.0, "bench_score": 0.7,
                 "aspect_score": 0.5, "roughness": 3.0,
             },
             {  # Bad: flat field (no roughness, low slope, no bench)

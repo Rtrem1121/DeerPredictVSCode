@@ -16,7 +16,7 @@
 ## 🌐 Infrastructure
 - **Domain:** https://app.deerpredictapp.org
 - **Hosting:** Local server with Cloudflare Tunnel
-- **Security:** Password: DeerHunter2025!
+- **Security:** Password managed via APP_PASSWORD environment variable
 - **Status:** Production ready
 
 ## 🚀 Ready for Sharing

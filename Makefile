@@ -8,7 +8,7 @@ install:  ## Install dependencies
 	pip install -r requirements.txt
 
 test:  ## Run tests
-	python -m pytest -v
+	python -m pytest
 
 lint:  ## Run linting
 	python -m flake8 backend/ frontend/ --max-line-length=120
@@ -47,7 +47,8 @@ dev-setup:  ## Set up development environment
 	@echo "Development environment ready!"
 
 check:  ## Run all checks (lint, test, format)
-	python dev.py all
+	$(MAKE) lint
+	$(MAKE) test
 
 start-dev:  ## Start development servers
-	python dev.py start
+	docker-compose up -d

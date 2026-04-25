@@ -78,7 +78,7 @@ services:
 
 **Configuration**:
 - **Domain**: https://app.deerpredictapp.org
-- **Security**: Password protected (DeerHunter2025!)
+- **Security**: Password protected via APP_PASSWORD environment variable
 - **SSL**: Automatic HTTPS via Cloudflare
 - **Status**: Production ready
 
@@ -184,19 +184,11 @@ Deploy using AWS ECS with Fargate for serverless containers.
 ```python
 # Streamlit password protection
 def check_password():
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
-
-    if not st.session_state["password_correct"]:
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if password == "DeerHunter2025!":
-                st.session_state["password_correct"] = True
-                st.rerun()
-            else:
-                st.error("Incorrect password")
+    configured_password = os.getenv("APP_PASSWORD")
+    if not configured_password:
+        st.error("APP_PASSWORD is not configured")
         return False
-    return True
+    # Compare entered password to configured_password
 ```
 
 ### SSL/TLS Configuration

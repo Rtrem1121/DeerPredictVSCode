@@ -282,7 +282,7 @@ class ErrorHandlingMiddleware:
         
         return JSONResponse(
             status_code=status_code,
-            content=error_response.dict()
+            content=error_response.model_dump()
         )
     
     async def _handle_http_exception(self, request: Request, error: HTTPException, start_time: float) -> JSONResponse:
@@ -324,7 +324,7 @@ class ErrorHandlingMiddleware:
         
         return JSONResponse(
             status_code=error.status_code,
-            content=error_response.dict()
+            content=error_response.model_dump()
         )
     
     async def _handle_system_exception(self, request: Request, error: Exception, start_time: float) -> JSONResponse:
@@ -369,7 +369,7 @@ class ErrorHandlingMiddleware:
         
         return JSONResponse(
             status_code=500,
-            content=error_response.dict()
+            content=error_response.model_dump()
         )
     
     def _get_user_friendly_message(self, error: AppException) -> str:

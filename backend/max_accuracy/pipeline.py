@@ -33,7 +33,7 @@ from .config import MaxAccuracyConfig
 from .gee import get_gee_summary
 from .grid import generate_dense_grid
 from .terrain_metrics import compute_metrics, score_bench_saddle
-from .wind import build_wind_options
+from .wind import build_wind_options, get_wind_data
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,8 @@ _GEE_MAX_WORKERS = 8
 class MaxAccuracyPipeline:
     def __init__(self, config: MaxAccuracyConfig | None = None) -> None:
         self.config = config or MaxAccuracyConfig()
+        self._dem_manager = DEMFileManager()
+        self._dem_path_cache: str | None = None
 
     def _calculate_wind_rotation(
         self,
@@ -365,12 +367,17 @@ class MaxAccuracyPipeline:
             return {"error": str(exc)}
 
     def _get_dem_path(self) -> str | None:
-        dem_manager = DEMFileManager()
-        lidar_files = dem_manager.get_files()
+        if self._dem_path_cache:
+            return self._dem_path_cache
+
+        lidar_files = self._dem_manager.get_files()
         for name, path in lidar_files.items():
             if "DEM" in str(name).upper():
-                return path
-        return next(iter(lidar_files.values()), None) if lidar_files else None
+                self._dem_path_cache = path
+                return self._dem_path_cache
+
+        self._dem_path_cache = next(iter(lidar_files.values()), None) if lidar_files else None
+        return self._dem_path_cache
 
     def _score_terrain(
         self,
@@ -495,7 +502,6 @@ class MaxAccuracyPipeline:
 
                 elev_min = float(np.nanmin(elev))
                 elev_max = float(np.nanmax(elev))
-                elev_denom = max(1e-6, elev_max - elev_min)
 
                 # Compute ridgeline and drainage grids for this tile
                 ridgeline_grid = detect_ridgelines(
@@ -506,79 +512,129 @@ class MaxAccuracyPipeline:
                     metrics["curvature"], metrics["relief_small"]
                 )
 
-                for lat, lon, row, col in tile_points:
-                    local_row = row - row0_pad
-                    local_col = col - col0_pad
-                    if local_row < 0 or local_col < 0 or local_row >= elev.shape[0] or local_col >= elev.shape[1]:
-                        continue
-                    e = float(elev[local_row, local_col])
-                    s = float(metrics["slope_deg"][local_row, local_col])
-                    aspect = float(metrics["aspect_deg"][local_row, local_col])
-                    curv = float(metrics["curvature"][local_row, local_col])
-                    tpi_small = float(metrics["tpi_small"][local_row, local_col])
-                    tpi_large = float(metrics["tpi_large"][local_row, local_col])
-                    relief_small = float(metrics["relief_small"][local_row, local_col])
-                    roughness = float(metrics["roughness"][local_row, local_col])
+                # -------------------------------------------------------
+                # Vectorized per-point scoring (replaces Python for-loop)
+                # -------------------------------------------------------
+                tp_arr = np.array(tile_points)  # (N, 4): lat, lon, row, col
+                tile_lats_v = tp_arr[:, 0]
+                tile_lons_v = tp_arr[:, 1]
+                lr_v = tp_arr[:, 2].astype(np.int32) - row0_pad
+                lc_v = tp_arr[:, 3].astype(np.int32) - col0_pad
 
-                    bench_score, saddle_score = score_bench_saddle(s, tpi_small, relief_small, curv)
+                valid = (
+                    (lr_v >= 0) & (lc_v >= 0)
+                    & (lr_v < elev.shape[0]) & (lc_v < elev.shape[1])
+                )
+                if not valid.any():
+                    continue
+                lr = lr_v[valid]
+                lc = lc_v[valid]
+                pt_lats = tile_lats_v[valid]
+                pt_lons = tile_lons_v[valid]
 
-                    # Unified slope scoring: plateau across 5-22° instead of narrow 10° peak
-                    slope_pref = slope_preference(s)
-                    # Ridge proximity: upper-third preference instead of arbitrary 60th percentile
-                    elev_pref = ridge_proximity_preference(e, elev_min, elev_max)
+                # Gather terrain values with fancy indexing (one C call per metric)
+                e_arr       = elev[lr, lc].astype(np.float64)
+                s_arr       = metrics["slope_deg"][lr, lc].astype(np.float64)
+                aspect_arr  = metrics["aspect_deg"][lr, lc].astype(np.float64)
+                curv_arr    = metrics["curvature"][lr, lc].astype(np.float64)
+                tpi_s_arr   = metrics["tpi_small"][lr, lc].astype(np.float64)
+                tpi_l_arr   = metrics["tpi_large"][lr, lc].astype(np.float64)
+                relief_arr  = metrics["relief_small"][lr, lc].astype(np.float64)
+                rough_arr   = metrics["roughness"][lr, lc].astype(np.float64)
+                ridge_arr   = ridgeline_grid[lr, lc].astype(np.float64)
+                drain_arr   = drainage_grid[lr, lc].astype(np.float64)
 
-                    corridor_score = clamp01(1.0 - (abs(tpi_large) / max(1.0, relief_small))) * clamp01(relief_small / 10.0)
-                    shelter_score = clamp01(1.0 - (s / 20.0)) * clamp01((relief_small - abs(tpi_small)) / max(1.0, relief_small))
-                    roughness_score = clamp01(roughness / 6.0)
-                    curvature_score = clamp01(abs(curv) / 0.1)
+                # Slope preference: plateau 5–22°
+                slope_pref = np.where(
+                    s_arr < 0.0, 0.0,
+                    np.where(s_arr < 5.0, 0.2 + 0.8 * (s_arr / 5.0),
+                    np.where(s_arr <= 22.0, 1.0,
+                    np.where(s_arr <= 35.0, np.maximum(0.0, 1.0 - (s_arr - 22.0) / 13.0),
+                    0.0))))
 
-                    # Aspect score: prefer south-facing (135-225°) for thermal advantage
-                    # SE aspects (135-165°) get morning solar warming — also preferred
-                    aspect_diff = angular_diff(aspect, 170.0)  # shifted slightly SE of due south
-                    aspect_score = clamp01(1.0 - (aspect_diff / 100.0))  # wider tolerance
+                # Ridge proximity: upper-third preference
+                _elev_denom = max(1e-6, elev_max - elev_min)
+                elev_norm = (e_arr - elev_min) / _elev_denom
+                elev_pref = np.where(
+                    elev_norm < 0.3,
+                    np.maximum(0.1, elev_norm / 0.3 * 0.4),
+                    np.where(elev_norm < 0.6,
+                    0.4 + (elev_norm - 0.3) / 0.3 * 0.5,
+                    np.where(elev_norm <= 0.92,
+                    np.maximum(0.9, 1.0 - np.abs(elev_norm - 0.80) / 0.20),
+                    np.maximum(0.7, 1.0 - (elev_norm - 0.92) / 0.08 * 0.3))))
 
-                    # Ridgeline and drainage from pre-computed grids
-                    ridgeline_s = float(ridgeline_grid[local_row, local_col])
-                    drainage_s = float(drainage_grid[local_row, local_col])
+                # Bench and saddle scores
+                relief_safe = np.maximum(relief_arr, 1.0)
+                tpi_s_norm  = np.abs(tpi_s_arr) / relief_safe
+                bench_v = (
+                    np.clip(1.0 - (np.abs(s_arr - 6.0) / 8.0), 0.0, 1.0)
+                    * np.clip(1.0 - tpi_s_norm, 0.0, 1.0)
+                )
+                saddle_v = (
+                    np.clip(relief_arr / 8.0, 0.0, 1.0)
+                    * np.clip(1.0 - tpi_s_norm, 0.0, 1.0)
+                    * np.clip(np.abs(curv_arr) / 0.08, 0.0, 1.0)
+                )
 
-                    score = (
-                        slope_pref * self.config.weights["slope_pref"]
-                        + elev_pref * self.config.weights["elev_pref"]
-                        + bench_score * self.config.weights["bench"]
-                        + saddle_score * self.config.weights["saddle"]
-                        + corridor_score * self.config.weights["corridor"]
-                        + roughness_score * self.config.weights["roughness"]
-                        + curvature_score * self.config.weights["curvature"]
-                        + shelter_score * self.config.weights["shelter"]
-                        + aspect_score * self.config.weights["aspect"]
-                        + ridgeline_s * self.config.weights.get("ridgeline", 0.04)
-                        + drainage_s * self.config.weights.get("drainage", 0.04)
-                    )
+                # Corridor, shelter, roughness, curvature
+                corridor_v = (
+                    np.clip(1.0 - (np.abs(tpi_l_arr) / relief_safe), 0.0, 1.0)
+                    * np.clip(relief_arr / 10.0, 0.0, 1.0)
+                )
+                shelter_v = (
+                    np.clip(1.0 - (s_arr / 20.0), 0.0, 1.0)
+                    * np.clip((relief_arr - np.abs(tpi_s_arr)) / relief_safe, 0.0, 1.0)
+                )
+                roughness_v  = np.clip(rough_arr / 6.0, 0.0, 1.0)
+                curvature_v  = np.clip(np.abs(curv_arr) / 0.1, 0.0, 1.0)
 
-                    scored.append(
-                        {
-                            "lat": float(lat),
-                            "lon": float(lon),
-                            "score": float(score),
-                            "elevation_m": float(e),
-                            "slope_deg": float(s),
-                            "aspect_deg": float(aspect),
-                            "tpi_small": float(tpi_small),
-                            "tpi_large": float(tpi_large),
-                            "relief_small": float(relief_small),
-                            "curvature": float(curv),
-                            "roughness": float(roughness),
-                            "bench_score": float(bench_score),
-                            "saddle_score": float(saddle_score),
-                            "corridor_score": float(corridor_score),
-                            "shelter_score": float(shelter_score),
-                            "aspect_score": float(aspect_score),
-                            "ridgeline_score": float(ridgeline_grid[local_row, local_col]),
-                            "drainage_score": float(drainage_grid[local_row, local_col]),
-                        }
-                    )
+                # Aspect: prefer SE/south (170°), wider tolerance
+                _a_diff   = np.abs(aspect_arr - 170.0) % 360.0
+                aspect_v  = np.clip(1.0 - (np.minimum(_a_diff, 360.0 - _a_diff) / 100.0), 0.0, 1.0)
 
-                if progress_callback and tile_idx % 10 == 0:
+                # Weighted composite score (array dot-product)
+                w = self.config.weights
+                score_v = (
+                    slope_pref   * w["slope_pref"]
+                    + elev_pref  * w["elev_pref"]
+                    + bench_v    * w["bench"]
+                    + saddle_v   * w["saddle"]
+                    + corridor_v * w["corridor"]
+                    + roughness_v * w["roughness"]
+                    + curvature_v * w["curvature"]
+                    + shelter_v  * w["shelter"]
+                    + aspect_v   * w["aspect"]
+                    + ridge_arr  * w.get("ridgeline", 0.04)
+                    + drain_arr  * w.get("drainage", 0.04)
+                )
+
+                n_valid = int(valid.sum())
+                scored.extend(
+                    {
+                        "lat":            float(pt_lats[i]),
+                        "lon":            float(pt_lons[i]),
+                        "score":          float(score_v[i]),
+                        "elevation_m":    float(e_arr[i]),
+                        "slope_deg":      float(s_arr[i]),
+                        "aspect_deg":     float(aspect_arr[i]),
+                        "tpi_small":      float(tpi_s_arr[i]),
+                        "tpi_large":      float(tpi_l_arr[i]),
+                        "relief_small":   float(relief_arr[i]),
+                        "curvature":      float(curv_arr[i]),
+                        "roughness":      float(rough_arr[i]),
+                        "bench_score":    float(bench_v[i]),
+                        "saddle_score":   float(saddle_v[i]),
+                        "corridor_score": float(corridor_v[i]),
+                        "shelter_score":  float(shelter_v[i]),
+                        "aspect_score":   float(aspect_v[i]),
+                        "ridgeline_score": float(ridge_arr[i]),
+                        "drainage_score":  float(drain_arr[i]),
+                    }
+                    for i in range(n_valid)
+                )
+
+                if progress_callback and (tile_idx % 10 == 0 or tile_idx == total_tiles):
                     progress_callback(
                         "terrain_tile",
                         {"tile": tile_idx, "tiles": total_tiles, "points": len(scored)},
@@ -623,10 +679,9 @@ class MaxAccuracyPipeline:
                     logger.warning(
                         "MaxAccuracy: GEE failed for candidate idx=%s", idx
                     )
-
-            done = len(results)
-            if done % 50 == 0 or done == max_k:
-                logger.info("MaxAccuracy: GEE enrichment %s/%s done", done, max_k)
+                done = len(results) + failed
+                if done % 50 == 0 or done == max_k:
+                    logger.info("MaxAccuracy: GEE enrichment %s/%s done", done, max_k)
 
         # Apply results; for failures or sentinel values, use neutral defaults
         for idx, candidate in enumerate(to_enrich):
@@ -750,19 +805,19 @@ class MaxAccuracyPipeline:
             selected.append(candidate)
 
         wind_direction = None
+        wind_speed_mph = 8.0
         if self.config.enable_wind and selected:
             try:
-                wind_direction = build_wind_options(
-                    selected[0]["lat"],
-                    selected[0]["lon"],
-                    season,
-                    self.config.wind_offset_m,
-                )[0]["wind_from_deg"]
+                wind_data = get_wind_data(selected[0]["lat"], selected[0]["lon"])
+                wind_direction = float(wind_data.get("wind_direction", 270.0))
+                wind_speed_mph = float(wind_data.get("wind_speed", 8.0))
             except Exception:
                 logger.exception("MaxAccuracy: wind option seed failed")
                 wind_direction = None
+                wind_speed_mph = 8.0
 
         for candidate in selected:
+            candidate["wind_speed_mph"] = wind_speed_mph
             if not self.config.enable_wind:
                 candidate["wind_options"] = []
                 continue

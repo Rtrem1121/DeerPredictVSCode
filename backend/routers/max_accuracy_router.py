@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
@@ -201,7 +202,10 @@ def _persist_report(report: Dict[str, Any], job_id: str | None = None) -> Dict[s
     job_dir = jobs_dir / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
     report_path = job_dir / "max_accuracy_report.json"
-    report_payload = dict(report)
+    # Deep-copy so we never mutate the caller's dict (callers may keep a
+    # reference to the in-memory report and we trim terrain_candidates
+    # below for on-disk persistence).
+    report_payload = copy.deepcopy(report)
 
     # Persist only the top-N terrain candidates to prevent oversized report payloads.
     top_n = int(os.getenv("MAX_ACCURACY_REPORT_TERRAIN_TOP_N", "1000"))

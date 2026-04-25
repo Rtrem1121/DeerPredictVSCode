@@ -8,7 +8,7 @@ import hashlib
 import math
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
 from dotenv import load_dotenv
@@ -354,13 +354,13 @@ def _noaa_sun_event_utc(date_local, lat: float, lon: float, *, is_sunrise: bool)
     t_local = h_hours + ra_hours - (0.06571 * t) - 6.622
     ut = (t_local - lng_hour) % 24.0
 
-    hour = int(ut)
-    minute = int((ut - hour) * 60.0)
-    second = int(round((((ut - hour) * 60.0) - minute) * 60.0))
-    if second == 60:
-        second = 59
-
-    return datetime(date_local.year, date_local.month, date_local.day, hour, minute, second, tzinfo=timezone.utc)
+    # Build via timedelta so seconds/minutes carry correctly (the manual
+    # decomposition pinned second to 59 on overflow, drifting up to 1
+    # minute earlier than reality).
+    base = datetime(
+        date_local.year, date_local.month, date_local.day, tzinfo=timezone.utc
+    )
+    return base + timedelta(seconds=round(ut * 3600.0))
 
 
 def _noaa_sunrise_utc(date_local, lat: float, lon: float) -> datetime | None:

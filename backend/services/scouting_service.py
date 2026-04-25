@@ -114,16 +114,18 @@ class ScoutingService:
             
             logger.info(f"Retrieved {len(observations)} scouting observations for area ({lat:.5f}, {lon:.5f})")
             
-            # Convert to response format
+            # Convert to response format. ScoutingObservation normalizes
+            # all timestamps to UTC at ingest, so a single tz-aware
+            # comparison is correct; keep a defensive fallback for any
+            # legacy rows that snuck through naive.
+            now_utc = datetime.now(timezone.utc)
             obs_data = []
             for obs in observations:
                 obs_dict = obs.to_dict()
-                # Handle timezone-aware vs timezone-naive datetime comparison
-                if obs.timestamp.tzinfo is not None:
-                    now = datetime.now(timezone.utc)
-                else:
-                    now = datetime.now()
-                obs_dict["age_days"] = (now - obs.timestamp).days
+                ts = obs.timestamp
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                obs_dict["age_days"] = (now_utc - ts).days
                 obs_data.append(obs_dict)
             
             return {
@@ -150,12 +152,10 @@ class ScoutingService:
                 raise HTTPException(status_code=404, detail="Observation not found")
             
             obs_data = observation.to_dict()
-            # Handle timezone-aware vs timezone-naive datetime comparison
-            if observation.timestamp.tzinfo is not None:
-                now = datetime.now(timezone.utc)
-            else:
-                now = datetime.now()
-            obs_data["age_days"] = (now - observation.timestamp).days
+            ts = observation.timestamp
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            obs_data["age_days"] = (datetime.now(timezone.utc) - ts).days
             
             return obs_data
             

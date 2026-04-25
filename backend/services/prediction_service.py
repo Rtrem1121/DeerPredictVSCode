@@ -527,7 +527,8 @@ class PredictionService:
                 weight = float(raw) / 100.0 if float(raw) > 1.0 else float(raw)
                 weight = max(0.1, min(weight, 1.0))
                 points.append((lat, lon, weight))
-            except Exception:
+            except (TypeError, ValueError, KeyError) as exc:
+                logger.debug("Skipping malformed GeoJSON feature: %s", exc)
                 continue
         return points
 

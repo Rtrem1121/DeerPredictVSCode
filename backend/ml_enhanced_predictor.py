@@ -34,31 +34,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ML imports with Docker-friendly error handling
+# ML imports — sklearn/joblib are pinned in requirements.txt. If they
+# are missing we degrade gracefully via ML_AVAILABLE rather than
+# shelling out to `pip install` at import time (that pattern broke
+# read-only containers, hung startup behind the network, and presented
+# a supply-chain RCE vector via a typo-squatted package).
 try:
     from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.preprocessing import StandardScaler
     ML_AVAILABLE = True
-    logger.info("✅ ML libraries loaded successfully in Docker container")
+    logger.info("ML libraries loaded successfully")
 except ImportError as e:
     ML_AVAILABLE = False
-    logger.warning(f"⚠️  ML libraries not available: {e}")
-    logger.info("Installing ML dependencies in Docker container...")
-    
-    # In Docker container, we can try to install dependencies
-    import subprocess
-    import sys
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "scikit-learn", "joblib"])
-        from sklearn.ensemble import RandomForestRegressor, GradientBoostingClassifier
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.preprocessing import StandardScaler
-        ML_AVAILABLE = True
-        logger.info("✅ ML libraries installed and loaded successfully")
-    except Exception as install_error:
-        ML_AVAILABLE = False
-        logger.error(f"❌ Failed to install ML libraries: {install_error}")
+    logger.warning(
+        "ML libraries not available (%s). Install scikit-learn and "
+        "joblib via requirements.txt to enable ML-enhanced predictions; "
+        "rule-based predictions still work without them.",
+        e,
+    )
 
 # Import our existing predictor
 try:

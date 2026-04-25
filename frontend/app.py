@@ -5,6 +5,7 @@ import requests
 import json
 import os
 import hashlib
+import hmac
 import math
 import logging
 import time
@@ -45,6 +46,26 @@ def degrees_to_compass(degrees):
 
 
 # --- Password Protection ---
+# Per-session rate limiting for password attempts. Streamlit gives every
+# browser tab its own session_state, so this gates that one tab's attempts
+# (it is NOT a per-IP limit — for true brute-force protection, terminate
+# TLS at a reverse proxy with a real WAF / fail2ban policy).
+_MAX_ATTEMPTS_BEFORE_BACKOFF = 5
+_BACKOFF_SECONDS = 30
+
+
+def _password_matches(submitted: str, configured: str) -> bool:
+    """Constant-time comparison of submitted vs configured password.
+
+    We hash both sides first so the comparison length is fixed regardless
+    of password length, then use hmac.compare_digest for the actual
+    constant-time check.
+    """
+    submitted_digest = hashlib.sha256(submitted.encode("utf-8")).digest()
+    configured_digest = hashlib.sha256(configured.encode("utf-8")).digest()
+    return hmac.compare_digest(submitted_digest, configured_digest)
+
+
 def check_password():
     """Returns True if the user entered the correct password."""
     configured_password = os.getenv("APP_PASSWORD")
@@ -52,52 +73,71 @@ def check_password():
     if not configured_password:
         st.error("APP_PASSWORD is not configured. Set APP_PASSWORD in the environment to enable access.")
         return False
-    
+
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        # Check if password key exists before accessing it
-        if "password" in st.session_state:
-            if hashlib.sha256(st.session_state["password"].encode()).hexdigest() == hashlib.sha256(configured_password.encode()).hexdigest():
-                st.session_state["password_correct"] = True
-                del st.session_state["password"]  # Don't store password
-            else:
-                st.session_state["password_correct"] = False
+        if "password" not in st.session_state:
+            return
+
+        submitted = st.session_state["password"]
+        # Always drop the cleartext from session_state, even on failure.
+        del st.session_state["password"]
+
+        # Per-session backoff: after N failed attempts, refuse further
+        # checks for _BACKOFF_SECONDS regardless of correctness. This
+        # only slows tab-local brute force; rely on a reverse proxy
+        # for IP-level enforcement.
+        attempts = int(st.session_state.get("password_attempts", 0))
+        locked_until = float(st.session_state.get("password_locked_until", 0.0))
+        if attempts >= _MAX_ATTEMPTS_BEFORE_BACKOFF and time.time() < locked_until:
+            st.session_state["password_correct"] = False
+            return
+
+        if _password_matches(submitted, configured_password):
+            st.session_state["password_correct"] = True
+            st.session_state["password_attempts"] = 0
+            st.session_state["password_locked_until"] = 0.0
+        else:
+            st.session_state["password_correct"] = False
+            attempts += 1
+            st.session_state["password_attempts"] = attempts
+            if attempts >= _MAX_ATTEMPTS_BEFORE_BACKOFF:
+                st.session_state["password_locked_until"] = (
+                    time.time() + _BACKOFF_SECONDS
+                )
+
+    def _render_login(error_message: str | None = None) -> None:
+        st.markdown("# 🦌 Professional Deer Hunting Intelligence")
+        st.markdown("### 🔐 Secure Access Required")
+        st.markdown("*89.1% confidence predictions • Vermont legal hours • Real-time scouting data*")
+        st.markdown("---")
+        attempts = int(st.session_state.get("password_attempts", 0))
+        locked_until = float(st.session_state.get("password_locked_until", 0.0))
+        remaining = int(locked_until - time.time())
+        if attempts >= _MAX_ATTEMPTS_BEFORE_BACKOFF and remaining > 0:
+            st.error(
+                f"🚫 Too many failed attempts. Try again in {remaining}s."
+            )
+        else:
+            st.text_input(
+                "Enter Access Password:",
+                type="password",
+                on_change=password_entered,
+                key="password",
+                help="Contact the administrator for access credentials",
+            )
+            if error_message:
+                st.error(error_message)
+        st.markdown("---")
+        st.markdown("*🏔️ Vermont Deer Movement Predictor with Enhanced Intelligence*")
 
     if "password_correct" not in st.session_state:
-        # First run, show input for password
-        st.markdown("# 🦌 Professional Deer Hunting Intelligence")
-        st.markdown("### 🔐 Secure Access Required")
-        st.markdown("*89.1% confidence predictions • Vermont legal hours • Real-time scouting data*")
-        st.markdown("---")
-        st.text_input(
-            "Enter Access Password:", 
-            type="password", 
-            on_change=password_entered, 
-            key="password",
-            help="Contact the administrator for access credentials"
-        )
-        st.markdown("---")
-        st.markdown("*🏔️ Vermont Deer Movement Predictor with Enhanced Intelligence*")
+        _render_login()
         return False
     elif not st.session_state["password_correct"]:
-        # Password not correct, show input + error
-        st.markdown("# 🦌 Professional Deer Hunting Intelligence")
-        st.markdown("### 🔐 Secure Access Required")
-        st.markdown("*89.1% confidence predictions • Vermont legal hours • Real-time scouting data*")
-        st.markdown("---")
-        st.text_input(
-            "Enter Access Password:", 
-            type="password", 
-            on_change=password_entered, 
-            key="password",
-            help="Contact the administrator for access credentials"
-        )
-        st.error("🚫 Access denied. Please check your password and try again.")
-        st.markdown("---")
-        st.markdown("*🏔️ Vermont Deer Movement Predictor with Enhanced Intelligence*")
+        _render_login("🚫 Access denied. Please check your password and try again.")
         return False
     else:
-        # Password correct
         return True
 
 # --- Backend Configuration ---

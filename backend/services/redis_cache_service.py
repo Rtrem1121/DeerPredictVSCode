@@ -12,7 +12,6 @@ Version: 2.0.0
 import logging
 import asyncio
 import json
-import pickle
 from typing import Any, Optional, Union, Dict, List
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -127,25 +126,32 @@ class RedisCacheService(BaseService):
                 self.logger.debug(f"Cache miss for key: {key}")
                 return Result.success(default)
             
-            # Deserialize value
+            # Deserialize value. We deliberately accept JSON only —
+            # never pickle. Anyone who can write to Redis (and Redis
+            # has no auth in the default docker-compose setup) could
+            # otherwise stash a forged pickle blob and achieve RCE
+            # inside the backend container the next time we read it.
             try:
-                # Try JSON first (more common)
                 if raw_value.startswith(b'{"__type__":"json",'):
                     json_data = json.loads(raw_value.decode('utf-8'))
                     value = json_data.get("data")
                 elif raw_value.startswith(b'{"__type__":"pickle",'):
-                    pickle_data = json.loads(raw_value.decode('utf-8'))
-                    import base64
-                    value = pickle.loads(base64.b64decode(pickle_data["data"]))
+                    # Legacy pickle entries are silently dropped.
+                    self.logger.warning(
+                        "Refusing to deserialize legacy pickle cache entry "
+                        "for key %s — deleting", key,
+                    )
+                    await client.delete(key)
+                    self._stats["misses"] += 1
+                    return Result.success(default)
                 else:
-                    # Plain string
                     value = raw_value.decode('utf-8')
-                
+
                 self._stats["hits"] += 1
                 self.log_operation_success("cache_get", key=key, hit=True)
                 return Result.success(value)
-                
-            except (json.JSONDecodeError, pickle.PickleError, UnicodeDecodeError) as e:
+
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 self.logger.warning(f"Failed to deserialize cached value for key {key}: {e}")
                 # Delete corrupted entry
                 await client.delete(key)
@@ -178,9 +184,17 @@ class RedisCacheService(BaseService):
             
             client = await self._get_client()
             
-            # Serialize value
-            serialized_value = self._serialize_value(value)
-            
+            # Serialize value (raises TypeError if value isn't JSON-safe)
+            try:
+                serialized_value = self._serialize_value(value)
+            except TypeError as exc:
+                self._stats["errors"] += 1
+                return Result.failure(AppError(
+                    ErrorCode.CACHE_OPERATION_FAILED,
+                    str(exc),
+                    {"key": key},
+                ))
+
             # Set TTL
             ttl = ttl_seconds or self.default_ttl_seconds
             
@@ -333,22 +347,26 @@ class RedisCacheService(BaseService):
             return Result.failure(error)
     
     def _serialize_value(self, value: Any) -> bytes:
-        """Serialize value for storage"""
+        """Serialize value for storage.
+
+        JSON-only. If a value is not JSON-serializable, raise — callers
+        must convert numpy/dataclass/etc. to plain Python before caching
+        (we already have backend.services.prediction_service.convert_numpy_types
+        for that). We removed the pickle fallback because it requires
+        deserializing untrusted bytes from Redis on read, which is
+        equivalent to remote code execution if Redis is reachable by
+        an attacker.
+        """
         try:
-            # Try JSON serialization first (more efficient)
-            json_str = json.dumps(value)
             return json.dumps({
                 "__type__": "json",
-                "data": value
-            }).encode('utf-8')
-        except (TypeError, ValueError):
-            # Fall back to pickle for complex objects
-            import base64
-            pickle_data = base64.b64encode(pickle.dumps(value)).decode('utf-8')
-            return json.dumps({
-                "__type__": "pickle", 
-                "data": pickle_data
-            }).encode('utf-8')
+                "data": value,
+            }).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise TypeError(
+                f"RedisCacheService can only cache JSON-serializable values; "
+                f"got {type(value).__name__}: {exc}"
+            ) from exc
     
     async def get_stats(self) -> Result[Dict[str, Any]]:
         """Get cache statistics"""

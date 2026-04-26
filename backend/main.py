@@ -53,6 +53,7 @@ from backend.routers.config_router import config_router
 from backend.routers.camera_router import camera_router
 from backend.routers.scouting_router import scouting_router
 from backend.routers.max_accuracy_router import max_accuracy_router, run_startup_cleanup_jobs
+from backend.middleware.error_handling import ErrorHandlingMiddleware
 
 
 def _get_allowed_origins() -> list[str]:
@@ -99,12 +100,13 @@ app = FastAPI(
 )
 
 # Configure CORS
+app.add_middleware(ErrorHandlingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_allowed_origins(),
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Admin-Password"],
 )
 
 # Include the new routers

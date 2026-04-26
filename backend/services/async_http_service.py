@@ -11,9 +11,14 @@ Version: 2.0.0
 
 import logging
 import asyncio
+import os
 from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 import json
+import ipaddress
+import socket
+from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 try:
     import aiohttp
@@ -59,6 +64,14 @@ class AsyncHttpService(BaseService):
         self.max_retries = max_retries
         self._session: Optional[aiohttp.ClientSession] = None
         self._connector: Optional[aiohttp.TCPConnector] = None
+        self._allowed_hosts = {
+            host.strip().lower()
+            for host in os.getenv("ASYNC_HTTP_ALLOWED_HOSTS", "").split(",")
+            if host.strip()
+        }
+        downloads_dir = os.getenv("ASYNC_HTTP_DOWNLOAD_DIR", "data/downloads")
+        self._download_base_dir = Path(downloads_dir).expanduser().resolve()
+        self._download_base_dir.mkdir(parents=True, exist_ok=True)
         
         if not AIOHTTP_AVAILABLE:
             self.logger.warning("aiohttp not available - HTTP functionality limited")
@@ -138,7 +151,12 @@ class AsyncHttpService(BaseService):
         Internal request method with retry logic and error handling
         """
         try:
-            self.log_operation_start("http_request", method=method, url=url)
+            validation_error = self._validate_url(url)
+            if validation_error is not None:
+                return Result.failure(validation_error)
+
+            safe_url = self._safe_url_for_log(url)
+            self.log_operation_start("http_request", method=method, url=safe_url)
             
             if not AIOHTTP_AVAILABLE:
                 return Result.failure(AppError(
@@ -214,13 +232,16 @@ class AsyncHttpService(BaseService):
                             
                             # Don't retry on client errors (4xx)
                             if 400 <= response.status < 500:
-                                self.logger.warning(f"Client error {response.status} for {method} {url}")
+                                self.logger.warning(f"Client error {response.status} for {method} {safe_url}")
                                 return Result.failure(error)
                             
                             # Retry on server errors (5xx)
                             if attempt < self.max_retries:
                                 delay = 2 ** attempt  # Exponential backoff
-                                self.logger.warning(f"Server error {response.status} for {method} {url}, retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                                self.logger.warning(
+                                    f"Server error {response.status} for {method} {safe_url}, "
+                                    f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})"
+                                )
                                 await asyncio.sleep(delay)
                                 continue
                             else:
@@ -231,19 +252,32 @@ class AsyncHttpService(BaseService):
                     
                     if attempt < self.max_retries:
                         delay = 2 ** attempt  # Exponential backoff
-                        self.logger.warning(f"Request failed for {method} {url}: {str(e)}, retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})")
+                        self.logger.warning(
+                            f"Request failed for {method} {safe_url}: {str(e)}, "
+                            f"retrying in {delay}s (attempt {attempt + 1}/{self.max_retries})"
+                        )
                         await asyncio.sleep(delay)
                         continue
                     else:
                         break
             
             # All retries exhausted
-            error = self.handle_unexpected_error("http_request", last_exception, 
-                                                method=method, url=url, max_retries=self.max_retries)
+            error = self.handle_unexpected_error(
+                "http_request",
+                last_exception,
+                method=method,
+                url=safe_url,
+                max_retries=self.max_retries,
+            )
             return Result.failure(error)
             
         except Exception as e:
-            error = self.handle_unexpected_error("http_request", e, method=method, url=url)
+            error = self.handle_unexpected_error(
+                "http_request",
+                e,
+                method=method,
+                url=self._safe_url_for_log(url),
+            )
             return Result.failure(error)
     
     async def download_file(self, url: str, file_path: str,
@@ -260,7 +294,13 @@ class AsyncHttpService(BaseService):
             Result containing file path or error
         """
         try:
-            self.log_operation_start("download_file", url=url, file_path=file_path)
+            validation_error = self._validate_url(url)
+            if validation_error is not None:
+                return Result.failure(validation_error)
+
+            safe_path = self._resolve_download_path(file_path)
+            safe_url = self._safe_url_for_log(url)
+            self.log_operation_start("download_file", url=safe_url, file_path=str(safe_path))
             
             if not AIOHTTP_AVAILABLE:
                 return Result.failure(AppError(
@@ -276,34 +316,120 @@ class AsyncHttpService(BaseService):
                     return Result.failure(AppError(
                         ErrorCode.EXTERNAL_API_ERROR,
                         f"Download failed with status {response.status}",
-                        {"url": url, "status_code": response.status}
+                        {"url": safe_url, "status_code": response.status}
                     ))
                 
                 # Use aiofiles for async file writing
                 try:
                     import aiofiles
-                    async with aiofiles.open(file_path, 'wb') as file:
+                    async with aiofiles.open(safe_path, 'wb') as file:
                         downloaded_bytes = 0
                         async for chunk in response.content.iter_chunked(chunk_size):
                             await file.write(chunk)
                             downloaded_bytes += len(chunk)
                     
                     self.log_operation_success("download_file", 
-                                             file_path=file_path,
+                                             file_path=str(safe_path),
                                              downloaded_bytes=downloaded_bytes)
-                    return Result.success(file_path)
+                    return Result.success(str(safe_path))
                     
                 except ImportError:
                     # Fallback to synchronous file writing
-                    with open(file_path, 'wb') as file:
+                    with open(safe_path, 'wb') as file:
                         async for chunk in response.content.iter_chunked(chunk_size):
                             file.write(chunk)
                     
-                    return Result.success(file_path)
+                    return Result.success(str(safe_path))
             
         except Exception as e:
-            error = self.handle_unexpected_error("download_file", e, url=url, file_path=file_path)
+            error = self.handle_unexpected_error(
+                "download_file",
+                e,
+                url=self._safe_url_for_log(url),
+                file_path=file_path,
+            )
             return Result.failure(error)
+
+    def _safe_url_for_log(self, url: str) -> str:
+        """Return URL without query/fragment for safe logs."""
+        parsed = urlparse(url)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
+
+    def _validate_url(self, url: str) -> Optional[AppError]:
+        """Validate URL to reduce SSRF risk."""
+        try:
+            parsed = urlparse(url)
+            if parsed.scheme not in {"http", "https"}:
+                return AppError(
+                    ErrorCode.INVALID_EXTERNAL_URL,
+                    "Only http/https URLs are allowed",
+                    {"url": self._safe_url_for_log(url)},
+                )
+            if not parsed.hostname:
+                return AppError(
+                    ErrorCode.INVALID_EXTERNAL_URL,
+                    "URL must include a hostname",
+                    {"url": self._safe_url_for_log(url)},
+                )
+
+            hostname = parsed.hostname.lower()
+            if self._allowed_hosts and hostname not in self._allowed_hosts:
+                return AppError(
+                    ErrorCode.AUTHORIZATION_FAILED,
+                    "Host is not in ASYNC_HTTP_ALLOWED_HOSTS allowlist",
+                    {"host": hostname},
+                )
+
+            try:
+                infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+            except socket.gaierror as exc:
+                return AppError(
+                    ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
+                    f"Could not resolve host: {hostname}",
+                    {"reason": str(exc)},
+                )
+
+            for info in infos:
+                ip_str = info[4][0]
+                try:
+                    ip_obj = ipaddress.ip_address(ip_str)
+                except ValueError:
+                    continue
+                if (
+                    ip_obj.is_private
+                    or ip_obj.is_loopback
+                    or ip_obj.is_link_local
+                    or ip_obj.is_multicast
+                    or ip_obj.is_reserved
+                    or ip_obj.is_unspecified
+                ):
+                    return AppError(
+                        ErrorCode.AUTHORIZATION_FAILED,
+                        "Refusing private or local network destination",
+                        {"host": hostname, "ip": ip_str},
+                    )
+
+            return None
+        except Exception as exc:
+            return AppError(
+                ErrorCode.INVALID_EXTERNAL_URL,
+                f"Invalid URL: {exc}",
+                {"url": self._safe_url_for_log(url)},
+            )
+
+    def _resolve_download_path(self, file_path: str) -> Path:
+        """Resolve and validate download path within configured base directory."""
+        candidate = Path(file_path)
+        if not candidate.is_absolute():
+            candidate = self._download_base_dir / candidate
+        resolved = candidate.resolve()
+        base = self._download_base_dir
+        if base not in resolved.parents and resolved != base:
+            raise ValueError(
+                f"Download path must be within {base}"
+            )
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        return resolved
     
     async def health_check(self) -> Result[Dict[str, Any]]:
         """Check HTTP client health and connection status"""

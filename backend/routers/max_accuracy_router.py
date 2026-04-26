@@ -4,6 +4,7 @@ import copy
 import json
 import logging
 import os
+import re
 import socket
 import shutil
 import threading
@@ -54,6 +55,23 @@ def _parse_max_workers() -> int:
         return 2
 
 
+def _parse_max_inflight() -> int:
+    raw = os.getenv("MAX_ACCURACY_MAX_INFLIGHT")
+    if raw is None:
+        return _parse_max_workers()
+    try:
+        value = int(raw)
+        if value <= 0:
+            raise ValueError("must be positive")
+        return min(value, 64)
+    except ValueError:
+        logger.warning(
+            "Invalid MAX_ACCURACY_MAX_INFLIGHT=%r — defaulting to worker count",
+            raw,
+        )
+        return _parse_max_workers()
+
+
 # Dedicated executor for the long-running pipeline.run() call. Using
 # loop.run_in_executor(None, ...) shares FastAPI's default 10-thread
 # pool with every sync handler; one queued max-accuracy run there can
@@ -69,6 +87,7 @@ _MAX_ACCURACY_EXECUTOR = ThreadPoolExecutor(
 # closure — fragile if the closure is dropped).
 _INFLIGHT_FUTURES: Dict[str, "Future[None]"] = {}
 _INFLIGHT_LOCK = threading.Lock()
+_MAX_INFLIGHT = _parse_max_inflight()
 
 
 max_accuracy_router = APIRouter(tags=["property-hotspots", "max-accuracy"])
@@ -206,6 +225,14 @@ def _read_status(job_id: str) -> Optional[Dict[str, Any]]:
     status_path = _resolve_jobs_dir() / job_id / "status.json"
     if not status_path.exists():
         return None
+
+
+_JOB_ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
+
+
+def _validate_job_id(job_id: str) -> None:
+    if not _JOB_ID_PATTERN.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid job_id format")
     try:
         return json.loads(status_path.read_text(encoding="utf-8"))
     except Exception:
@@ -298,8 +325,8 @@ async def analyze_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyRespon
         report_payload = _persist_report(report)
 
         return MaxAccuracyResponse(success=True, report=report_payload, job_id=report_payload.get("job_id"))
-    except HTTPException as exc:
-        return MaxAccuracyResponse(success=False, error=str(exc.detail))
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("MaxAccuracy /analyze unhandled error")
         return MaxAccuracyResponse(success=False, error=str(exc))
@@ -309,6 +336,16 @@ async def analyze_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyRespon
 async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
     try:
         pipeline, corners = _build_pipeline(request)
+
+        with _INFLIGHT_LOCK:
+            if len(_INFLIGHT_FUTURES) >= _MAX_INFLIGHT:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"Max-accuracy capacity reached ({_MAX_INFLIGHT} in flight). "
+                        "Try again shortly."
+                    ),
+                )
 
         job_id = uuid.uuid4().hex
         now = datetime.now(timezone.utc).isoformat()
@@ -388,8 +425,8 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
         future.add_done_callback(_on_done)
 
         return MaxAccuracyResponse(success=True, job_id=job_id)
-    except HTTPException as exc:
-        return MaxAccuracyResponse(success=False, error=str(exc.detail))
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("MaxAccuracy /run unhandled error")
         return MaxAccuracyResponse(success=False, error=str(exc))
@@ -398,6 +435,7 @@ async def run_max_accuracy(request: MaxAccuracyRequest) -> MaxAccuracyResponse:
 @max_accuracy_router.get("/property-hotspots/max-accuracy/report/{job_id}", response_model=MaxAccuracyResponse)
 async def get_max_accuracy_report(job_id: str) -> MaxAccuracyResponse:
     try:
+        _validate_job_id(job_id)
         jobs_dir = _resolve_jobs_dir()
         report_path = jobs_dir / job_id / "max_accuracy_report.json"
         if not report_path.exists():
@@ -423,8 +461,8 @@ async def get_max_accuracy_report(job_id: str) -> MaxAccuracyResponse:
             )
         report = json.loads(report_path.read_text(encoding="utf-8"))
         return MaxAccuracyResponse(success=True, report=report, job_id=job_id)
-    except HTTPException as exc:
-        return MaxAccuracyResponse(success=False, error=str(exc.detail), job_id=job_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("MaxAccuracy /report unhandled error for job %s", job_id)
         return MaxAccuracyResponse(success=False, error=str(exc), job_id=job_id)

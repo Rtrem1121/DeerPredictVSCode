@@ -55,7 +55,7 @@ async def generate_enhanced_prediction(request: EnhancedPredictionRequest) -> Di
         logger.info(f"🔮 Generating enhanced prediction for {request.latitude:.4f}, {request.longitude:.4f}")
         
         # Perform the enhanced prediction using the API
-        prediction_result = await enhanced_api.get_enhanced_prediction(
+        prediction_result = await enhanced_api.generate_enhanced_prediction(
             lat=request.latitude,
             lon=request.longitude,
             hunt_date=request.hunt_date,

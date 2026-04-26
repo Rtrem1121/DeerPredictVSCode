@@ -5,7 +5,7 @@ FastAPI router for deer movement prediction endpoints.
 Uses the PredictionService to handle all prediction logic.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 import logging
 from zoneinfo import ZoneInfo
@@ -28,14 +28,14 @@ class PredictionRequest(BaseModel):
 
 class PredictionResponse(BaseModel):
     success: bool
-    data: Dict[str, Any] = None
-    error: str = None
+    data: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 class DetailedAnalysisResponse(BaseModel):
     success: bool
-    prediction: Dict[str, Any] = None
-    detailed_analysis: Dict[str, Any] = None
-    error: str = None
+    prediction: Optional[Dict[str, Any]] = None
+    detailed_analysis: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,13 @@ async def analyze_prediction_detailed(request: PredictionRequest) -> DetailedAna
         result = convert_numpy_types(result)
         detailed_analysis = convert_numpy_types(detailed_analysis)
         
-        logger.info(f"🔍 Detailed analysis generated: {detailed_analysis['analysis_metadata']['completion_percentage']:.1f}% complete")
+        completion_pct = (
+            detailed_analysis.get("analysis_metadata", {}).get("completion_percentage")
+            if isinstance(detailed_analysis, dict)
+            else None
+        )
+        if isinstance(completion_pct, (int, float)):
+            logger.info(f"🔍 Detailed analysis generated: {completion_pct:.1f}% complete")
         
         return DetailedAnalysisResponse(
             success=True, 

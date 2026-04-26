@@ -16,13 +16,21 @@ camera_router = APIRouter(tags=["hunting"])
 camera_service = CameraService()
 
 
-@camera_router.post("/trail-cameras", summary="Get trail camera placement recommendations")
+@camera_router.post(
+    "/trail-cameras",
+    summary="Get trail camera placement recommendations",
+    response_model=Dict[str, Any],
+)
 def get_trail_camera_placements(request: TrailCameraRequest) -> Dict[str, Any]:
     """Get optimal trail camera placement recommendations for mature buck photography."""
     return camera_service.get_trail_camera_placements(request)
 
 
-@camera_router.post("/api/camera/optimal-placement", summary="Get optimal single camera placement")
+@camera_router.post(
+    "/api/camera/optimal-placement",
+    summary="Get optimal single camera placement",
+    response_model=Dict[str, Any],
+)
 def get_optimal_camera_placement(request: CameraPlacementRequest) -> Dict[str, Any]:
     """Get the single optimal trail camera placement using advanced analysis."""
     return camera_service.get_optimal_camera_placement(request)

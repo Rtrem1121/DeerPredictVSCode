@@ -267,7 +267,11 @@ class DeerPredictionConfig:
         for key, value in os.environ.items():
             if not key.startswith(ENV_PREFIX):
                 continue
-                
+            parsed_value: Any = value
+            keys: List[str] = []
+            target: Optional[Dict[str, Any]] = None
+            path_valid = True
+
             # Extract and normalize config key
             config_key = key[len(ENV_PREFIX):].lower()
             if not config_key:
@@ -293,21 +297,25 @@ class DeerPredictionConfig:
                 if not keys[-1]:  # Catch trailing underscore
                     logger.warning(f"⚠️ Skipping invalid config key from env var: {key}")
                     continue
-                    
-                d = overrides
+
+                target = overrides
                 for k in keys[:-1]:
                     if not k:  # Catch empty segments
                         logger.warning(f"⚠️ Skipping invalid config key segment in env var: {key}")
-                        continue
-                    if not isinstance(d, dict):
-                        logger.warning(f"⚠️ Cannot set nested key {k} in env var {key}, parent is not a dictionary")
+                        path_valid = False
                         break
-                    d = d.setdefault(k, {})
+                    if not isinstance(target, dict):
+                        logger.warning(f"⚠️ Cannot set nested key {k} in env var {key}, parent is not a dictionary")
+                        path_valid = False
+                        break
+                    target = target.setdefault(k, {})
+
+                if not path_valid or not isinstance(target, dict):
+                    continue
+                target[keys[-1]] = parsed_value
+                logger.debug(f"🔧 Applied environment override: {key} = {parsed_value}")
             except Exception as e:
                 logger.warning(f"⚠️ Failed to process environment variable {key}: {str(e)}")
-                if isinstance(d, dict):
-                    d[keys[-1]] = parsed_value
-                    logger.debug(f"🔧 Applied environment override: {key} = {parsed_value}")
         
         # Merge overrides into config if any were successfully processed
         if overrides:
@@ -614,7 +622,13 @@ class DeerPredictionConfig:
             old_value = current.get(keys[-1])
             current[keys[-1]] = value
             
-            logger.info(f"🔧 Configuration updated: {key_path} = {value} (was: {old_value})")
+            redacted_value = value
+            redacted_old_value = old_value
+            key_path_lower = key_path.lower()
+            if any(token in key_path_lower for token in ("key", "secret", "token", "password", "credential")):
+                redacted_value = "***REDACTED***"
+                redacted_old_value = "***REDACTED***"
+            logger.info(f"🔧 Configuration updated: {key_path} = {redacted_value} (was: {redacted_old_value})")
             
             if persist:
                 self._persist_config_change(key_path, value)
@@ -632,7 +646,7 @@ class DeerPredictionConfig:
         """
         try:
             keys = key_path.split('.')
-            current = self.data  # Use self.data instead of self.config
+            current = self._config_data
             
             for key in keys:
                 if isinstance(current, dict) and key in current:

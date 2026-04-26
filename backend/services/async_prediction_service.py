@@ -56,7 +56,7 @@ class PredictionResult:
     
     # Metadata
     prediction_id: str = ""
-    generated_at: datetime = None
+    generated_at: Optional[datetime] = None
     processing_time_ms: float = 0.0
     cache_hit: bool = False
 
@@ -177,7 +177,7 @@ class AsyncPredictionService(BaseService):
                 self.terrain_service.analyze_terrain(
                     prediction_input.lat, 
                     prediction_input.lon, 
-                    prediction_input.radius_km
+                    fast_mode=False
                 ),
                 self.weather_service.get_weather_analysis(
                     prediction_input.lat,

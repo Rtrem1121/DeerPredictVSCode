@@ -7,11 +7,10 @@ Enhanced API endpoint for validating bedding zone generation in production
 with detailed logging and frontend integration support.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException
+from typing import Dict, Any
 import logging
 from datetime import datetime
-import json
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -42,43 +41,31 @@ async def validate_bedding_zones(
     """
     
     try:
-        # Import here to avoid circular dependencies
-        import sys
-        import os
-        backend_path = os.path.join(os.path.dirname(__file__), '..', '..')
-        if backend_path not in sys.path:
-            sys.path.insert(0, backend_path)
-            
-        from services.prediction_service import PredictionService, PredictionContext
+        from backend.services.prediction_service import PredictionService
         
         logger.info(f"🔍 Validating bedding zones for {lat:.6f}, {lon:.6f}")
         
         # Initialize prediction service
         service = PredictionService()
         
-        # Verify bedding fix is loaded
-        if not hasattr(service, 'bedding_fix') or not service.bedding_fix:
-            raise HTTPException(
-                status_code=500,
-                detail="Bedding fix not loaded in prediction service"
-            )
-        
-        # Create prediction context
-        context = PredictionContext(
+        # Run the current production prediction service and inspect bedding zones.
+        prediction_result = await service.predict(
             lat=lat,
             lon=lon,
-            date_time=datetime.now(),
+            time_of_day=datetime.now().hour,
             season=season,
-            fast_mode=False  # Full analysis for validation
+            hunting_pressure="medium",
         )
-        
-        # Generate bedding zones using the fix
-        bedding_zones = service.bedding_fix.generate_fixed_bedding_zones_for_prediction_service(
-            lat, lon, {}, {}, {}
-        )
+
+        bedding_zones = prediction_result.get("bedding_zones", {})
         
         # Extract and analyze results
-        features = bedding_zones.get('features', [])
+        if isinstance(bedding_zones, dict):
+            features = bedding_zones.get('features', [])
+        elif isinstance(bedding_zones, list):
+            features = bedding_zones
+        else:
+            features = []
         
         if not features:
             logger.warning(f"No bedding zones generated for {lat:.6f}, {lon:.6f}")
@@ -148,20 +135,14 @@ async def validate_bedding_zones(
                 'integration_status': 'production_validated',
                 'api_endpoint': 'bedding_validation',
                 'service_instance': str(id(service)),
-                'bedding_fix_loaded': bool(service.bedding_fix),
+                'prediction_service_loaded': True,
                 'debug_mode': debug_mode
             }
         
         if debug_mode:
             validation_results['debug_info'] = {
                 'service_attributes': [attr for attr in dir(service) if 'bedding' in attr.lower()],
-                'bedding_fix_type': type(service.bedding_fix).__name__ if service.bedding_fix else None,
-                'prediction_context': {
-                    'lat': context.lat,
-                    'lon': context.lon,
-                    'season': context.season,
-                    'fast_mode': context.fast_mode
-                }
+                'bedding_payload_type': type(bedding_zones).__name__,
             }
         
         logger.info(f"✅ Bedding zone validation complete: {validation_results['validation_status']}")
@@ -169,6 +150,8 @@ async def validate_bedding_zones(
         
         return validation_results
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Bedding zone validation failed: {e}")
         raise HTTPException(
@@ -181,20 +164,14 @@ async def get_bedding_system_status() -> Dict[str, Any]:
     """Get overall bedding zone system status"""
     
     try:
-        import sys
-        import os
-        backend_path = os.path.join(os.path.dirname(__file__), '..', '..')
-        if backend_path not in sys.path:
-            sys.path.insert(0, backend_path)
-            
-        from services.prediction_service import PredictionService
+        from backend.services.prediction_service import PredictionService
         
         service = PredictionService()
         
         status = {
             'system_status': 'OPERATIONAL',
-            'bedding_fix_loaded': bool(hasattr(service, 'bedding_fix') and service.bedding_fix),
-            'enhanced_predictor_available': bool(hasattr(service, 'enhanced_bedding_predictor') and service.enhanced_bedding_predictor),
+            'prediction_service_loaded': True,
+            'predict_method_available': bool(hasattr(service, 'predict')),
             'timestamp': datetime.now().isoformat(),
             'service_info': {
                 'service_id': str(id(service)),
@@ -203,15 +180,26 @@ async def get_bedding_system_status() -> Dict[str, Any]:
         }
         
         # Test basic functionality
-        if status['bedding_fix_loaded']:
+        if status['predict_method_available']:
             try:
-                test_zones = service.bedding_fix.generate_fixed_bedding_zones_for_prediction_service(
-                    43.3146, -73.2178, {}, {}, {}
+                test_result = await service.predict(
+                    lat=43.3146,
+                    lon=-73.2178,
+                    time_of_day=datetime.now().hour,
+                    season="fall",
+                    hunting_pressure="medium",
                 )
+                test_zones = test_result.get('bedding_zones', {})
+                if isinstance(test_zones, dict):
+                    zone_count = len(test_zones.get('features', []))
+                elif isinstance(test_zones, list):
+                    zone_count = len(test_zones)
+                else:
+                    zone_count = 0
                 status['functionality_test'] = {
-                    'test_passed': len(test_zones.get('features', [])) > 0,
+                    'test_passed': zone_count > 0,
                     'test_location': 'Tinmouth, VT',
-                    'zones_generated': len(test_zones.get('features', []))
+                    'zones_generated': zone_count
                 }
             except Exception as e:
                 status['functionality_test'] = {

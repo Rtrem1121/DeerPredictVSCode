@@ -187,7 +187,8 @@ def add_scouting_observation(observation_data):
         response = requests.post(
             f"{BACKEND_URL}/scouting/add_observation",
             json=observation_data,
-            headers={'Content-Type': 'application/json'}
+            headers={'Content-Type': 'application/json'},
+            timeout=30,
         )
         if response.status_code == 200:
             return response.json()
@@ -207,7 +208,8 @@ def get_scouting_observations(lat, lon, radius_miles=2):
                 'lat': lat,
                 'lon': lon,
                 'radius_miles': radius_miles
-            }
+            },
+            timeout=30,
         )
         if response.status_code == 200:
             return response.json().get('observations', [])
@@ -224,7 +226,8 @@ def get_scouting_analytics(lat, lon, radius_miles=5):
                 'lat': lat,
                 'lon': lon,
                 'radius_miles': radius_miles
-            }
+            },
+            timeout=30,
         )
         if response.status_code == 200:
             return response.json()
@@ -671,8 +674,8 @@ with tab_hotspots:
                                     time.sleep(1)
                                     st.rerun()
                                     break
-                            except Exception:
-                                pass
+                            except Exception as poll_exc:
+                                logger.debug("Max-accuracy poll attempt failed: %s", poll_exc)
                         if not loaded:
                             progress_bar.progress(1.0)
                             status_msg.warning("Report is still processing. Use the refresh button below.")
@@ -691,8 +694,8 @@ with tab_hotspots:
                 st.session_state["max_accuracy_report"] = data["report"]
                 max_accuracy_report = data["report"]
                 st.session_state["max_accuracy_auto_loaded"] = True
-        except Exception:
-            pass
+        except Exception as auto_load_exc:
+            logger.debug("Auto-load max-accuracy report failed: %s", auto_load_exc)
     if st.session_state.get("max_accuracy_job_id"):
         if not isinstance(max_accuracy_report, dict):
             if st.button("🔄 Refresh report"):

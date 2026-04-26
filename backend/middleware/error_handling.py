@@ -20,9 +20,11 @@ Date: August 14, 2025
 import logging
 import traceback
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, Field
 from enum import Enum
 import uuid
@@ -169,7 +171,7 @@ class SystemError(AppException):
         )
 
 
-class ErrorHandlingMiddleware:
+class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     """
     Comprehensive error handling middleware for FastAPI applications.
     
@@ -182,11 +184,11 @@ class ErrorHandlingMiddleware:
     """
     
     def __init__(self, app):
-        self.app = app
+        super().__init__(app)
         self.error_counts = {}
         self.performance_metrics = {}
     
-    async def __call__(self, request: Request, call_next: Callable) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with comprehensive error handling"""
         
         # Generate request correlation ID
@@ -204,7 +206,6 @@ class ErrorHandlingMiddleware:
                     "request_id": request_id,
                     "method": request.method,
                     "path": request.url.path,
-                    "query_params": str(request.query_params),
                     "client_ip": request.client.host if request.client else "unknown"
                 }
             )
@@ -272,7 +273,7 @@ class ErrorHandlingMiddleware:
             severity=error.severity,
             message=self._get_user_friendly_message(error),
             details=self._sanitize_error_details(error.details),
-            timestamp=time.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             path=request.url.path,
             request_id=getattr(request.state, 'request_id', None)
         )
@@ -317,7 +318,7 @@ class ErrorHandlingMiddleware:
             severity=severity,
             message=str(error.detail),
             details={"status_code": error.status_code},
-            timestamp=time.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             path=request.url.path,
             request_id=getattr(request.state, 'request_id', None)
         )
@@ -362,7 +363,7 @@ class ErrorHandlingMiddleware:
                 "support_reference": error_id,
                 "suggested_action": "If the problem persists, please contact support with the error ID"
             },
-            timestamp=time.strftime('%Y-%m-%dT%H:%M:%S.%fZ'),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             path=request.url.path,
             request_id=getattr(request.state, 'request_id', None)
         )
@@ -502,7 +503,7 @@ class ErrorHandlingMiddleware:
         return {
             "error_counts": self.error_counts.copy(),
             "performance_metrics": self.performance_metrics.copy(),
-            "timestamp": time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 

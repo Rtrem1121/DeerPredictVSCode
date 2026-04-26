@@ -10,6 +10,7 @@ Date: August 14, 2025
 """
 
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import HTTPException
@@ -62,13 +63,14 @@ class EnhancedPredictionAPI:
             terrain_features = await self._get_terrain_features(lat, lon)
             
             # Generate enhanced prediction
-            prediction_result = self.engine.generate_enhanced_prediction(
+            prediction_result = await asyncio.to_thread(
+                self.engine.generate_enhanced_prediction,
                 lat=lat,
                 lon=lon,
                 date_time=hunt_datetime,
                 season=season,
                 weather_data=weather_data,
-                terrain_features=terrain_features
+                terrain_features=terrain_features,
             )
             
             # Add metadata
@@ -80,7 +82,7 @@ class EnhancedPredictionAPI:
                     'season': season
                 },
                 'api_version': 'enhanced_v1.0',
-                'processing_timestamp': datetime.utcnow().isoformat()
+                'processing_timestamp': datetime.now(timezone.utc).isoformat()
             })
             
             logger.info(f"✅ Enhanced prediction completed with {prediction_result.get('enhancement_level', 'unknown')} enhancement")
@@ -151,7 +153,13 @@ class EnhancedPredictionAPI:
         
         try:
             vegetation_analyzer = self.engine.vegetation_analyzer
-            vegetation_data = vegetation_analyzer.analyze_hunting_area(lat, lon, radius_km=2.0, season=season)
+            vegetation_data = await asyncio.to_thread(
+                vegetation_analyzer.analyze_hunting_area,
+                lat,
+                lon,
+                radius_km=2.0,
+                season=season,
+            )
             
             # Create hunter-friendly summary
             summary = {
@@ -179,7 +187,7 @@ class EnhancedPredictionAPI:
         """Get weather data using existing core functionality"""
         try:
             # Use existing weather functionality from core
-            weather_result = self.core.get_weather_data(lat, lon)
+            weather_result = await asyncio.to_thread(self.core.get_weather_data, lat, lon)
             return weather_result if weather_result else {}
         except Exception as e:
             logger.warning(f"Weather data retrieval failed: {e}")
@@ -189,7 +197,7 @@ class EnhancedPredictionAPI:
         """Get terrain features using existing analysis"""
         try:
             # Use existing terrain analysis from core
-            terrain_result = self.core.analyze_terrain(lat, lon)
+            terrain_result = await asyncio.to_thread(self.core.analyze_terrain, lat, lon)
             return terrain_result if terrain_result else {}
         except Exception as e:
             logger.warning(f"Terrain analysis failed: {e}")
@@ -201,7 +209,12 @@ class EnhancedPredictionAPI:
         try:
             # Use existing core prediction functionality
             date_str = hunt_date or datetime.now().isoformat()
-            standard_result = self.core.predict_deer_movement(lat, lon, date_str)
+            standard_result = await asyncio.to_thread(
+                self.core.predict_deer_movement,
+                lat,
+                lon,
+                date_str,
+            )
             return {
                 'prediction_type': 'standard',
                 'movement_probability': standard_result.get('probability', 0.5),

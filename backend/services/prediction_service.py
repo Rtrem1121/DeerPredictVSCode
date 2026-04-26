@@ -30,6 +30,7 @@ from backend.config_manager import get_config
 from backend.hunt_window.hunt_window_predictor import HuntWindowPredictor
 from backend.utils.geo import haversine
 from backend.vegetation_analyzer import get_vegetation_analyzer
+import asyncio
 import logging
 import numpy as np
 from typing import Dict, List, Optional, Tuple, Any
@@ -167,7 +168,8 @@ class PredictionService:
             scouting_enhancement_result: Dict[str, Any] = {}
 
             # Use EnhancedBeddingZonePredictor exclusively
-            result = self.predictor.run_enhanced_biological_analysis(
+            result = await asyncio.to_thread(
+                self.predictor.run_enhanced_biological_analysis,
                 lat,
                 lon,
                 time_of_day,
@@ -371,7 +373,7 @@ class PredictionService:
                     logger.warning(f"[WARN] Additional analysis collection failed: {e}")
             
             # Extract bedding zones for logging
-            bedding_zones = result["bedding_zones"]
+            bedding_zones = result.get("bedding_zones", {})
             num_zones = len(bedding_zones['features']) if bedding_zones and 'features' in bedding_zones else 0
             
             # Extract suitability metrics for comprehensive logging

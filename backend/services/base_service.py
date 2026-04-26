@@ -10,6 +10,7 @@ Version: 2.0.0
 """
 
 import logging
+import time
 from abc import ABC
 from enum import Enum
 from dataclasses import dataclass
@@ -42,16 +43,22 @@ class ErrorCode(Enum):
     SCOUTING_DATA_INVALID = "SCOUTING_001"
     SCOUTING_STORAGE_FAILED = "SCOUTING_002"
     SCOUTING_RETRIEVAL_FAILED = "SCOUTING_003"
+    SCOUTING_DATA_NOT_FOUND = "SCOUTING_004"
+    SCOUTING_DATA_LOAD_FAILED = "SCOUTING_005"
     
     # Prediction errors
     PREDICTION_GENERATION_FAILED = "PREDICTION_001"
     MATURE_BUCK_ANALYSIS_FAILED = "PREDICTION_002"
     OPTIMIZED_POINTS_FAILED = "PREDICTION_003"
+    PREDICTION_FAILED = "PREDICTION_004"
     
     # External service errors
     EXTERNAL_SERVICE_TIMEOUT = "NETWORK_001"
     EXTERNAL_SERVICE_UNAVAILABLE = "NETWORK_002"
     API_RATE_LIMIT_EXCEEDED = "NETWORK_003"
+    OPERATION_TIMEOUT = "NETWORK_004"
+    INVALID_EXTERNAL_URL = "NETWORK_005"
+    EXTERNAL_API_ERROR = "NETWORK_006"
     
     # Database errors
     DATABASE_CONNECTION_FAILED = "DATABASE_001"
@@ -230,7 +237,7 @@ class ServiceHealthCheck:
             return Result.success({
                 "service": self.service_name,
                 "status": "healthy",
-                "timestamp": logging.time.time()
+                "timestamp": time.time()
             })
         except Exception as e:
             return Result.failure(AppError(

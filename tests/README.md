@@ -16,27 +16,14 @@ This directory contains the comprehensive automated test suite for the Deer Pred
 
 ## Directory Structure
 
-```
-tests/
-├── unit/                          # Unit tests for individual components
-│   ├── test_gee_data_validation.py   # GEE data validation (CRITICAL)
-│   ├── test_mature_buck.py           # Mature buck prediction logic
-│   ├── test_configuration_service.py # Configuration management
-│   └── test_camera_service.py        # Camera placement logic
-│
-├── integration/                   # Integration tests for services
-│   ├── test_docker_health.py         # Docker container health (CRITICAL)
-│   ├── test_api_endpoints.py         # API endpoint validation
-│   └── test_refactored_architecture.py
-│
-├── e2e/                          # End-to-end tests
-│   └── test_complete_system.py       # Full prediction pipeline
-│
-├── fixtures/                     # Shared test data
-│   └── test_data.py
-│
-└── conftest.py                   # Shared pytest fixtures
-```
+The suite is organized by marker and folder:
+
+- `tests/unit/` for fast isolated tests
+- `tests/integration/` for service and API integration
+- `tests/e2e/` for full-stack browser/system tests
+- `tests/regression/` for bug-prevention tests
+- `backend/tests/` for backend-specific legacy/refactor tests
+- `tests/conftest.py` for shared fixtures and auto-marking
 
 ## Running Tests
 
@@ -118,19 +105,19 @@ pytest -m e2e -v
 
 ### pytest.ini
 Main pytest configuration file at project root. Sets:
-- Test discovery patterns
-- Coverage targets (70% minimum)
-- Timeout limits (30 seconds)
-- Test markers
+- test discovery patterns (`tests/` and `backend/tests/`)
+- coverage reporting configuration
+- traceback verbosity
+- test markers (`unit`, `integration`, `e2e`, `critical`, `regression`)
 
-### Coverage Goals
+### Coverage Expectations
 
-| Component | Target | Current |
-|-----------|--------|---------|
-| Overall   | 70%    | TBD     |
-| Core Prediction | 80% | TBD     |
-| Data Validation | 90% | TBD     |
-| API Endpoints | 80% | TBD     |
+Coverage is tracked in CI and locally via `pytest --cov=backend`.
+Use `htmlcov/index.html` to inspect uncovered paths and prioritize:
+- max-accuracy pipeline correctness
+- router error/status semantics
+- caching and service-container wiring
+- regression scenarios already captured under `tests/regression/`
 
 ## Critical Test Scenarios
 
@@ -252,7 +239,7 @@ docker compose logs backend
 
 ### Coverage Too Low
 
-**Issue:** Coverage below 70% threshold
+**Issue:** Coverage below team target (70%+)
 
 **Solution:**
 - Add unit tests for uncovered functions

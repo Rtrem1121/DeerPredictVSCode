@@ -29,6 +29,8 @@ Typical run: **~75–80 seconds** for a full property scan.
 - **Corridor line meaning clarified:** red corridor lines are ranked relative to each other within a run (thicker/darker means higher-ranked corridor in that run), not an absolute probability percentage.
 - **Terrain scoring performance:** the max-accuracy terrain scoring hot loop was vectorized in NumPy for materially faster candidate scoring while preserving numeric equivalence.
 - **Repository cleanup:** legacy dead-weight content under `archive/`, `debug_archive/`, and `dead_code_backups/` was removed from active tracking.
+- **API hardening:** config mutation endpoints now require `X-Admin-Password`, max-accuracy report requests validate `job_id` format, and scouting imports enforce a configurable upload-size limit.
+- **Async stability:** heavy legacy prediction paths were moved off the event loop via `asyncio.to_thread(...)`, and async HTTP calls now include URL/path safety checks.
 
 ---
 
@@ -94,8 +96,9 @@ deer_pred_app/
 │   │   ├── config_router.py       # Runtime config
 │   │   └── camera_router.py       # Trail camera recommendations
 │   ├── services/
-│   │   ├── lidar/                 # LiDAR processor (DEM tile reading)
-│   │   └── gee/                   # GEE authentication & data
+│   │   ├── lidar_processor.py     # LiDAR DEM tile reading/coverage checks
+│   │   ├── prediction_service.py  # Legacy prediction service path
+│   │   └── service_container.py   # Dependency wiring container
 │   └── config_manager.py          # YAML config loader
 ├── frontend/
 │   └── app.py                     # Streamlit UI
@@ -180,7 +183,12 @@ GET  /scouting/types              # Observation type definitions
 
 ```bash
 GET  /health                      # Health check
-GET  /config                      # Current runtime config
+GET  /config/status               # Current runtime config status
+GET  /config/parameters           # Current runtime config parameters
+
+# Admin-only config mutation endpoints (require X-Admin-Password header)
+POST /config/reload
+PUT  /config/parameter/{key_path}
 ```
 
 ---
@@ -212,6 +220,9 @@ GET  /config                      # Current runtime config
 | `APP_PASSWORD` | No | Frontend password protection |
 | `BACKEND_URL` | No | Backend URL for frontend (default: `http://backend:8000`) |
 | `MAX_ACCURACY_JOBS_DIR` | No | Report persistence directory |
+| `MAX_SCOUTING_IMPORT_BYTES` | No | Max bytes accepted by `/scouting/import` |
+| `ASYNC_HTTP_ALLOWED_HOSTS` | No | Comma-separated host allowlist for async HTTP service |
+| `ASYNC_HTTP_DOWNLOAD_DIR` | No | Base directory for async HTTP file downloads |
 | `LOG_LEVEL` | No | Logging level (default: `INFO`) |
 
 ---

@@ -151,10 +151,10 @@ deer_pred_app/
 POST /property-hotspots/max-accuracy/run
 {
   "corners": [
-    {"lat": 43.319, "lon": -73.231},
-    {"lat": 43.322, "lon": -73.204},
-    {"lat": 43.299, "lon": -73.211},
-    {"lat": 43.300, "lon": -73.240}
+    {"lat": 44.1234, "lon": -72.5678},
+    {"lat": 44.1288, "lon": -72.5591},
+    {"lat": 44.1182, "lon": -72.5514},
+    {"lat": 44.1127, "lon": -72.5602}
   ],
   "date_time": "2025-10-15T10:30:00Z",
   "season": "rut",
